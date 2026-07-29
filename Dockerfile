@@ -44,6 +44,8 @@ ENV ZONEINFO=/usr/local/go/lib/time/zoneinfo.zip \
     SKILLBUILDER_DATA=/data
 # Templates and static assets are embedded in the binary, so there is nothing
 # else to copy and no working directory to set up.
-VOLUME ["/data"]
+#
+# No VOLUME instruction: Railway rejects it and manages persistence itself.
+# Mount a volume at /data on whichever platform you deploy to.
 EXPOSE 8080
 ENTRYPOINT ["/skillbuilder-server"]

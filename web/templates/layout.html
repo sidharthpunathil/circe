@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{{ block "title" . }}{{ .SEO.Title }}{{ end }}</title>
+    <title>{{ .SEO.Title }}</title>
     {{ template "head" . }}
     <link rel="stylesheet" href="/static/css/app.css?v={{ .Build }}" />
     <link

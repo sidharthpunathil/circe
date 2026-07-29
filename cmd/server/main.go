@@ -40,6 +40,9 @@ Environment:
   SKILLBUILDER_SEED_REPO   repository to import from when the registry is empty
   SKILLBUILDER_SEED_FOLDER folder to place seeded skills into
   GITHUB_TOKEN             raises the GitHub rate limit and reaches private repos
+  SKILLBUILDER_SITE_NAME   site name used in titles and Open Graph tags
+  SKILLBUILDER_SITE_DESCRIPTION  default meta description
+  SKILLBUILDER_TWITTER_SITE      @handle for Twitter card attribution
 `)
 	}
 	flag.Parse()

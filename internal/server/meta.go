@@ -570,5 +570,9 @@ func writeSitemap(w http.ResponseWriter, set sitemapURLSet) {
 	enc.Indent("", "  ")
 	if err := enc.Encode(set); err != nil {
 		logError("encode sitemap", err)
+		return
+	}
+	if _, err := w.Write([]byte("\n")); err != nil {
+		logError("write sitemap", err)
 	}
 }
