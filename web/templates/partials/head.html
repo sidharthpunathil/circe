@@ -1,0 +1,47 @@
+{{/*
+  Per-page SEO, Open Graph and structured data.
+
+  Everything comes from .SEO, which base() computes from the request path in
+  internal/server/meta.go — no page template or handler has to opt in, so a page
+  cannot ship untagged.
+*/}}
+{{ define "head" }}
+  {{ with .SEO }}
+    <meta name="description" content="{{ .Description }}" />
+    <link rel="canonical" href="{{ .Canonical }}" />
+    {{ if .NoIndex }}
+      <meta name="robots" content="noindex, nofollow" />
+    {{ else }}
+      <meta name="robots" content="index, follow, max-image-preview:large" />
+    {{ end }}
+
+    {{/* Open Graph */}}
+    <meta property="og:site_name" content="{{ .SiteName }}" />
+    <meta property="og:type" content="{{ .Type }}" />
+    <meta property="og:title" content="{{ .Title }}" />
+    <meta property="og:description" content="{{ .Description }}" />
+    <meta property="og:url" content="{{ .Canonical }}" />
+    <meta property="og:image" content="{{ .Image }}" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="{{ .ImageWidth }}" />
+    <meta property="og:image:height" content="{{ .ImageHeight }}" />
+    <meta property="og:image:alt" content="{{ .ImageAlt }}" />
+    <meta property="og:locale" content="en_US" />
+
+    {{/* Twitter/X reads og:* for everything except the card type. */}}
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="{{ .Title }}" />
+    <meta name="twitter:description" content="{{ .Description }}" />
+    <meta name="twitter:image" content="{{ .Image }}" />
+    <meta name="twitter:image:alt" content="{{ .ImageAlt }}" />
+    {{ with .TwitterSite }}<meta name="twitter:site" content="{{ . }}" />{{ end }}
+
+    <meta name="theme-color" content="#111110" />
+
+    {{ with .JSONLD }}
+      <script type="application/ld+json">
+        {{ . }}
+      </script>
+    {{ end }}
+  {{ end }}
+{{ end }}

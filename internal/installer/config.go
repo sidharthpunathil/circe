@@ -23,8 +23,14 @@ const (
 )
 
 // Config is the user-level configuration at ~/.skillbuilder/config.json.
+// EnvToken overrides the stored token.
+const EnvToken = "SKILLBUILDER_TOKEN"
+
 type Config struct {
 	Registry string `json:"registry,omitempty"`
+	// Token authenticates against a registry that has a password set. It is
+	// sent as a bearer token, so no username is needed.
+	Token string `json:"token,omitempty"`
 }
 
 // ConfigPath returns the absolute path of the user config file.

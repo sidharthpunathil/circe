@@ -1,0 +1,7 @@
+This directory is the registry's storage and its backup.
+
+Skills live in data/skills/<name>/SKILL.md, folders in data/bundles/<name>.json,
+and provenance for imported skills in data/sources.json.
+
+It ships empty. Set SKILLBUILDER_SEED_REPO to populate a fresh deployment on
+first boot, or use Import in the web UI.

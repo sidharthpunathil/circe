@@ -29,6 +29,8 @@ const (
 type Client struct {
 	BaseURL string
 	HTTP    *http.Client
+	// Token authenticates against a password-protected registry.
+	Token string
 }
 
 // NewClient returns a client for a registry base URL.
@@ -50,6 +52,14 @@ func (e *UnreachableError) Error() string {
 }
 
 func (e *UnreachableError) Unwrap() error { return e.Err }
+
+// UnauthorizedError means the registry requires credentials we did not supply.
+type UnauthorizedError struct{ Registry string }
+
+func (e *UnauthorizedError) Error() string {
+	return fmt.Sprintf("%s requires a token — set $%s or run `skillbuilder config set token <token>`",
+		e.Registry, EnvToken)
+}
 
 // APIError is a non-2xx response. Message carries the server's own explanation
 // when it sent one.
@@ -209,6 +219,9 @@ func (c *Client) do(ctx context.Context, method, path string, q url.Values, body
 		return nil, fmt.Errorf("build request for %s: %w", u, err)
 	}
 	req.Header.Set("User-Agent", userAgent)
+	if c.Token != "" {
+		req.Header.Set("Authorization", "Bearer "+c.Token)
+	}
 	req.Header.Set("Accept", "application/json")
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")

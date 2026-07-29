@@ -32,6 +32,11 @@ type Options struct {
 	// BaseURL is the externally reachable origin, used to render install
 	// commands and marketplace URLs.
 	BaseURL string
+	// Auth optionally protects the whole site. Required for a public deploy.
+	Auth Auth
+	// Public relaxes the same-origin check for cross-origin API reads, needed
+	// when the registry is served from a different host than the caller.
+	Public bool
 }
 
 // Server holds the HTTP handlers and their dependencies.
@@ -106,6 +111,9 @@ func (s *Server) routes() {
 	m.HandleFunc("GET /api/v1/download", s.apiDownload)
 	m.HandleFunc("GET /api/v1/health", s.apiHealth)
 
+	// robots.txt, sitemap.xml and the generated Open Graph cards
+	s.registerMetaRoutes(m)
+
 	// Static assets
 	m.Handle("GET /static/", s.staticHandler())
 }
@@ -114,6 +122,10 @@ func (s *Server) routes() {
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Referrer-Policy", "same-origin")
+
+	if !s.requireAuth(w, r) {
+		return
+	}
 
 	// A browser on this machine can be pointed at the registry by any website,
 	// so state-changing requests must prove they came from this origin.
@@ -231,6 +243,7 @@ type base struct {
 	Stats   stats
 	DataDir string
 	Flash   *flash
+	SEO     PageMeta
 }
 
 func (s *Server) base(w http.ResponseWriter, r *http.Request, nav string) base {
@@ -245,6 +258,7 @@ func (s *Server) base(w http.ResponseWriter, r *http.Request, nav string) base {
 		Build:   s.opts.Build,
 		DataDir: s.store.Root(),
 		Flash:   s.takeFlash(w, r),
+		SEO:     s.pageMeta(r),
 		Stats: stats{
 			Skills:  len(skills),
 			Bundles: s.store.BundleCount(),

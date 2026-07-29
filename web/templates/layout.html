@@ -3,8 +3,8 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{{ block "title" . }}Skillbuilder{{ end }}</title>
-    <meta name="description" content="A personal registry for Claude agent skills." />
+    <title>{{ block "title" . }}{{ .SEO.Title }}{{ end }}</title>
+    {{ template "head" . }}
     <link rel="stylesheet" href="/static/css/app.css?v={{ .Build }}" />
     <link
       rel="icon"

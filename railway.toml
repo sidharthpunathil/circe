@@ -1,0 +1,13 @@
+[build]
+builder = "dockerfile"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+# One instance is plenty: the workload is a Go binary serving embedded assets
+# off a local volume, and a second replica could not share that volume anyway.
+numReplicas = 1
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
+# The health endpoint is exempt from auth so the platform can probe it.
+healthcheckPath = "/api/v1/health"
+healthcheckTimeout = 30

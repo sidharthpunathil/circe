@@ -1,0 +1,12 @@
+# Keep the build context small — it is uploaded on every deploy.
+.git
+.github
+bin/
+tailwindcss
+data/
+node_modules/
+*.md
+!README.md
+
+# Built CSS comes from the css stage, never from the host.
+web/static/css/app.css
