@@ -237,6 +237,10 @@ func (c *Client) do(ctx context.Context, method, path string, q url.Values, body
 		// worth showing a dial error for.
 		return nil, &UnreachableError{Registry: c.BaseURL, Err: err}
 	}
+	if resp.StatusCode == http.StatusUnauthorized {
+		defer resp.Body.Close()
+		return nil, &UnauthorizedError{Registry: c.BaseURL}
+	}
 	if resp.StatusCode/100 != 2 {
 		defer resp.Body.Close()
 		return nil, apiErrorFrom(resp, u)

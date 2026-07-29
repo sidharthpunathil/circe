@@ -96,6 +96,18 @@ const (
 )
 
 // ResolveRegistry applies the precedence flag > environment > config > default.
+// ResolveToken picks the auth token: environment first, then the config file.
+// There is no flag, so a token never lands in shell history.
+func ResolveToken(cfg *Config) string {
+	if v := strings.TrimSpace(os.Getenv(EnvToken)); v != "" {
+		return v
+	}
+	if cfg != nil {
+		return strings.TrimSpace(cfg.Token)
+	}
+	return ""
+}
+
 func ResolveRegistry(flag string, cfg *Config) (string, RegistrySource) {
 	if v := strings.TrimSpace(flag); v != "" {
 		return NormalizeRegistry(v), SourceFlag

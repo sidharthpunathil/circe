@@ -118,5 +118,9 @@ func pullClient(lf *api.Lockfile) (*installer.Client, error) {
 	if lf.Registry != "" && source != installer.SourceFlag && source != installer.SourceEnv {
 		url = lf.Registry
 	}
-	return installer.NewClient(url), nil
+	c := installer.NewClient(url)
+	if cfg, err := installer.LoadConfig(); err == nil {
+		c.Token = installer.ResolveToken(cfg)
+	}
+	return c, nil
 }

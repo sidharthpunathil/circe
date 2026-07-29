@@ -58,7 +58,9 @@ func runInit(cmd *cobra.Command, bundle string, takeAll bool, flags installFlags
 	// The manifest may point downloads at a different host than the one that
 	// served it, so honour it for everything that follows.
 	if manifest.Registry != "" {
+		token := client.Token
 		client = installer.NewClient(manifest.Registry)
+		client.Token = token
 	}
 
 	chosen, err := chooseBundleSkills(manifest, takeAll)

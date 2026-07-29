@@ -31,7 +31,12 @@ func newClient() (*installer.Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	return installer.NewClient(url), nil
+	c := installer.NewClient(url)
+	cfg, err := installer.LoadConfig()
+	if err == nil {
+		c.Token = installer.ResolveToken(cfg)
+	}
+	return c, nil
 }
 
 // projectRoot is the current directory: the lockfile belongs next to whatever

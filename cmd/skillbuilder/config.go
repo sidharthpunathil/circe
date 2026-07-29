@@ -24,7 +24,7 @@ func newConfigCmd() *cobra.Command {
 	}
 	cmd.AddCommand(&cobra.Command{
 		Use:   "set <key> <value>",
-		Short: "Set a config value (keys: registry)",
+		Short: "Set a config value (keys: registry, token)",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runConfigSet(cmd.OutOrStdout(), args[0], args[1])
@@ -77,8 +77,21 @@ func runConfigShow(out io.Writer) error {
 }
 
 func runConfigSet(out io.Writer, key, value string) error {
+	if key == "token" {
+		cfg, err := installer.LoadConfig()
+		if err != nil {
+			return err
+		}
+		cfg.Token = value
+		if err := installer.SaveConfig(cfg); err != nil {
+			return err
+		}
+		path, _ := installer.ConfigPath()
+		fmt.Fprintln(out, "  "+okStyle.Render("✓")+" token set"+dimStyle.Render("  ("+path+")"))
+		return nil
+	}
 	if key != "registry" {
-		return fmt.Errorf("unknown config key %q — the only key is `registry`", key)
+		return fmt.Errorf("unknown config key %q — valid keys are `registry` and `token`", key)
 	}
 
 	url := installer.NormalizeRegistry(value)
