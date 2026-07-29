@@ -1,0 +1,17 @@
+{{ define "empty" }}
+  <div
+    class="rounded-[10px] border border-dashed border-line px-6 py-14 text-center flex flex-col items-center gap-3"
+  >
+    <div class="grid grid-cols-2 gap-[3px] w-[22px] opacity-25" aria-hidden="true">
+      <span class="w-[9px] h-[9px] bg-fg"></span>
+      <span class="w-[9px] h-[9px] bg-fg"></span>
+      <span class="w-[9px] h-[9px] bg-fg"></span>
+      <span class="w-[9px] h-[9px] bg-fg/30"></span>
+    </div>
+    <p class="text-[15px] font-medium text-fg">{{ .Title }}</p>
+    <p class="text-[13px] text-fg-3 max-w-[360px] leading-relaxed">{{ .Body }}</p>
+    {{ if .Action }}
+      <a href="{{ .Action }}" class="btn btn-primary mt-1">{{ .ActionLabel }}</a>
+    {{ end }}
+  </div>
+{{ end }}

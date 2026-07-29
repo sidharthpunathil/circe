@@ -1,0 +1,400 @@
+@import "tailwindcss";
+
+/* Templates are the only place classes appear; be explicit so nothing is
+   dropped by gitignore-aware source detection. */
+@source "../templates/**/*.html";
+@source "../static/js/**/*.js";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Monochrome alpha stack. Near-black is reserved for titles; the 30% tone is
+     the workhorse for everything secondary. */
+  --color-fg: rgba(0, 0, 0, 0.9);
+  --color-fg-2: rgba(0, 0, 0, 0.6);
+  --color-fg-3: rgba(0, 0, 0, 0.3);
+  --color-fg-4: rgba(0, 0, 0, 0.45);
+  --color-line: rgba(0, 0, 0, 0.08);
+  --color-line-soft: rgba(0, 0, 0, 0.05);
+  --color-surface: rgba(0, 0, 0, 0.02);
+  --color-surface-2: rgba(0, 0, 0, 0.04);
+
+  --color-accent: #2469ff;
+  --color-accent-soft: rgba(36, 105, 255, 0.1);
+  --color-danger: #d63b23;
+  --color-success: #008b37;
+
+  --radius-card: 10px;
+}
+
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/static/fonts/InterVariable.woff2") format("woff2");
+}
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/static/fonts/IBMPlexMono-Regular.woff2") format("woff2");
+}
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/static/fonts/IBMPlexMono-Medium.woff2") format("woff2");
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    background: #fff;
+    color: var(--color-fg-2);
+    font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 1.5;
+    letter-spacing: -0.02em;
+  }
+
+  /* Negative tracking scales with size — the signature of the reference design. */
+  h1 {
+    font-family: var(--font-display);
+    font-weight: 500;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+    color: var(--color-fg);
+  }
+  h2 {
+    font-family: var(--font-display);
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+    color: var(--color-fg);
+  }
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-display);
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    color: var(--color-fg);
+  }
+
+  /* Nothing on the page is bolder than medium. */
+  strong,
+  b {
+    font-weight: 500;
+    color: var(--color-fg);
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  ::selection {
+    background: rgba(36, 105, 255, 0.15);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  input,
+  textarea,
+  select,
+  button {
+    font-family: inherit;
+    letter-spacing: inherit;
+  }
+
+  /* Textareas inherit the UI font. Code-ish fields opt into mono with
+     .field-mono; forcing it globally made prose fields read as code. */
+  textarea {
+    font-family: inherit;
+  }
+}
+
+@layer components {
+  .container-page {
+    width: 100%;
+    max-width: 1200px;
+    margin-inline: auto;
+    padding-inline: 24px;
+  }
+
+  .container-read {
+    width: 100%;
+    max-width: 809px;
+    margin-inline: auto;
+  }
+
+  /* Uppercase mono micro-label used above every section. */
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 400;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-fg-3);
+  }
+
+  .meta {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0;
+    color: var(--color-fg-3);
+  }
+
+  .card {
+    display: block;
+    border: 1px solid var(--color-line-soft);
+    border-radius: var(--radius-card);
+    background: #fff;
+    padding: 16px;
+    transition:
+      background-color 0.15s ease,
+      border-color 0.15s ease;
+  }
+  .card:hover {
+    background: var(--color-surface);
+    border-color: var(--color-line);
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    line-height: 1;
+    letter-spacing: 0;
+    padding: 4px 8px;
+    border-radius: 100px;
+    border: 1px solid var(--color-line-soft);
+    color: var(--color-fg-3);
+    white-space: nowrap;
+  }
+  .badge-active {
+    background: var(--color-fg);
+    border-color: var(--color-fg);
+    color: #fff;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 36px;
+    padding-inline: 14px;
+    border-radius: 8px;
+    border: 1px solid var(--color-line);
+    background: #fff;
+    color: var(--color-fg);
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    cursor: pointer;
+    transition:
+      background-color 0.15s ease,
+      border-color 0.15s ease,
+      opacity 0.15s ease;
+    white-space: nowrap;
+  }
+  .btn:hover {
+    background: var(--color-surface);
+  }
+  .btn-primary {
+    background: var(--color-fg);
+    border-color: var(--color-fg);
+    color: #fff;
+  }
+  .btn-primary:hover {
+    background: #000;
+    opacity: 0.88;
+  }
+  .btn-danger {
+    color: var(--color-danger);
+    border-color: rgba(214, 59, 35, 0.2);
+  }
+  .btn-danger:hover {
+    background: rgba(214, 59, 35, 0.06);
+  }
+  .btn-sm {
+    height: 30px;
+    padding-inline: 10px;
+    font-size: 13px;
+  }
+  .btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .field {
+    width: 100%;
+    border: 1px solid var(--color-line);
+    border-radius: 8px;
+    background: #fff;
+    padding: 9px 12px;
+    font-size: 14px;
+    color: var(--color-fg);
+    transition: border-color 0.15s ease;
+  }
+  .field::placeholder {
+    color: var(--color-fg-3);
+  }
+  .field:focus {
+    outline: none;
+    border-color: rgba(0, 0, 0, 0.35);
+  }
+  .field-mono {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    letter-spacing: 0;
+  }
+
+  .label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--color-fg);
+    margin-bottom: 6px;
+  }
+  .hint {
+    font-size: 12px;
+    color: var(--color-fg-3);
+    margin-top: 6px;
+  }
+
+  .divider {
+    border-top: 1px solid var(--color-line-soft);
+  }
+}
+
+/* Rendered SKILL.md body. Kept close to the base type scale so a skill page
+   reads like the rest of the site rather than like a pasted document. */
+.prose-skill {
+  color: var(--color-fg-2);
+  font-size: 15px;
+  line-height: 1.65;
+}
+.prose-skill > * + * {
+  margin-top: 16px;
+}
+.prose-skill h1,
+.prose-skill h2,
+.prose-skill h3,
+.prose-skill h4 {
+  margin-top: 32px;
+  margin-bottom: 12px;
+}
+.prose-skill h1 {
+  font-size: 26px;
+}
+.prose-skill h2 {
+  font-size: 20px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--color-line-soft);
+}
+.prose-skill h3 {
+  font-size: 16px;
+}
+.prose-skill h4 {
+  font-size: 14px;
+}
+.prose-skill > :first-child {
+  margin-top: 0;
+}
+.prose-skill p {
+  margin-block: 0;
+}
+.prose-skill a {
+  color: var(--color-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-thickness: 1px;
+}
+.prose-skill ul,
+.prose-skill ol {
+  padding-left: 22px;
+}
+.prose-skill ul {
+  list-style: disc;
+}
+.prose-skill ol {
+  list-style: decimal;
+}
+.prose-skill li {
+  margin-block: 4px;
+}
+.prose-skill li::marker {
+  color: var(--color-fg-3);
+}
+.prose-skill code {
+  font-family: var(--font-mono);
+  font-size: 0.86em;
+  letter-spacing: 0;
+  background: var(--color-surface-2);
+  padding: 2px 5px;
+  border-radius: 4px;
+  color: var(--color-fg);
+}
+.prose-skill pre {
+  background: var(--color-surface);
+  border: 1px solid var(--color-line-soft);
+  border-radius: 8px;
+  padding: 14px 16px;
+  overflow-x: auto;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.prose-skill pre code {
+  background: none;
+  padding: 0;
+  font-size: inherit;
+}
+.prose-skill blockquote {
+  border-left: 2px solid var(--color-line);
+  padding-left: 16px;
+  color: var(--color-fg-2);
+}
+.prose-skill table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  display: block;
+  overflow-x: auto;
+}
+.prose-skill th,
+.prose-skill td {
+  border: 1px solid var(--color-line-soft);
+  padding: 8px 12px;
+  text-align: left;
+}
+.prose-skill th {
+  font-weight: 500;
+  color: var(--color-fg);
+  background: var(--color-surface);
+}
+.prose-skill hr {
+  border: none;
+  border-top: 1px solid var(--color-line-soft);
+}
+.prose-skill img {
+  max-width: 100%;
+  border-radius: 8px;
+}

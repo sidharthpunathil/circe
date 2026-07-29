@@ -1,0 +1,87 @@
+{{ define "title" }}Skills — Skillbuilder{{ end }}
+
+{{ define "content" }}
+  <section class="container-page pt-12 pb-8">
+    <p class="eyebrow mb-3">Library</p>
+    <h1 class="text-[32px] md:text-[40px]">Skills</h1>
+    <p class="mt-3 text-[15px] text-fg-3 max-w-[60ch]">
+      {{ .Total }} {{ pluralize .Total "skill" "skills" }} stored locally.
+      {{ if or .Query .Tag }}Showing {{ len .Skills }} {{ if .Query }}matching “{{ .Query }}”{{ end }}
+        {{ if .Tag }}tagged <span class="text-fg">{{ .Tag }}</span>{{ end }}.{{ end }}
+    </p>
+
+    <form action="/skills" method="get" class="mt-6 flex flex-wrap gap-2" role="search">
+      <div class="relative flex-1 min-w-[240px] max-w-[420px]">
+        <svg
+          class="absolute left-3 top-1/2 -translate-y-1/2 text-fg-3 pointer-events-none"
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.2"
+          aria-hidden="true"
+        >
+          <circle cx="11" cy="11" r="7" />
+          <path d="m20 20-3.5-3.5" />
+        </svg>
+        <input
+          type="search"
+          name="q"
+          value="{{ .Query }}"
+          placeholder="Search by name, description or content"
+          aria-label="Search skills"
+          class="field pl-9 h-9"
+        />
+      </div>
+      {{ with .Tag }}<input type="hidden" name="tag" value="{{ . }}" />{{ end }}
+      <button type="submit" class="btn">Search</button>
+      {{ if or .Query .Tag }}<a href="/skills" class="btn">Clear</a>{{ end }}
+    </form>
+
+    {{ if .Tags }}
+      <div class="mt-5 flex flex-wrap gap-1.5">
+        <a
+          href="/skills{{ if .Query }}?q={{ .Query }}{{ end }}"
+          class="badge {{ if not .Tag }}badge-active{{ else }}hover:text-fg{{ end }}"
+          >All</a
+        >
+        {{ $q := .Query }}
+        {{ $active := .Tag }}
+        {{ range .Tags }}
+          <a
+            href="/skills?tag={{ .Tag }}{{ if $q }}&q={{ $q }}{{ end }}"
+            class="badge {{ if eq $active .Tag }}badge-active{{ else }}hover:text-fg{{ end }}"
+            >{{ .Tag }} <span class="opacity-50">{{ .Count }}</span></a
+          >
+        {{ end }}
+      </div>
+    {{ end }}
+  </section>
+
+  <section class="container-page pb-16">
+    {{ if .Skills }}
+      <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {{ range .Skills }}{{ template "skillcard" . }}{{ end }}
+      </div>
+    {{ else if or .Query .Tag }}
+      {{ template "empty"
+        (dict
+          "Title" "No matches"
+          "Body" "Nothing matched that search. Try a different term or clear the filters."
+          "Action" "/skills"
+          "ActionLabel" "Clear filters"
+        )
+      }}
+    {{ else }}
+      {{ template "empty"
+        (dict
+          "Title" "No skills yet"
+          "Body" "Create your first skill, or import the ones you already have in ~/.claude/skills."
+          "Action" "/skills/new"
+          "ActionLabel" "Create a skill"
+        )
+      }}
+    {{ end }}
+  </section>
+{{ end }}

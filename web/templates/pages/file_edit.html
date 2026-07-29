@@ -1,0 +1,96 @@
+{{ define "title" }}
+  {{ if .IsNew }}New file{{ else }}{{ .Path }}{{ end }} — {{ .Skill.Name }} — Skillbuilder
+{{ end }}
+
+{{ define "content" }}
+  <div class="container-page pt-8 pb-16">
+    <nav class="meta flex items-center gap-1.5 mb-6 flex-wrap" aria-label="Breadcrumb">
+      <a href="/skills" class="hover:text-fg transition-colors">skills</a>
+      <span aria-hidden="true">/</span>
+      <a href="/skills/{{ .Skill.Name }}" class="hover:text-fg transition-colors"
+        >{{ .Skill.Name }}</a
+      >
+      <span aria-hidden="true">/</span>
+      <span class="text-fg">{{ if .IsNew }}new file{{ else }}{{ .Path }}{{ end }}</span>
+    </nav>
+
+    <h1 class="text-[28px] md:text-[32px] font-mono tracking-[-0.02em] break-all">
+      {{ if .IsNew }}New file{{ else }}{{ .Path }}{{ end }}
+    </h1>
+    <p class="mt-3 text-[15px] text-fg-3 max-w-[60ch]">
+      Bundled files ship alongside <span class="font-mono text-[13px]">SKILL.md</span> and are
+      installed with the skill. Reference them from the body by relative path, e.g.
+      <span class="font-mono text-[13px] text-fg-2">references/api.md</span>.
+    </p>
+
+    {{ with .Error }}
+      <div
+        class="mt-6 rounded-[10px] border border-danger/20 bg-danger/5 px-4 py-3 text-[13px] text-danger"
+        role="alert"
+      >
+        {{ . }}
+      </div>
+    {{ end }}
+
+    <form method="post" action="{{ .Action }}" class="mt-8 max-w-[860px] flex flex-col gap-6">
+      <div>
+        <label class="label" for="path">Path</label>
+        <input
+          id="path"
+          name="path"
+          value="{{ .Path }}"
+          required
+          placeholder="references/api.md"
+          class="field field-mono"
+          {{ if not .IsNew }}readonly{{ end }}
+        />
+        <p class="hint">
+          Relative to the skill directory. Subdirectories are created automatically.
+          {{ if not .IsNew }}Delete and re-add to rename.{{ end }}
+        </p>
+      </div>
+
+      {{ if .Binary }}
+        <div class="rounded-[10px] border border-line-soft bg-surface px-4 py-8 text-center">
+          <p class="text-[14px] text-fg">This file is not text and cannot be edited here.</p>
+          <p class="meta mt-1.5">{{ bytes .Size }}</p>
+        </div>
+      {{ else }}
+        <div>
+          <label class="label" for="content">Content</label>
+          <textarea
+            id="content"
+            name="content"
+            rows="26"
+            class="field field-mono resize-y leading-[1.6]"
+            spellcheck="false"
+          >{{ .Content }}</textarea>
+        </div>
+      {{ end }}
+
+      <div class="flex flex-wrap items-center gap-2.5">
+        {{ if not .Binary }}
+          <button type="submit" class="btn btn-primary">
+            {{ if .IsNew }}Create file{{ else }}Save file{{ end }}
+          </button>
+        {{ end }}
+        <a href="/skills/{{ .Skill.Name }}" class="btn">Cancel</a>
+        <div class="flex-1"></div>
+        {{ if not .IsNew }}
+          {{/* Rendered outside this form: nesting forms is invalid HTML. */}}
+          <button type="submit" form="delete-file" class="btn btn-danger btn-sm">Delete file</button>
+        {{ end }}
+      </div>
+    </form>
+
+    {{ if not .IsNew }}
+      <form
+        id="delete-file"
+        method="post"
+        action="/skills/{{ .Skill.Name }}/files/{{ .Path }}/delete"
+        data-confirm="Delete {{ .Path }}? This cannot be undone."
+        class="hidden"
+      ></form>
+    {{ end }}
+  </div>
+{{ end }}

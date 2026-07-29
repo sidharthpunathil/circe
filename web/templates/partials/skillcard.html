@@ -1,0 +1,41 @@
+{{ define "skillcard" }}
+  <a href="/skills/{{ .Name }}" class="card group flex flex-col gap-3">
+    <div class="flex items-start gap-3">
+      <h3 class="text-[15px] font-medium text-fg leading-snug flex-1 min-w-0 break-words">
+        {{ .Name }}
+      </h3>
+      <svg
+        class="shrink-0 mt-1 text-fg-3 opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all"
+        width="13"
+        height="13"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2.2"
+        aria-hidden="true"
+      >
+        <path d="M5 12h13M13 6l6 6-6 6" />
+      </svg>
+    </div>
+
+    <p class="text-[13px] leading-[1.55] text-fg-3 line-clamp-3 flex-1">
+      {{ truncate 165 .Description }}
+    </p>
+
+    {{ if .Tags }}
+      <div class="flex items-center gap-1.5 flex-wrap">
+        {{ range .Tags }}<span class="badge">{{ . }}</span>{{ end }}
+      </div>
+    {{ end }}
+
+    <div class="flex items-center gap-3 meta pt-0.5">
+      {{ if .Files }}
+        <span>{{ len .Files }} {{ pluralize (len .Files) "file" "files" }}</span>
+        <span class="text-fg-3/40" aria-hidden="true">·</span>
+      {{ end }}
+      <span>{{ bytes .Size }}</span>
+      <span class="text-fg-3/40" aria-hidden="true">·</span>
+      <span>{{ ago .UpdatedAt }}</span>
+    </div>
+  </a>
+{{ end }}

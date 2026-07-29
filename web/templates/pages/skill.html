@@ -1,0 +1,171 @@
+{{ define "title" }}{{ .Skill.Name }} — Skillbuilder{{ end }}
+
+{{ define "content" }}
+  <div class="container-page pt-8 pb-16">
+    <nav class="meta flex items-center gap-1.5 mb-6" aria-label="Breadcrumb">
+      <a href="/skills" class="hover:text-fg transition-colors">skills</a>
+      <span aria-hidden="true">/</span>
+      <span class="text-fg">{{ .Skill.Name }}</span>
+    </nav>
+
+    <div class="grid lg:grid-cols-[minmax(0,1fr)_280px] gap-10 lg:gap-12 items-start">
+      <div class="min-w-0">
+        <h1 class="text-[32px] md:text-[40px] break-words">{{ .Skill.Name }}</h1>
+        <p class="mt-4 text-[16px] md:text-[17px] leading-[1.55] text-fg-2 max-w-[68ch]">
+          {{ .Skill.Description }}
+        </p>
+
+        {{ if .Skill.Tags }}
+          <div class="mt-4 flex flex-wrap gap-1.5">
+            {{ range .Skill.Tags }}
+              <a href="/skills?tag={{ . }}" class="badge hover:text-fg transition-colors">{{ . }}</a>
+            {{ end }}
+          </div>
+        {{ end }}
+
+        {{ if .Problems }}
+          <div class="mt-6 rounded-[10px] border border-line px-4 py-3.5">
+            <p class="eyebrow mb-2.5">Validation</p>
+            <ul class="flex flex-col gap-2">
+              {{ range .Problems }}
+                <li class="flex items-start gap-2 text-[13px] leading-relaxed">
+                  <span
+                    class="mt-[5px] w-[5px] h-[5px] rounded-full shrink-0 {{ if .Fatal }}bg-danger{{ else }}bg-fg-3{{ end }}"
+                    aria-hidden="true"
+                  ></span>
+                  <span class="{{ if .Fatal }}text-danger{{ else }}text-fg-3{{ end }}">
+                    <span class="font-mono text-[12px]">{{ .Field }}</span> — {{ .Message }}
+                  </span>
+                </li>
+              {{ end }}
+            </ul>
+          </div>
+        {{ end }}
+
+        {{/* On narrow screens the sidebar stacks below a long body, so the
+             primary actions get a copy near the top. */}}
+        <div class="mt-6 flex flex-wrap gap-2 lg:hidden">
+          <a href="/skills/{{ .Skill.Name }}/edit" class="btn">Edit</a>
+          <a href="/skills/{{ .Skill.Name }}/download" class="btn">Download</a>
+        </div>
+
+        <div class="mt-8">
+          <p class="eyebrow mb-2.5">Install</p>
+          <div
+            class="flex items-center gap-2 rounded-[10px] border border-line-soft bg-surface px-3.5 py-2.5"
+          >
+            <code
+              class="font-mono text-[12.5px] text-fg overflow-x-auto whitespace-nowrap flex-1 scrollbar-none"
+              >skillbuilder add {{ .Skill.Name }}</code
+            >
+            <button
+              type="button"
+              class="btn btn-sm shrink-0"
+              data-copy="skillbuilder add {{ .Skill.Name }}"
+            >
+              Copy
+            </button>
+          </div>
+        </div>
+
+        <article class="prose-skill mt-10">{{ markdown .Skill.Body }}</article>
+      </div>
+
+      <aside class="lg:sticky lg:top-20 flex flex-col gap-6 min-w-0">
+        <div class="hidden lg:flex flex-wrap gap-2">
+          <a href="/skills/{{ .Skill.Name }}/edit" class="btn flex-1">Edit</a>
+          <a href="/skills/{{ .Skill.Name }}/download" class="btn" title="Download as .skill archive"
+            >Download</a
+          >
+        </div>
+
+        <div>
+          <p class="eyebrow mb-2.5">Details</p>
+          <dl class="flex flex-col gap-2 meta">
+            <div class="flex justify-between gap-3">
+              <dt>Updated</dt>
+              <dd class="text-fg">{{ ago .Skill.UpdatedAt }}</dd>
+            </div>
+            <div class="flex justify-between gap-3">
+              <dt>Size</dt>
+              <dd class="text-fg">{{ bytes .Skill.Size }}</dd>
+            </div>
+            <div class="flex justify-between gap-3">
+              <dt>Files</dt>
+              <dd class="text-fg">{{ add (len .Skill.Files) 1 }}</dd>
+            </div>
+            {{ with .Skill.Front.License }}
+              <div class="flex justify-between gap-3">
+                <dt>License</dt>
+                <dd class="text-fg">{{ . }}</dd>
+              </div>
+            {{ end }}
+          </dl>
+        </div>
+
+        <div>
+          <div class="flex items-center justify-between mb-2.5">
+            <p class="eyebrow">Files</p>
+            <a
+              href="/skills/{{ .Skill.Name }}/files/new"
+              class="meta hover:text-fg transition-colors"
+              >Add</a
+            >
+          </div>
+          <ul class="flex flex-col">
+            <li>
+              <a
+                href="/skills/{{ .Skill.Name }}/edit"
+                class="flex items-center gap-2 py-1.5 meta hover:text-fg transition-colors group"
+              >
+                <span class="text-fg-3/50" aria-hidden="true">›</span>
+                <span class="text-fg flex-1 truncate">SKILL.md</span>
+              </a>
+            </li>
+            {{ range .Skill.Files }}
+              <li>
+                <a
+                  href="/skills/{{ $.Skill.Name }}/files/{{ .Path }}"
+                  class="flex items-center gap-2 py-1.5 meta hover:text-fg transition-colors"
+                >
+                  <span class="text-fg-3/50" aria-hidden="true">›</span>
+                  <span class="flex-1 truncate">{{ .Path }}</span>
+                  <span class="shrink-0 text-fg-3/60">{{ bytes .Size }}</span>
+                </a>
+              </li>
+            {{ end }}
+          </ul>
+        </div>
+
+        {{ if .Bundles }}
+          <div>
+            <p class="eyebrow mb-2.5">In bundles</p>
+            <ul class="flex flex-col gap-1.5">
+              {{ range .Bundles }}
+                <li>
+                  <a
+                    href="/bundles/{{ .Name }}"
+                    class="meta hover:text-fg transition-colors flex items-center gap-2"
+                  >
+                    <span class="text-fg-3/50" aria-hidden="true">›</span>
+                    <span class="truncate">{{ .DisplayTitle }}</span>
+                  </a>
+                </li>
+              {{ end }}
+            </ul>
+          </div>
+        {{ end }}
+
+        <div class="pt-2 border-t border-line-soft">
+          <form
+            action="/skills/{{ .Skill.Name }}/delete"
+            method="post"
+            data-confirm="Delete “{{ .Skill.Name }}” and all its files? This cannot be undone."
+          >
+            <button type="submit" class="btn btn-danger btn-sm w-full">Delete skill</button>
+          </form>
+        </div>
+      </aside>
+    </div>
+  </div>
+{{ end }}

@@ -1,0 +1,14 @@
+{
+  "name": "core-workflow",
+  "title": "Core Workflow",
+  "description": "The everyday loop: plan, test, debug, review, hand off.",
+  "skills": [
+    "tdd",
+    "diagnose",
+    "review",
+    "qa",
+    "handoff",
+    "prototype"
+  ],
+  "updatedAt": "2026-07-29T22:58:17.779368+05:30"
+}

@@ -1,0 +1,108 @@
+{{ define "title" }}Import — Skillbuilder{{ end }}
+
+{{ define "content" }}
+  <div class="container-page pt-12 pb-16">
+    <p class="eyebrow mb-3">Backup</p>
+    <h1 class="text-[32px] md:text-[40px]">Import skills</h1>
+    <p class="mt-3 text-[15px] text-fg-3 max-w-[62ch]">
+      Copy skills from a directory on this machine into your registry. Symlinked skills are followed
+      and copied by value, so the registry becomes a real backup rather than a set of pointers.
+    </p>
+
+    {{ with .Error }}
+      <div
+        class="mt-6 rounded-[10px] border border-danger/20 bg-danger/5 px-4 py-3 text-[13px] text-danger max-w-[860px]"
+        role="alert"
+      >
+        {{ . }}
+      </div>
+    {{ end }}
+
+    <form method="get" action="/import" class="mt-8 flex flex-wrap gap-2 max-w-[860px]">
+      <input
+        name="src"
+        value="{{ .Source }}"
+        placeholder="~/.claude/skills"
+        aria-label="Source directory"
+        class="field field-mono flex-1 min-w-[260px]"
+      />
+      <button type="submit" class="btn">Scan</button>
+    </form>
+
+    {{ if .Candidates }}
+      <form method="post" action="/import" class="mt-8">
+        <input type="hidden" name="src" value="{{ .Source }}" />
+
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+          <p class="meta">
+            Found {{ len .Candidates }} {{ pluralize (len .Candidates) "skill" "skills" }} ·
+            <span data-selected-count>0</span> selected
+          </p>
+          <div class="flex items-center gap-2">
+            <input
+              type="search"
+              placeholder="Filter"
+              aria-label="Filter skills"
+              class="field h-8 w-[180px] text-[13px]"
+              data-filter="#import-picker"
+            />
+            <button type="button" class="btn btn-sm" data-select-all="#import-picker">All</button>
+            <button type="button" class="btn btn-sm" data-select-none="#import-picker">None</button>
+          </div>
+        </div>
+
+        <div id="import-picker" class="flex flex-col divide-y divide-line-soft border-y border-line-soft">
+          {{ range .Candidates }}
+            <label
+              class="flex items-start gap-3 py-3 cursor-pointer group"
+              data-filter-item="{{ .Name }} {{ lower .Description }}"
+            >
+              <input
+                type="checkbox"
+                name="names"
+                value="{{ .Name }}"
+                class="mt-1 accent-black shrink-0"
+                {{ if not .Exists }}checked{{ end }}
+              />
+              <span class="min-w-0 flex-1">
+                <span class="flex items-center gap-2 flex-wrap">
+                  <span class="text-[14px] font-medium text-fg">{{ .Name }}</span>
+                  {{ if .Exists }}<span class="badge">already imported</span>{{ end }}
+                  {{ if .Symlink }}<span class="badge">symlink</span>{{ end }}
+                </span>
+                <span class="block text-[13px] text-fg-3 leading-snug mt-1 line-clamp-2"
+                  >{{ truncate 180 .Description }}</span
+                >
+                <span class="block meta mt-1.5"
+                  >{{ .Files }} {{ pluralize .Files "file" "files" }} · {{ bytes .Size }}</span
+                >
+              </span>
+            </label>
+          {{ end }}
+        </div>
+        <p class="hint mt-2" data-filter-empty hidden>No skills match that filter.</p>
+
+        <label class="flex items-center gap-2.5 mt-5 text-[13px] text-fg-2 cursor-pointer">
+          <input type="checkbox" name="overwrite" value="1" class="accent-black" />
+          Overwrite skills that already exist in the registry
+        </label>
+
+        <div class="flex flex-wrap items-center gap-2.5 mt-6">
+          <button type="submit" class="btn btn-primary">Import selected</button>
+          <a href="/skills" class="btn">Cancel</a>
+        </div>
+      </form>
+    {{ else if .Scanned }}
+      <div class="mt-8 max-w-[860px]">
+        {{ template "empty"
+          (dict
+            "Title" "No skills found"
+            "Body" "That directory has no subdirectories containing a SKILL.md file."
+            "Action" ""
+            "ActionLabel" ""
+          )
+        }}
+      </div>
+    {{ end }}
+  </div>
+{{ end }}

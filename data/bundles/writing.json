@@ -1,0 +1,11 @@
+{
+  "name": "writing",
+  "title": "Skill Authoring",
+  "description": "Everything needed to write and maintain good agent skills.",
+  "skills": [
+    "write-a-skill",
+    "caveman",
+    "zoom-out"
+  ],
+  "updatedAt": "2026-07-29T22:58:17.788602+05:30"
+}
