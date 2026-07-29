@@ -18,17 +18,27 @@ make build                        # compiles CSS, then both binaries into ./bin
 ./bin/skillbuilder-server         # http://127.0.0.1:8080
 ```
 
-Open the site, go to **Import**, and pull in the skills you already have in
-`~/.claude/skills`. Symlinked skills are followed and copied by value, so the registry
-holds real content rather than pointers.
+Open the site and go to **Import**. Two sources:
+
+- **Local directory** — pull in the skills you already have in `~/.claude/skills`.
+  Symlinked skills are followed and copied by value, so the registry holds real content
+  rather than pointers.
+- **GitHub repo** — paste any repo URL (e.g. `emilkowalski/skills`) and it finds every
+  `SKILL.md` in it at any depth, showing each skill's description, file count and when it
+  was last touched upstream. Content is copied into `data/`, so it stays yours even if
+  the repo is deleted or goes private.
 
 Then, in any project:
 
 ```bash
-skillbuilder init frontend-kit          # pick from the bundle interactively
-skillbuilder init frontend-kit -y       # install all of it
-skillbuilder add design-taste           # install one skill
+skillbuilder frontend-kit          # pick from the folder interactively
+skillbuilder frontend-kit -y       # install all of it
+skillbuilder add design-taste      # install one skill
 ```
+
+A **folder** is a named set of skills you install together — that's the unit the CLI
+takes. Create one on the site, tick the skills that belong in it, and its name becomes
+the install command.
 
 Skills land in `.claude/skills/<name>/` and are recorded in `skillbuilder.json`, so
 `skillbuilder pull` can refresh them later.
@@ -41,9 +51,15 @@ data/
 │   └── my-skill/
 │       ├── SKILL.md          # YAML frontmatter + markdown body
 │       └── references/…      # optional bundled files
-└── bundles/
-    └── frontend-kit.json     # { name, title, description, skills: [...] }
+├── bundles/
+│   └── frontend-kit.json     # { name, title, description, skills: [...] }
+└── sources.json              # where each imported skill came from
 ```
+
+`sources.json` records the repo, commit SHA, path and upstream timestamp for anything
+imported from GitHub, which is what powers the **Re-sync from source** button on a skill
+page. Set `GITHUB_TOKEN` (or `GH_TOKEN`) to reach private repos and raise the API rate
+limit.
 
 A skill directory here is byte-for-byte what gets installed into a project, so you can
 also just copy one into `~/.claude/skills/` by hand.
@@ -56,7 +72,8 @@ Frontmatter is parsed and rewritten losslessly: keys the app does not model (suc
 
 | Command | What it does |
 | --- | --- |
-| `skillbuilder init <bundle>` | Choose skills from a bundle and install them. `-y` takes all. |
+| `skillbuilder <folder>` | Choose skills from a folder and install them. `-y` takes all. |
+| `skillbuilder init <folder>` | The same thing, spelled out. |
 | `skillbuilder add <skill>…` | Install specific skills; no args opens a picker. |
 | `skillbuilder list` | Show installed skills and whether they have drifted. `--remote` lists the registry. |
 | `skillbuilder search <query>` | Search the registry. |

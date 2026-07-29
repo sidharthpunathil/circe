@@ -1,0 +1,162 @@
+{{ define "title" }}Import from GitHub — Skillbuilder{{ end }}
+
+{{ define "content" }}
+  <div class="container-page pt-12 pb-16">
+    <p class="eyebrow mb-3">Import</p>
+    <h1 class="text-[32px] md:text-[40px]">From a GitHub repo</h1>
+    <p class="mt-3 text-[15px] text-fg-3 max-w-[62ch]">
+      Point at any repository and Skillbuilder finds every
+      <span class="font-mono text-[13px] text-fg-2">SKILL.md</span> in it, at any depth. The content
+      is copied into your registry, so it stays yours even if the repo is deleted or goes private.
+    </p>
+
+    <div class="mt-6 flex items-center gap-1 text-[14px]">
+      <a href="/import" class="badge hover:text-fg transition-colors">Local directory</a>
+      <a href="/import/github" class="badge badge-active">GitHub repo</a>
+    </div>
+
+    {{ with .Error }}
+      <div
+        class="mt-6 rounded-card border border-danger/25 bg-danger/5 px-4 py-3 text-[13px] text-danger max-w-[860px]"
+        role="alert"
+      >
+        {{ . }}
+      </div>
+    {{ end }}
+
+    <form method="get" action="/import/github" class="mt-6 flex flex-wrap gap-2 max-w-[860px]">
+      <input
+        name="repo"
+        value="{{ .RepoURL }}"
+        placeholder="https://github.com/emilkowalski/skills"
+        aria-label="GitHub repository URL"
+        class="field field-mono flex-1 min-w-[280px]"
+        autofocus
+      />
+      <button type="submit" class="btn">Find skills</button>
+    </form>
+    <p class="hint max-w-[860px]">
+      Accepts a full URL, <span class="font-mono">owner/repo</span>, an SSH URL, or a link to a
+      subdirectory or tag.
+      {{ if not .HasToken }}
+        Set <span class="font-mono">GITHUB_TOKEN</span> to reach private repos and raise the rate
+        limit.
+      {{ end }}
+    </p>
+
+    {{ if .Meta }}
+      <div class="mt-8 max-w-[860px] rounded-card border border-line bg-card p-4">
+        <div class="flex items-start justify-between gap-4 flex-wrap">
+          <div class="min-w-0">
+            <a
+              href="{{ .Meta.HTMLURL }}"
+              target="_blank"
+              rel="noopener"
+              class="text-[15px] font-medium text-fg hover:underline underline-offset-4"
+              >{{ .Meta.FullName }}</a
+            >
+            {{ with .Meta.Description }}
+              <p class="text-[13px] text-fg-3 mt-1 leading-snug">{{ truncate 160 . }}</p>
+            {{ end }}
+          </div>
+          <div class="meta flex items-center gap-3 shrink-0">
+            {{ if .Meta.Stars }}<span>★ {{ .Meta.Stars }}</span>{{ end }}
+            <span>{{ .Meta.Ref }}</span>
+            {{ if .Meta.CommitSHA }}
+              <span title="{{ .Meta.CommitSHA }}">{{ truncate 7 .Meta.CommitSHA }}</span>
+            {{ end }}
+            <span>updated {{ ago .Meta.UpdatedAt }}</span>
+          </div>
+        </div>
+      </div>
+    {{ end }}
+
+    {{ if .Candidates }}
+      <form method="post" action="/import/github" class="mt-6 max-w-[860px]">
+        <input type="hidden" name="repo" value="{{ .RepoURL }}" />
+
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+          <p class="meta">
+            {{ len .Candidates }} {{ pluralize (len .Candidates) "skill" "skills" }} found ·
+            <span data-selected-count>0</span> selected
+          </p>
+          <div class="flex items-center gap-2">
+            <input
+              type="search"
+              placeholder="Filter"
+              aria-label="Filter skills"
+              class="field h-8 w-[180px] text-[13px]"
+              data-filter="#gh-picker"
+            />
+            <button type="button" class="btn btn-sm" data-select-all="#gh-picker">All</button>
+            <button type="button" class="btn btn-sm" data-select-none="#gh-picker">None</button>
+          </div>
+        </div>
+
+        <div id="gh-picker" class="flex flex-col divide-y divide-line border-y border-line">
+          {{ range .Candidates }}
+            <label
+              class="flex items-start gap-3 py-3 cursor-pointer"
+              data-filter-item="{{ .Name }} {{ lower .Description }} {{ .Path }}"
+            >
+              <input
+                type="checkbox"
+                name="names"
+                value="{{ .Name }}"
+                class="mt-1 accent-accent shrink-0"
+                {{ if not .Exists }}checked{{ end }}
+              />
+              <span class="min-w-0 flex-1">
+                <span class="flex items-center gap-2 flex-wrap">
+                  <span class="text-[14px] font-medium text-fg">{{ .Name }}</span>
+                  {{ if .Exists }}<span class="badge">already in registry</span>{{ end }}
+                </span>
+                <span class="block text-[13px] text-fg-3 leading-snug mt-1 line-clamp-2"
+                  >{{ truncate 180 .Description }}</span
+                >
+                <span class="block meta mt-1.5">
+                  {{ .Path }} · {{ .FileCount }} {{ pluralize .FileCount "file" "files" }} ·
+                  {{ bytes .Size }}{{ if not .UpdatedAt.IsZero }} · updated {{ ago .UpdatedAt }}{{ end }}
+                </span>
+              </span>
+            </label>
+          {{ end }}
+        </div>
+        <p class="hint mt-2" data-filter-empty hidden>No skills match that filter.</p>
+
+        <div class="mt-5 flex flex-col gap-3">
+          <label class="flex items-center gap-2.5 text-[13px] text-fg-2 cursor-pointer">
+            <input type="checkbox" name="overwrite" value="1" class="accent-accent" />
+            Overwrite skills that already exist
+          </label>
+
+          {{ if .Stats.Bundles }}
+            <div class="flex items-center gap-2.5 text-[13px] text-fg-2">
+              <label for="folder">Add everything imported to</label>
+              <select id="folder" name="folder" class="field h-8 w-auto text-[13px] py-0">
+                <option value="">no folder</option>
+                {{ range .Folders }}<option value="{{ .Name }}">{{ .DisplayTitle }}</option>{{ end }}
+              </select>
+            </div>
+          {{ end }}
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2.5 mt-6">
+          <button type="submit" class="btn btn-primary">Import selected</button>
+          <a href="/skills" class="btn">Cancel</a>
+        </div>
+      </form>
+    {{ else if .Searched }}
+      <div class="mt-8 max-w-[860px]">
+        {{ template "empty"
+          (dict
+            "Title" "No skills in that repo"
+            "Body" "Nothing in it contains a SKILL.md file."
+            "Action" ""
+            "ActionLabel" ""
+          )
+        }}
+      </div>
+    {{ end }}
+  </div>
+{{ end }}

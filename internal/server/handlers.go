@@ -8,6 +8,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/sidharthp/skillbuilder/internal/gitsource"
 	"github.com/sidharthp/skillbuilder/internal/skillfile"
 	"github.com/sidharthp/skillbuilder/internal/store"
 )
@@ -146,6 +147,7 @@ type skillView struct {
 	Skill    *store.Skill
 	Bundles  []*store.Bundle
 	Problems []skillfile.Problem
+	Source   *gitsource.Source
 }
 
 func (s *Server) handleSkill(w http.ResponseWriter, r *http.Request) {
@@ -156,12 +158,16 @@ func (s *Server) handleSkill(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	f := &skillfile.File{Frontmatter: sk.Front, Body: sk.Body}
-	s.tmpl.render(w, r, http.StatusOK, "skill", skillView{
+	view := skillView{
 		base:     s.base(w, r, "skills"),
 		Skill:    sk,
 		Bundles:  s.store.BundlesContaining(name),
 		Problems: f.Validate(),
-	})
+	}
+	if src, ok := s.loadSources()[name]; ok {
+		view.Source = &src
+	}
+	s.tmpl.render(w, r, http.StatusOK, "skill", view)
 }
 
 // skillForm mirrors the edit form fields.

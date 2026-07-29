@@ -27,7 +27,9 @@ var md = goldmark.New(
 		extension.GFM,
 		extension.Typographer,
 		highlighting.NewHighlighting(
-			highlighting.WithStyle("xcode"),
+			highlighting.WithStyle("github-dark"),
+			// Keep chroma's <pre> wrapper — it is the scroll container for long
+			// lines. Its inline background is overridden in CSS instead.
 			highlighting.WithFormatOptions(chromahtml.WithClasses(false)),
 		),
 	),

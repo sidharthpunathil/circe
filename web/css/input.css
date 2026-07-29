@@ -6,33 +6,47 @@
 @source "../static/js/**/*.js";
 
 @theme {
+  /* Neutral ramp is Radix Sand, not a cold gray. The warm/olive cast is what
+     keeps a dark UI from reading as clinical; swapping in zinc loses it. */
+  --color-bg: #111110;
+  --color-card: #0e0e0c;
+  --color-surface: #0d0d0c;
+  --color-surface-2: #191918;
+  --color-input: #0b0b09;
+
+  --color-line-soft: #1f1f1e;
+  --color-line: #222221;
+  --color-line-strong: #2a2a28;
+  --color-line-inset: #31312e;
+
+  /* Foreground. White is reserved for headings and inline emphasis; body copy
+     sits a step below, and one muted value covers every caption and meta line. */
+  --color-fg: #ffffff;
+  --color-fg-2: #d2d2d0;
+  --color-fg-3: #8b8a83;
+  --color-fg-4: #6f6d66;
+  --color-fg-nav: #8c8c8c;
+
+  /* The accent is a light source, not a colour: it appears only as a gradient
+     on primary buttons and as the focus ring. No amber text, borders or fills. */
+  --color-accent: #fad657;
+  --color-accent-from: #ffdd73;
+  --color-accent-to: #ffbe25;
+  --color-accent-ring: #fac83e;
+  --color-focus: #e09f00;
+  --color-on-accent: #000000;
+
+  --color-danger: #ff6b5d;
+  --color-success: #6ee7a8;
+  --color-selection: #34332c;
+
+  --radius-control: 6px;
+  --radius-button: 8px;
+  --radius-card: 12px;
+
   --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-display: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-
-  /* Surfaces. Every hardcoded white was replaced by these so the whole theme
-     can be inverted from this block alone. */
-  --color-bg: #ffffff;
-  --color-card: #ffffff;
-  --color-on-accent: #ffffff;
-
-  /* Monochrome alpha stack. Near-black is reserved for titles; the 30% tone is
-     the workhorse for everything secondary. */
-  --color-fg: rgba(0, 0, 0, 0.9);
-  --color-fg-2: rgba(0, 0, 0, 0.6);
-  --color-fg-3: rgba(0, 0, 0, 0.3);
-  --color-fg-4: rgba(0, 0, 0, 0.45);
-  --color-line: rgba(0, 0, 0, 0.08);
-  --color-line-soft: rgba(0, 0, 0, 0.05);
-  --color-surface: rgba(0, 0, 0, 0.02);
-  --color-surface-2: rgba(0, 0, 0, 0.04);
-
-  --color-accent: #2469ff;
-  --color-accent-soft: rgba(36, 105, 255, 0.1);
-  --color-danger: #d63b23;
-  --color-success: #008b37;
-
-  --radius-card: 10px;
 }
 
 @font-face {
@@ -59,32 +73,37 @@
 
 @layer base {
   html {
+    color-scheme: dark;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
   body {
-    background: #fff;
+    background: var(--color-bg);
     color: var(--color-fg-2);
     font-family: var(--font-sans);
+    /* Inter's single-storey a and alternate g, as used by the reference. */
+    font-feature-settings: "cv01", "ss03";
     font-size: 16px;
-    line-height: 1.5;
-    letter-spacing: -0.02em;
+    line-height: 1.6;
+    letter-spacing: -0.01em;
   }
 
-  /* Negative tracking scales with size — the signature of the reference design. */
+  /* Hierarchy comes from weight and tracking rather than size or colour.
+     Tracking tightens as size grows. 575 is the signature weight — between
+     medium and semibold, reachable only because Inter is variable. */
   h1 {
     font-family: var(--font-display);
-    font-weight: 500;
-    letter-spacing: -0.03em;
-    line-height: 1.1;
+    font-weight: 575;
+    letter-spacing: -0.025em;
+    line-height: 1.08;
     color: var(--color-fg);
   }
   h2 {
     font-family: var(--font-display);
     font-weight: 500;
-    letter-spacing: -0.02em;
-    line-height: 1.2;
+    letter-spacing: -0.025em;
+    line-height: 1.25;
     color: var(--color-fg);
   }
   h3,
@@ -97,10 +116,10 @@
     color: var(--color-fg);
   }
 
-  /* Nothing on the page is bolder than medium. */
+  /* Emphasis is a colour + weight shift, never a highlight or accent colour. */
   strong,
   b {
-    font-weight: 500;
+    font-weight: 575;
     color: var(--color-fg);
   }
 
@@ -110,13 +129,17 @@
   }
 
   ::selection {
-    background: rgba(36, 105, 255, 0.15);
+    background: var(--color-selection);
   }
 
   :focus-visible {
-    outline: 2px solid var(--color-accent);
+    outline: 2px solid var(--color-focus);
     outline-offset: 2px;
     border-radius: 4px;
+  }
+
+  ::placeholder {
+    color: var(--color-fg-4);
   }
 
   input,
@@ -142,13 +165,13 @@
     padding-inline: 24px;
   }
 
+  /* A genuine reading column for prose, matching the reference's 700px measure. */
   .container-read {
     width: 100%;
-    max-width: 809px;
+    max-width: 732px;
     margin-inline: auto;
   }
 
-  /* Uppercase mono micro-label used above every section. */
   .eyebrow {
     font-family: var(--font-mono);
     font-size: 11px;
@@ -165,19 +188,21 @@
     color: var(--color-fg-3);
   }
 
+  /* Surfaces recede rather than lift: the card fill is darker than the page and
+     separation comes from a hairline border. Deliberately no box-shadow. */
   .card {
     display: block;
-    border: 1px solid var(--color-line-soft);
+    border: 1px solid var(--color-line);
     border-radius: var(--radius-card);
-    background: #fff;
+    background: var(--color-card);
     padding: 16px;
     transition:
       background-color 0.15s ease,
       border-color 0.15s ease;
   }
   .card:hover {
-    background: var(--color-surface);
-    border-color: var(--color-line);
+    background: var(--color-surface-2);
+    border-color: var(--color-line-strong);
   }
 
   .badge {
@@ -190,14 +215,14 @@
     letter-spacing: 0;
     padding: 4px 8px;
     border-radius: 100px;
-    border: 1px solid var(--color-line-soft);
+    border: 1px solid var(--color-line);
     color: var(--color-fg-3);
     white-space: nowrap;
   }
   .badge-active {
-    background: var(--color-fg);
-    border-color: var(--color-fg);
-    color: #fff;
+    background: var(--color-surface-2);
+    border-color: var(--color-line-inset);
+    color: var(--color-fg);
   }
 
   .btn {
@@ -207,9 +232,9 @@
     gap: 6px;
     height: 36px;
     padding-inline: 14px;
-    border-radius: 8px;
-    border: 1px solid var(--color-line);
-    background: #fff;
+    border-radius: var(--radius-button);
+    border: 1px solid var(--color-line-strong);
+    background: var(--color-surface-2);
     color: var(--color-fg);
     font-size: 14px;
     font-weight: 500;
@@ -218,27 +243,43 @@
     transition:
       background-color 0.15s ease,
       border-color 0.15s ease,
-      opacity 0.15s ease;
+      filter 0.2s ease;
     white-space: nowrap;
   }
   .btn:hover {
-    background: var(--color-surface);
+    background: var(--color-line);
+    border-color: var(--color-line-inset);
   }
+
+  /* The one place the accent appears. The inset white top-edge highlight plus
+     the amber ring make it read as physically lit, so it wins attention at a
+     fraction of the size a flat fill would need. */
   .btn-primary {
-    background: var(--color-fg);
-    border-color: var(--color-fg);
-    color: #fff;
+    background: linear-gradient(var(--color-accent-from) 0%, var(--color-accent-to) 100%);
+    border-color: transparent;
+    color: var(--color-on-accent);
+    font-weight: 575;
+    text-shadow: 0 0.5px rgba(255, 255, 255, 0.48);
+    box-shadow:
+      inset 0 0 1px 1px rgba(255, 255, 255, 0.14),
+      0 0 0 1px rgba(0, 0, 0, 0.08),
+      0 2px 2px rgba(0, 0, 0, 0.04),
+      0 0 0 1px var(--color-accent-ring);
   }
   .btn-primary:hover {
-    background: #000;
-    opacity: 0.88;
+    background: linear-gradient(var(--color-accent-from) 0%, var(--color-accent-to) 100%);
+    border-color: transparent;
+    filter: brightness(105%);
   }
+
   .btn-danger {
     color: var(--color-danger);
-    border-color: rgba(214, 59, 35, 0.2);
+    border-color: rgba(255, 107, 93, 0.25);
+    background: rgba(255, 107, 93, 0.06);
   }
   .btn-danger:hover {
-    background: rgba(214, 59, 35, 0.06);
+    background: rgba(255, 107, 93, 0.12);
+    border-color: rgba(255, 107, 93, 0.4);
   }
   .btn-sm {
     height: 30px;
@@ -250,22 +291,24 @@
     cursor: not-allowed;
   }
 
+  /* Inputs use a 1px ring rather than a border, matching the reference. */
   .field {
     width: 100%;
-    border: 1px solid var(--color-line);
-    border-radius: 8px;
-    background: #fff;
+    border: none;
+    border-radius: var(--radius-control);
+    background: var(--color-input);
+    box-shadow: 0 0 0 1px var(--color-line-strong);
     padding: 9px 12px;
     font-size: 14px;
     color: var(--color-fg);
-    transition: border-color 0.15s ease;
+    transition: box-shadow 0.15s ease;
   }
   .field::placeholder {
-    color: var(--color-fg-3);
+    color: var(--color-fg-4);
   }
   .field:focus {
     outline: none;
-    border-color: rgba(0, 0, 0, 0.35);
+    box-shadow: 0 0 0 1px var(--color-line-inset), 0 0 0 3px var(--color-surface-2);
   }
   .field-mono {
     font-family: var(--font-mono);
@@ -287,40 +330,40 @@
   }
 
   .divider {
-    border-top: 1px solid var(--color-line-soft);
+    border-top: 1px solid var(--color-line);
   }
 }
 
-/* Rendered SKILL.md body. Kept close to the base type scale so a skill page
-   reads like the rest of the site rather than like a pasted document. */
+/* Rendered SKILL.md body. */
 .prose-skill {
   color: var(--color-fg-2);
-  font-size: 15px;
-  line-height: 1.65;
+  font-size: 16px;
+  line-height: 1.7;
+  letter-spacing: -0.01em;
 }
 .prose-skill > * + * {
-  margin-top: 16px;
+  margin-top: 20px;
 }
 .prose-skill h1,
 .prose-skill h2,
 .prose-skill h3,
 .prose-skill h4 {
-  margin-top: 32px;
-  margin-bottom: 12px;
+  margin-top: 40px;
+  margin-bottom: 14px;
 }
 .prose-skill h1 {
-  font-size: 26px;
+  font-size: 28px;
 }
 .prose-skill h2 {
-  font-size: 20px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--color-line-soft);
+  font-size: 22px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--color-line);
 }
 .prose-skill h3 {
-  font-size: 16px;
+  font-size: 17px;
 }
 .prose-skill h4 {
-  font-size: 14px;
+  font-size: 15px;
 }
 .prose-skill > :first-child {
   margin-top: 0;
@@ -329,10 +372,17 @@
   margin-block: 0;
 }
 .prose-skill a {
-  color: var(--color-accent);
+  color: var(--color-fg);
   text-decoration: underline;
-  text-underline-offset: 2px;
+  text-decoration-color: var(--color-line-inset);
+  text-underline-offset: 3px;
   text-decoration-thickness: 1px;
+  transition:
+    text-decoration-color 0.2s,
+    color 0.2s;
+}
+.prose-skill a:hover {
+  text-decoration-color: var(--color-fg-3);
 }
 .prose-skill ul,
 .prose-skill ol {
@@ -345,36 +395,42 @@
   list-style: decimal;
 }
 .prose-skill li {
-  margin-block: 4px;
+  margin-block: 6px;
 }
 .prose-skill li::marker {
   color: var(--color-fg-3);
 }
 .prose-skill code {
   font-family: var(--font-mono);
-  font-size: 0.86em;
+  /* A ratio, not a fixed size, so inline code tracks its parent. */
+  font-size: 0.857em;
   letter-spacing: 0;
   background: var(--color-surface-2);
+  border: 1px solid var(--color-line-strong);
   padding: 2px 5px;
-  border-radius: 4px;
+  border-radius: var(--radius-control);
   color: var(--color-fg);
 }
+/* chroma inlines its own background on the <pre>, and its near-black is cooler
+   than the sand palette — override it so code blocks sit in the same warm
+   surface as every other panel. !important is required to beat the inline style. */
 .prose-skill pre {
-  background: var(--color-surface);
-  border: 1px solid var(--color-line-soft);
-  border-radius: 8px;
-  padding: 14px 16px;
+  background: var(--color-surface) !important;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-button);
+  padding: 16px;
   overflow-x: auto;
   font-size: 13px;
-  line-height: 1.6;
+  line-height: 1.5;
 }
 .prose-skill pre code {
   background: none;
+  border: none;
   padding: 0;
   font-size: inherit;
 }
 .prose-skill blockquote {
-  border-left: 2px solid var(--color-line);
+  border-left: 2px solid var(--color-line-inset);
   padding-left: 16px;
   color: var(--color-fg-2);
 }
@@ -387,20 +443,20 @@
 }
 .prose-skill th,
 .prose-skill td {
-  border: 1px solid var(--color-line-soft);
+  border: 1px solid var(--color-line);
   padding: 8px 12px;
   text-align: left;
 }
 .prose-skill th {
   font-weight: 500;
   color: var(--color-fg);
-  background: var(--color-surface);
+  background: var(--color-surface-2);
 }
 .prose-skill hr {
   border: none;
-  border-top: 1px solid var(--color-line-soft);
+  border-top: 1px solid var(--color-line);
 }
 .prose-skill img {
   max-width: 100%;
-  border-radius: 8px;
+  border-radius: var(--radius-button);
 }

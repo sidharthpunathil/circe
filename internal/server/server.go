@@ -88,6 +88,9 @@ func (s *Server) routes() {
 
 	m.HandleFunc("GET /import", s.handleImport)
 	m.HandleFunc("POST /import", s.handleImportRun)
+	m.HandleFunc("GET /import/github", s.handleImportGitHub)
+	m.HandleFunc("POST /import/github", s.handleImportGitHubRun)
+	m.HandleFunc("POST /skills/{name}/resync", s.handleSkillResync)
 
 	// Claude Code native compatibility
 	m.HandleFunc("GET /.claude-plugin/marketplace.json", s.handleMarketplace)

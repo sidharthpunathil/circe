@@ -316,7 +316,9 @@ func ParseRepoURL(s string) (Repo, error) {
 		if err != nil {
 			return Repo{}, fmt.Errorf("parse %q: %w", s, err)
 		}
-		host, p = u.Hostname(), u.Path
+		// EscapedPath, not Path: a ref containing an encoded slash
+		// (release%2F1.0) must stay one segment until splitPath decodes it.
+		host, p = u.Hostname(), u.EscapedPath()
 	case scpSyntax.MatchString(s):
 		m := scpSyntax.FindStringSubmatch(s)
 		host, p = m[1], m[2]

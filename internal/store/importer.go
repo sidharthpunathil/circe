@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -133,6 +134,74 @@ func (s *Store) Import(srcDir string, names []string, overwrite bool) (ImportRes
 		res.Imported = append(res.Imported, c.Name)
 	}
 	return res, nil
+}
+
+// WriteSkillFiles creates a skill from files already held in memory, which is
+// how remote sources (a GitHub tarball) land on disk. Content is written by
+// value so the skill survives the upstream repository disappearing.
+func (s *Store) WriteSkillFiles(name string, files map[string][]byte, overwrite bool) error {
+	if err := ValidateName(name); err != nil {
+		return err
+	}
+	if _, ok := files["SKILL.md"]; !ok {
+		return fmt.Errorf("skill %q has no SKILL.md", name)
+	}
+
+	dst := s.skillDir(name)
+	if _, err := os.Stat(dst); err == nil {
+		if !overwrite {
+			return fmt.Errorf("skill %q: %w", name, ErrExists)
+		}
+		if err := os.RemoveAll(dst); err != nil {
+			return err
+		}
+	}
+
+	// Stage into a temp directory and swap, so a failure part-way through
+	// cannot leave a half-written skill behind.
+	staging, err := os.MkdirTemp(s.skillsDir(), ".staging-*")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(staging)
+
+	for rel, content := range files {
+		clean, err := safeRelPath(rel)
+		if err != nil {
+			return fmt.Errorf("%s: %w", rel, err)
+		}
+		full := filepath.Join(staging, filepath.FromSlash(clean))
+		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+			return err
+		}
+		if err := os.WriteFile(full, content, 0o644); err != nil {
+			return err
+		}
+	}
+
+	if err := os.Rename(staging, dst); err != nil {
+		return err
+	}
+	return s.refreshSkill(name)
+}
+
+// safeRelPath validates a path supplied by a remote archive before it is joined
+// onto a directory we own.
+func safeRelPath(rel string) (string, error) {
+	rel = strings.TrimSpace(strings.ReplaceAll(rel, "\\", "/"))
+	if rel == "" || strings.HasPrefix(rel, "/") {
+		return "", fmt.Errorf("path must be relative")
+	}
+	clean := path.Clean(rel)
+	if clean == "." || clean == ".." || strings.HasPrefix(clean, "../") {
+		return "", fmt.Errorf("path escapes the skill directory")
+	}
+	for _, seg := range strings.Split(clean, "/") {
+		if seg == "" || seg == "." || seg == ".." {
+			return "", fmt.Errorf("invalid path segment %q", seg)
+		}
+	}
+	return clean, nil
 }
 
 // parseForImport extracts just the description for the scan preview.
