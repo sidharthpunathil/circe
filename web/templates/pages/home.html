@@ -15,7 +15,7 @@
 
     <div class="mt-10 flex flex-wrap items-center gap-x-7 gap-y-2 meta">
       <span><span class="text-fg">{{ .Stats.Skills }}</span> skills</span>
-      <span><span class="text-fg">{{ .Stats.Bundles }}</span> bundles</span>
+      <span><span class="text-fg">{{ .Stats.Bundles }}</span> folders</span>
       {{ if .Stats.Tags }}
         <span><span class="text-fg">{{ .Stats.Tags }}</span> tags</span>
       {{ end }}
@@ -26,7 +26,7 @@
   {{ if .Bundles }}
     <section class="container-page pb-14">
       <div class="flex items-baseline justify-between mb-5">
-        <h2 class="text-[24px] md:text-[28px]">Bundles</h2>
+        <h2 class="text-[24px] md:text-[28px]">Folders</h2>
         <a href="/bundles" class="text-[14px] text-fg-3 hover:text-fg transition-colors">View all</a>
       </div>
 

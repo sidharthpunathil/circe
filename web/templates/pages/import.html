@@ -61,7 +61,7 @@
                 type="checkbox"
                 name="names"
                 value="{{ .Name }}"
-                class="mt-1 accent-black shrink-0"
+                class="mt-1 accent-accent shrink-0"
                 {{ if not .Exists }}checked{{ end }}
               />
               <span class="min-w-0 flex-1">
@@ -83,7 +83,7 @@
         <p class="hint mt-2" data-filter-empty hidden>No skills match that filter.</p>
 
         <label class="flex items-center gap-2.5 mt-5 text-[13px] text-fg-2 cursor-pointer">
-          <input type="checkbox" name="overwrite" value="1" class="accent-black" />
+          <input type="checkbox" name="overwrite" value="1" class="accent-accent" />
           Overwrite skills that already exist in the registry
         </label>
 

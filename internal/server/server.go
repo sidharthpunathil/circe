@@ -64,6 +64,7 @@ func (s *Server) routes() {
 	m.HandleFunc("GET /{$}", s.handleHome)
 
 	m.HandleFunc("GET /skills", s.handleSkills)
+	m.HandleFunc("POST /skills/bulk", s.handleSkillsBulk)
 	m.HandleFunc("GET /skills/new", s.handleSkillNew)
 	m.HandleFunc("POST /skills/new", s.handleSkillCreate)
 	m.HandleFunc("GET /skills/{name}", s.handleSkill)

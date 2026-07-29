@@ -61,9 +61,44 @@
 
   <section class="container-page pb-16">
     {{ if .Skills }}
-      <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {{ range .Skills }}{{ template "skillcard" . }}{{ end }}
-      </div>
+      {{ if .Bundles }}
+        <div class="flex items-center justify-between gap-3 mb-3">
+          <p class="meta"><span data-selected-count>0</span> selected</p>
+          <button type="button" class="btn btn-sm" data-toggle-select>Select</button>
+        </div>
+      {{ end }}
+
+      <form method="post" action="/skills/bulk" id="bulk-form">
+        <input type="hidden" name="back" value="{{ .BackURL }}" />
+        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" id="skill-grid">
+          {{ range .Skills }}
+            <div class="relative">
+              <label
+                class="select-box absolute top-3 right-3 z-10 hidden w-5 h-5 items-center justify-center rounded border border-line bg-card cursor-pointer"
+              >
+                <input type="checkbox" name="skills" value="{{ .Name }}" class="accent-accent" />
+                <span class="sr-only">Select {{ .Name }}</span>
+              </label>
+              {{ template "skillcard" . }}
+            </div>
+          {{ end }}
+        </div>
+
+        {{ if .Bundles }}
+          <div
+            class="sticky bottom-4 mt-4 hidden items-center gap-2 rounded-[10px] border border-line bg-card/95 backdrop-blur px-3 py-2.5"
+            data-bulk-bar
+          >
+            <span class="meta shrink-0"><span data-selected-count>0</span> selected</span>
+            <span class="flex-1"></span>
+            <label class="sr-only" for="bulk-bundle">Folder</label>
+            <select id="bulk-bundle" name="bundle" class="field h-8 w-auto text-[13px] py-0">
+              {{ range .Bundles }}<option value="{{ .Name }}">{{ .DisplayTitle }}</option>{{ end }}
+            </select>
+            <button type="submit" class="btn btn-primary btn-sm">Add to folder</button>
+          </div>
+        {{ end }}
+      </form>
     {{ else if or .Query .Tag }}
       {{ template "empty"
         (dict

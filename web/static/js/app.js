@@ -108,6 +108,42 @@
     countSelected(scope);
   });
 
+  // Select mode on the skills list: reveal per-card checkboxes and a bulk bar.
+  (function bulkSelect() {
+    var toggle = document.querySelector("[data-toggle-select]");
+    var bar = document.querySelector("[data-bulk-bar]");
+    var grid = document.getElementById("skill-grid");
+    if (!toggle || !bar || !grid) return;
+
+    var boxes = function () { return grid.querySelectorAll(".select-box"); };
+    var active = false;
+
+    function count() {
+      var n = grid.querySelectorAll('input[type="checkbox"]:checked').length;
+      document.querySelectorAll("[data-selected-count]").forEach(function (el) {
+        el.textContent = String(n);
+      });
+      bar.classList.toggle("hidden", n === 0);
+      bar.classList.toggle("flex", n > 0);
+    }
+
+    toggle.addEventListener("click", function () {
+      active = !active;
+      toggle.textContent = active ? "Done" : "Select";
+      boxes().forEach(function (b) {
+        b.classList.toggle("hidden", !active);
+        b.classList.toggle("flex", active);
+      });
+      if (!active) {
+        grid.querySelectorAll('input[type="checkbox"]').forEach(function (b) { b.checked = false; });
+      }
+      count();
+    });
+
+    grid.addEventListener("change", count);
+    count();
+  })();
+
   // Warn before navigating away from an edited form with unsaved changes.
   document.querySelectorAll("form[method='post']").forEach(function (form) {
     if (form.hasAttribute("data-confirm") || form.classList.contains("hidden")) return;

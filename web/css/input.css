@@ -10,6 +10,12 @@
   --font-display: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
+  /* Surfaces. Every hardcoded white was replaced by these so the whole theme
+     can be inverted from this block alone. */
+  --color-bg: #ffffff;
+  --color-card: #ffffff;
+  --color-on-accent: #ffffff;
+
   /* Monochrome alpha stack. Near-black is reserved for titles; the 30% tone is
      the workhorse for everything secondary. */
   --color-fg: rgba(0, 0, 0, 0.9);

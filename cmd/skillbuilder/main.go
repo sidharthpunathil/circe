@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -26,7 +27,9 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 
-	if err := newRootCmd().ExecuteContext(ctx); err != nil {
+	root := newRootCmd()
+	root.SetArgs(expandShorthand(root, os.Args[1:]))
+	if err := root.ExecuteContext(ctx); err != nil {
 		os.Exit(report(err))
 	}
 }
@@ -71,5 +74,24 @@ func newRootCmd() *cobra.Command {
 		newPushCmd(),
 		newConfigCmd(),
 	)
+
 	return root
+}
+
+// expandShorthand rewrites `skillbuilder <bundle> [flags]` into
+// `skillbuilder init <bundle> [flags]`, so installing a folder of skills is
+// just its name. Done before cobra parses, because otherwise the init flags
+// (-y, -d, …) would be rejected as unknown root flags.
+func expandShorthand(root *cobra.Command, args []string) []string {
+	if len(args) == 0 {
+		return args
+	}
+	first := args[0]
+	if strings.HasPrefix(first, "-") {
+		return args // a flag such as --help or --version
+	}
+	if cmd, _, err := root.Find([]string{first}); err == nil && cmd != root {
+		return args // a real command
+	}
+	return append([]string{"init"}, args...)
 }

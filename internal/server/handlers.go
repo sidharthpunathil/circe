@@ -67,22 +67,78 @@ func (s *Server) handleHome(w http.ResponseWriter, r *http.Request) {
 
 type skillsView struct {
 	base
-	Skills []*store.Skill
-	Tags   []store.TagCount
-	Tag    string
-	Total  int
+	Skills  []*store.Skill
+	Tags    []store.TagCount
+	Tag     string
+	Total   int
+	Bundles []*store.Bundle
+	BackURL string
 }
 
 func (s *Server) handleSkills(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query().Get("q")
 	tag := r.URL.Query().Get("tag")
 	s.tmpl.render(w, r, http.StatusOK, "skills", skillsView{
-		base:   s.base(w, r, "skills"),
-		Skills: s.store.Search(q, tag),
-		Tags:   s.store.Tags(),
-		Tag:    tag,
-		Total:  s.store.SkillCount(),
+		base:    s.base(w, r, "skills"),
+		Skills:  s.store.Search(q, tag),
+		Tags:    s.store.Tags(),
+		Tag:     tag,
+		Total:   s.store.SkillCount(),
+		Bundles: s.store.Bundles(),
+		BackURL: r.URL.RequestURI(),
 	})
+}
+
+// handleSkillsBulk adds many skills to a folder in one action, so grouping an
+// existing library does not mean editing each skill in turn.
+func (s *Server) handleSkillsBulk(w http.ResponseWriter, r *http.Request) {
+	_ = r.ParseForm()
+	names := r.Form["skills"]
+	target := strings.TrimSpace(r.FormValue("bundle"))
+	back := r.FormValue("back")
+	if back == "" || !strings.HasPrefix(back, "/") {
+		back = "/skills"
+	}
+
+	if len(names) == 0 {
+		s.setFlash(w, "error", "Select at least one skill first.")
+		http.Redirect(w, r, back, http.StatusSeeOther)
+		return
+	}
+
+	b, err := s.store.Bundle(target)
+	if err != nil {
+		s.setFlash(w, "error", fmt.Sprintf("No folder named %q.", target))
+		http.Redirect(w, r, back, http.StatusSeeOther)
+		return
+	}
+
+	updated := *b
+	updated.Skills = append([]string(nil), b.Skills...)
+	added := 0
+	for _, n := range names {
+		if updated.Has(n) {
+			continue
+		}
+		if _, err := s.store.Skill(n); err != nil {
+			continue
+		}
+		updated.Skills = append(updated.Skills, n)
+		added++
+	}
+	if err := s.store.SaveBundle(&updated); err != nil {
+		s.setFlash(w, "error", err.Error())
+		http.Redirect(w, r, back, http.StatusSeeOther)
+		return
+	}
+
+	switch {
+	case added == 0:
+		s.setFlash(w, "ok", fmt.Sprintf("Everything selected was already in %s.", b.DisplayTitle()))
+	default:
+		s.setFlash(w, "ok", fmt.Sprintf("Added %d %s to %s.", added, plural(added, "skill", "skills"), b.DisplayTitle()))
+	}
+	http.Redirect(w, r, "/bundles/"+b.Name, http.StatusSeeOther)
 }
 
 type skillView struct {
@@ -117,25 +173,78 @@ type skillForm struct {
 	License       string
 	Compatibility string
 	AllowedTools  string
+	Bundles       []string
 }
 
 type skillEditView struct {
 	base
-	IsNew bool
-	Skill *store.Skill
-	Form  skillForm
-	Error string
+	IsNew   bool
+	Skill   *store.Skill
+	Form    skillForm
+	Error   string
+	Bundles []*store.Bundle
+	InB     map[string]bool
 }
 
 func (s *Server) handleSkillNew(w http.ResponseWriter, r *http.Request) {
+	// ?bundle=X pre-selects a folder, so "new skill in this folder" lands here
+	// with the membership already ticked.
+	selected := map[string]bool{}
+	for _, b := range r.URL.Query()["bundle"] {
+		if _, err := s.store.Bundle(b); err == nil {
+			selected[b] = true
+		}
+	}
 	s.tmpl.render(w, r, http.StatusOK, "skill_edit", skillEditView{
 		base:  s.base(w, r, "skills"),
 		IsNew: true,
 		Skill: &store.Skill{},
 		// Left blank so the placeholder shows; a prefilled "# " stub just gets
 		// in the way.
-		Form: skillForm{},
+		Form:    skillForm{Bundles: keysOf(selected)},
+		Bundles: s.store.Bundles(),
+		InB:     selected,
 	})
+}
+
+func keysOf(m map[string]bool) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
+}
+
+// syncBundleMembership makes the skill's bundle memberships exactly `want`.
+func (s *Server) syncBundleMembership(skill string, want []string) error {
+	wanted := map[string]bool{}
+	for _, n := range want {
+		wanted[n] = true
+	}
+	for _, b := range s.store.Bundles() {
+		has, should := b.Has(skill), wanted[b.Name]
+		if has == should {
+			continue
+		}
+		updated := *b
+		updated.Skills = append([]string(nil), b.Skills...)
+		if should {
+			updated.Skills = append(updated.Skills, skill)
+		} else {
+			kept := updated.Skills[:0]
+			for _, n := range updated.Skills {
+				if n != skill {
+					kept = append(kept, n)
+				}
+			}
+			updated.Skills = kept
+		}
+		if err := s.store.SaveBundle(&updated); err != nil {
+			return fmt.Errorf("update folder %q: %w", b.Name, err)
+		}
+	}
+	return nil
 }
 
 func (s *Server) handleSkillEdit(w http.ResponseWriter, r *http.Request) {
@@ -144,10 +253,19 @@ func (s *Server) handleSkillEdit(w http.ResponseWriter, r *http.Request) {
 		s.notFound(w, r, "skill")
 		return
 	}
+	inB := map[string]bool{}
+	current := []string{}
+	for _, b := range s.store.BundlesContaining(sk.Name) {
+		inB[b.Name] = true
+		current = append(current, b.Name)
+	}
 	s.tmpl.render(w, r, http.StatusOK, "skill_edit", skillEditView{
-		base:  s.base(w, r, "skills"),
-		Skill: sk,
+		base:    s.base(w, r, "skills"),
+		Skill:   sk,
+		Bundles: s.store.Bundles(),
+		InB:     inB,
 		Form: skillForm{
+			Bundles:       current,
 			Name:          sk.Name,
 			Description:   sk.Description,
 			Body:          sk.Body,
@@ -161,7 +279,9 @@ func (s *Server) handleSkillEdit(w http.ResponseWriter, r *http.Request) {
 
 // readSkillForm pulls the form fields and applies them onto sk.
 func readSkillForm(r *http.Request) skillForm {
+	_ = r.ParseForm()
 	return skillForm{
+		Bundles:       r.Form["bundles"],
 		Name:          strings.TrimSpace(r.FormValue("name")),
 		Description:   strings.TrimSpace(r.FormValue("description")),
 		Body:          normalizeNewlines(r.FormValue("body")),
@@ -244,10 +364,12 @@ func validateSkillForm(f skillForm) string {
 func (s *Server) handleSkillCreate(w http.ResponseWriter, r *http.Request) {
 	form := readSkillForm(r)
 	view := skillEditView{
-		base:  s.base(w, r, "skills"),
-		IsNew: true,
-		Skill: &store.Skill{},
-		Form:  form,
+		base:    s.base(w, r, "skills"),
+		IsNew:   true,
+		Skill:   &store.Skill{},
+		Form:    form,
+		Bundles: s.store.Bundles(),
+		InB:     selectedSet(form.Bundles),
 	}
 
 	if msg := validateSkillForm(form); msg != "" {
@@ -268,7 +390,22 @@ func (s *Server) handleSkillCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.setFlash(w, "ok", fmt.Sprintf("Created %s.", sk.Name))
+	if err := s.syncBundleMembership(sk.Name, form.Bundles); err != nil {
+		s.setFlash(w, "error", err.Error())
+		http.Redirect(w, r, "/skills/"+sk.Name, http.StatusSeeOther)
+		return
+	}
+
+	msg := fmt.Sprintf("Created %s.", sk.Name)
+	if n := len(form.Bundles); n > 0 {
+		msg = fmt.Sprintf("Created %s and added it to %d %s.", sk.Name, n, plural(n, "folder", "folders"))
+	}
+	s.setFlash(w, "ok", msg)
+	// Returning to the folder keeps a "create several into this folder" loop tight.
+	if len(form.Bundles) == 1 {
+		http.Redirect(w, r, "/bundles/"+form.Bundles[0], http.StatusSeeOther)
+		return
+	}
 	http.Redirect(w, r, "/skills/"+sk.Name, http.StatusSeeOther)
 }
 
@@ -282,9 +419,11 @@ func (s *Server) handleSkillUpdate(w http.ResponseWriter, r *http.Request) {
 
 	form := readSkillForm(r)
 	view := skillEditView{
-		base:  s.base(w, r, "skills"),
-		Skill: sk,
-		Form:  form,
+		base:    s.base(w, r, "skills"),
+		Skill:   sk,
+		Form:    form,
+		Bundles: s.store.Bundles(),
+		InB:     selectedSet(form.Bundles),
 	}
 	if msg := validateSkillForm(form); msg != "" {
 		view.Error = msg
@@ -317,6 +456,11 @@ func (s *Server) handleSkillUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := s.syncBundleMembership(updated.Name, form.Bundles); err != nil {
+		s.setFlash(w, "error", err.Error())
+		http.Redirect(w, r, "/skills/"+updated.Name, http.StatusSeeOther)
+		return
+	}
 	s.setFlash(w, "ok", fmt.Sprintf("Saved %s.", updated.Name))
 	http.Redirect(w, r, "/skills/"+updated.Name, http.StatusSeeOther)
 }
@@ -782,4 +926,20 @@ func (s *Server) handleImportRun(w http.ResponseWriter, r *http.Request) {
 	}
 	s.setFlash(w, kind, msg)
 	http.Redirect(w, r, "/skills", http.StatusSeeOther)
+}
+
+// selectedSet turns a list of names into a lookup for template checkboxes.
+func selectedSet(names []string) map[string]bool {
+	out := map[string]bool{}
+	for _, n := range names {
+		out[n] = true
+	}
+	return out
+}
+
+func plural(n int, one, many string) string {
+	if n == 1 {
+		return one
+	}
+	return many
 }

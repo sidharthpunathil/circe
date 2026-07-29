@@ -108,6 +108,34 @@
         </p>
       </div>
 
+      {{ if .Bundles }}
+        <div>
+          <span class="label mb-0">Folders</span>
+          <p class="hint mt-1 mb-2.5">
+            Folders are what the CLI installs — <span class="font-mono">skillbuilder &lt;folder&gt;</span>
+            drops every skill in one into a project.
+          </p>
+          <div class="flex flex-wrap gap-2">
+            {{ $inB := .InB }}
+            {{ range .Bundles }}
+              <label
+                class="badge cursor-pointer has-[:checked]:badge-active transition-colors select-none"
+              >
+                <input
+                  type="checkbox"
+                  name="bundles"
+                  value="{{ .Name }}"
+                  {{ if index $inB .Name }}checked{{ end }}
+                  class="accent-accent w-3 h-3"
+                />
+                {{ .DisplayTitle }}
+              </label>
+            {{ end }}
+            <a href="/bundles/new" class="badge hover:text-fg transition-colors">+ New folder</a>
+          </div>
+        </div>
+      {{ end }}
+
       <details class="rounded-[10px] border border-line-soft px-4 py-3">
         <summary class="text-[13px] font-medium text-fg cursor-pointer select-none">
           Optional frontmatter

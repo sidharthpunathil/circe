@@ -1,18 +1,18 @@
-{{ define "title" }}Bundles — Skillbuilder{{ end }}
+{{ define "title" }}Folders — Skillbuilder{{ end }}
 
 {{ define "content" }}
   <section class="container-page pt-12 pb-8">
     <p class="eyebrow mb-3">Collections</p>
     <div class="flex flex-wrap items-end justify-between gap-4">
       <div>
-        <h1 class="text-[32px] md:text-[40px]">Bundles</h1>
+        <h1 class="text-[32px] md:text-[40px]">Folders</h1>
         <p class="mt-3 text-[15px] text-fg-3 max-w-[60ch]">
-          A bundle is a named set of skills you install together. Run
-          <span class="font-mono text-[13px] text-fg-2">skillbuilder init &lt;bundle&gt;</span> in a
+          A folder is a named set of skills you install together. Run
+          <span class="font-mono text-[13px] text-fg-2">skillbuilder &lt;folder&gt;</span> in a
           project to pick from it.
         </p>
       </div>
-      <a href="/bundles/new" class="btn btn-primary">New bundle</a>
+      <a href="/bundles/new" class="btn btn-primary">New folder</a>
     </div>
   </section>
 
@@ -48,10 +48,10 @@
     {{ else }}
       {{ template "empty"
         (dict
-          "Title" "No bundles yet"
-          "Body" "Group related skills into a bundle so you can install them into a project in one command."
+          "Title" "No folders yet"
+          "Body" "Group related skills into a folder so you can install them into a project in one command."
           "Action" "/bundles/new"
-          "ActionLabel" "Create a bundle"
+          "ActionLabel" "Create a folder"
         )
       }}
     {{ end }}

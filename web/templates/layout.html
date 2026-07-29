@@ -12,7 +12,7 @@
     />
   </head>
   <body class="min-h-screen flex flex-col">
-    <header class="sticky top-0 z-40 bg-white/85 backdrop-blur-md border-b border-line-soft">
+    <header class="sticky top-0 z-40 bg-bg/85 backdrop-blur-md border-b border-line-soft">
       <div class="container-page flex items-center gap-6 h-14">
         <a href="/" class="flex items-center gap-2.5 shrink-0" aria-label="Skillbuilder home">
           <span class="grid grid-cols-2 gap-[2px] w-[14px]" aria-hidden="true">
@@ -33,7 +33,7 @@
           <a
             href="/bundles"
             class="{{ if eq .Nav `bundles` }}text-fg{{ else }}text-fg-3 hover:text-fg{{ end }} transition-colors font-medium"
-            >Bundles</a
+            >Folders</a
           >
           <a
             href="/import"
@@ -64,7 +64,7 @@
             value="{{ .Query }}"
             placeholder="Search skills"
             aria-label="Search skills"
-            class="field pl-8 pr-3 h-8 w-[220px] text-[13px] rounded-full bg-surface border-transparent hover:bg-surface-2 focus:bg-white"
+            class="field pl-8 pr-3 h-8 w-[220px] text-[13px] rounded-full bg-surface border-transparent hover:bg-surface-2 focus:bg-card"
           />
         </form>
 
@@ -84,7 +84,7 @@
             <a
               href="/bundles"
               class="{{ if eq .Nav `bundles` }}text-fg{{ else }}text-fg-3{{ end }} font-medium"
-              >Bundles</a
+              >Folders</a
             >
             <a
               href="/import"
@@ -156,7 +156,7 @@
         class="container-page py-7 flex flex-col sm:flex-row gap-3 sm:items-center justify-between meta"
       >
         <span class="min-w-0 break-words"
-          >{{ .Stats.Skills }} skills · {{ .Stats.Bundles }} bundles · stored in
+          >{{ .Stats.Skills }} skills · {{ .Stats.Bundles }} folders · stored in
           <span class="break-all">{{ .DataDir }}</span></span
         >
         <span class="flex items-center gap-4 shrink-0">
