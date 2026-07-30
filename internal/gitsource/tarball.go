@@ -43,6 +43,11 @@ var (
 	excludeFiles    = map[string]bool{".DS_Store": true, "Thumbs.db": true}
 	excludeExts     = map[string]bool{".pyc": true, ".pyo": true}
 	excludeRootDirs = map[string]bool{"evals": true} // relative to a skill, not the repo
+
+	// keepHiddenFiles are hidden files worth importing, so the blanket rule
+	// against hidden entries does not swallow them. A project's MCP servers are
+	// configured in .mcp.json and there is nowhere else to find them.
+	keepHiddenFiles = map[string]bool{".mcp.json": true}
 )
 
 // UnsafeArchiveError reports a tar entry that was refused outright.
@@ -281,13 +286,17 @@ func firstSegment(p string) string {
 // weight the user can never see.
 func excluded(rel string) bool {
 	parts := strings.Split(rel, "/")
-	for _, p := range parts {
+	for _, p := range parts[:len(parts)-1] {
 		if strings.HasPrefix(p, ".") || excludeDirsAnyDepth[p] {
 			return true
 		}
 	}
 	base := parts[len(parts)-1]
-	return excludeFiles[base] || excludeExts[strings.ToLower(path.Ext(base))]
+	if strings.HasPrefix(base, ".") && !keepHiddenFiles[base] {
+		return true
+	}
+	return excludeDirsAnyDepth[base] || excludeFiles[base] ||
+		excludeExts[strings.ToLower(path.Ext(base))]
 }
 
 // excludedInSkill applies the rules that only make sense once the skill's own

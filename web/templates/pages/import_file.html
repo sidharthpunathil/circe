@@ -1,22 +1,23 @@
 {{ define "content" }}
   <div class="container-page pt-12 pb-16">
-    <p class="eyebrow mb-3">Add skills</p>
-    <h1 class="text-[32px] md:text-[40px]">Save a skill you just wrote</h1>
+    <p class="eyebrow mb-3">Import</p>
+    <h1 class="text-[32px] md:text-[40px]">Save a file you already have</h1>
     <p class="mt-3 text-[15px] text-fg-3 max-w-[62ch]">
-      Wrote a skill in a chat, or have one sitting in a folder? Drop it in. We'll work out the name
-      and description from what's there, and show you before saving anything.
+      Wrote something in a chat, or have it sitting in a folder? Drop it in. A markdown file becomes
+      a skill or a rule, your call. A .mcp.json becomes MCP servers. We work out the names and show
+      you everything before saving.
     </p>
 
     <div class="mt-6 flex items-center gap-1 text-[14px] flex-wrap">
       <a href="/import/repo" class="badge hover:text-fg transition-colors">Repo</a>
-      <a href="/import/file" class="badge badge-active">Markdown</a>
+      <a href="/import/file" class="badge badge-active">File</a>
       <a href="/import/code" class="badge hover:text-fg transition-colors">Shared with you</a>
       <a href="/import/local" class="badge hover:text-fg transition-colors">This machine</a>
     </div>
 
     {{ with .Error }}
       <div
-        class="mt-6 rounded-card border border-danger/25 bg-danger/5 px-4 py-3 text-[13px] text-danger max-w-[900px]"
+        class="mt-6 rounded-card border border-danger/25 bg-danger/5 px-4 py-3 text-[13px] text-danger max-w-[900px] break-words"
         role="alert"
       >
         {{ . }}
@@ -24,7 +25,8 @@
     {{ end }}
 
     {{ if .Parsed }}
-      {{/* Review before writing: names are often inferred, so they get a last look. */}}
+      {{/* Review before writing: names are often inferred, and what a markdown
+           file should become is a judgement call only the author can make. */}}
       <form method="post" action="/import/file/create" class="mt-8 max-w-[900px] flex flex-col gap-5">
         <p class="meta">
           Here’s what we found in {{ len .Parsed }} {{ pluralize (len .Parsed) "file" "files" }}.
@@ -34,10 +36,12 @@
         {{ range .Parsed }}
           <div class="rounded-card border {{ if .Problem }}border-danger/25{{ else }}border-line{{ end }} bg-card p-4">
             <div class="flex items-center justify-between gap-3 mb-3 flex-wrap">
-              <span class="meta">{{ .Source }}</span>
-              <span class="flex items-center gap-2">
+              <span class="meta break-all">{{ .Source }}</span>
+              <span class="flex items-center gap-2 flex-wrap">
                 {{ if .Exists }}<span class="badge">already in your registry</span>{{ end }}
-                {{ if .Problem }}<span class="badge text-danger border-danger/25">needs attention</span>{{ end }}
+                {{ if .Problem }}
+                  <span class="badge text-danger border-danger/25">needs attention</span>
+                {{ end }}
               </span>
             </div>
 
@@ -59,21 +63,42 @@
                 />
               </div>
               <div>
-                <label class="label">Description</label>
-                <input
-                  name="description"
-                  value="{{ .Description }}"
-                  required
-                  maxlength="1024"
-                  placeholder="What it does, and when to use it."
-                  class="field"
-                />
+                <label class="label">Save it as</label>
+                {{ if .IsServer }}
+                  <input type="hidden" name="kind" value="mcp" />
+                  <p class="text-[13px] text-fg-3 pt-2">An MCP server, from a config file</p>
+                {{ else }}
+                  <select name="kind" class="field">
+                    <option value="skill" {{ if eq .Choice "skill" }}selected{{ end }}>
+                      A skill Claude can use
+                    </option>
+                    <option value="rule:CLAUDE.md" {{ if eq .Choice "rule:CLAUDE.md" }}selected{{ end }}>
+                      A rule, merged into CLAUDE.md
+                    </option>
+                    <option value="rule:AGENTS.md" {{ if eq .Choice "rule:AGENTS.md" }}selected{{ end }}>
+                      A rule, merged into AGENTS.md
+                    </option>
+                  </select>
+                {{ end }}
               </div>
+            </div>
+
+            <div class="mt-4">
+              <label class="label">Description</label>
+              <input
+                name="description"
+                value="{{ .Description }}"
+                required
+                maxlength="1024"
+                placeholder="What it does, and when to use it."
+                class="field"
+              />
             </div>
 
             <details class="mt-3">
               <summary class="text-[13px] text-fg-3 hover:text-fg cursor-pointer select-none">
-                Content ({{ len .Body }} characters)
+                {{ if .IsServer }}Configuration{{ else }}Content{{ end }}
+                ({{ len .Body }} characters)
               </summary>
               <textarea
                 name="body"
@@ -82,18 +107,17 @@
                 spellcheck="false"
               >{{ .Body }}</textarea>
             </details>
-            {{ if not .Body }}<textarea name="body" hidden></textarea>{{ end }}
           </div>
         {{ end }}
 
         <div class="flex flex-col gap-3">
           <label class="flex items-center gap-2.5 text-[13px] text-fg-2 cursor-pointer">
             <input type="checkbox" name="overwrite" value="1" class="accent-accent" />
-            Overwrite skills that already exist
+            Replace anything I already have
           </label>
           {{ if .Stats.Bundles }}
-            <div class="flex items-center gap-2.5 text-[13px] text-fg-2">
-              <label for="folder">Add everything imported to</label>
+            <div class="flex items-center gap-2.5 text-[13px] text-fg-2 flex-wrap">
+              <label for="folder">Add imported skills to</label>
               <select id="folder" name="folder" class="field h-8 w-auto text-[13px] py-0">
                 <option value="">no folder</option>
                 {{ range .Folders }}<option value="{{ .Name }}">{{ .DisplayTitle }}</option>{{ end }}
@@ -120,11 +144,15 @@
             id="files"
             name="files"
             type="file"
-            accept=".md,text/markdown,text/plain"
+            accept=".md,.json,.markdown,text/markdown,text/plain,application/json"
             multiple
             class="field file:mr-3 file:rounded-[6px] file:border-0 file:bg-surface-2 file:px-3 file:py-1.5 file:text-[13px] file:text-fg file:cursor-pointer cursor-pointer"
           />
-          <p class="hint">Add as many as you like. Each becomes its own skill.</p>
+          <p class="hint">
+            Add as many as you like. Markdown becomes a skill or a rule, and a CLAUDE.md, AGENTS.md
+            or anything from a rules folder starts out as a rule. JSON is read as an MCP config, one
+            row per server.
+          </p>
         </div>
 
         <div class="flex items-center gap-3">
@@ -134,7 +162,7 @@
         </div>
 
         <div>
-          <label class="label" for="content">SKILL.md</label>
+          <label class="label" for="content">Markdown or JSON</label>
           <textarea
             id="content"
             name="content"
@@ -143,7 +171,10 @@
             spellcheck="false"
             placeholder="---&#10;name: my-skill&#10;description: What it does, and when the agent should use it.&#10;---&#10;&#10;# My Skill&#10;&#10;Steps to follow…"
           >{{ .Content }}</textarea>
-          <p class="hint">No frontmatter needed. Anything missing, we’ll work out and show you first.</p>
+          <p class="hint">
+            No frontmatter needed. Paste JSON and we'll read it as an MCP config instead. Anything
+            missing, we’ll work out and show you first.
+          </p>
         </div>
 
         <div class="flex flex-wrap items-center gap-2.5">

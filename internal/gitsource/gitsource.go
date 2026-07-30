@@ -103,6 +103,11 @@ type Candidate struct {
 type Result struct {
 	Meta       Metadata    `json:"meta"`
 	Candidates []Candidate `json:"candidates"`
+	// Files is everything kept from the archive, keyed relative to the
+	// repository root. Skills are already grouped into Candidates; this is what
+	// lets a caller look for the other things a repository holds, such as rules
+	// and MCP configs, without downloading it twice.
+	Files map[string][]byte `json:"-"`
 }
 
 // Fetch downloads a repository and discovers every skill in it, using the
@@ -157,7 +162,7 @@ func (c *Client) Fetch(ctx context.Context, repo Repo) (*Result, error) {
 		c.annotateUpdatedAt(ctx, repo, ref, cands)
 	}
 
-	return &Result{Meta: meta, Candidates: cands}, nil
+	return &Result{Meta: meta, Candidates: cands, Files: arc.Files}, nil
 }
 
 // annotateUpdatedAt fills in each candidate's UpdatedAt from the last commit

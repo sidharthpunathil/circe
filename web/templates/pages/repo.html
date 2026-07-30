@@ -1,42 +1,43 @@
 {{ define "content" }}
   <div class="container-page pt-12 pb-16">
-    <p class="eyebrow mb-3">Add skills</p>
-    <h1 class="text-[32px] md:text-[40px]">Grab skills from a repo</h1>
+    <p class="eyebrow mb-3">Import</p>
+    <h1 class="text-[32px] md:text-[40px]">Take what you need from a repo</h1>
     <p class="mt-3 text-[15px] text-fg-3 max-w-[62ch]">
-      Someone published skills you want. Paste the link and we'll find every one of them, however
-      they're organised. You get your own copy, which keeps working even if their repo disappears.
+      Paste a link and we'll find every skill, rule and MCP server in there. Pick the ones you want.
+      You get your own copy, which keeps working even if their repo disappears.
     </p>
 
     <div class="mt-6 flex items-center gap-1 text-[14px] flex-wrap">
       <a href="/import/repo" class="badge badge-active">Repo</a>
-      <a href="/import/file" class="badge hover:text-fg transition-colors">Markdown</a>
+      <a href="/import/file" class="badge hover:text-fg transition-colors">File</a>
       <a href="/import/code" class="badge hover:text-fg transition-colors">Shared with you</a>
       <a href="/import/local" class="badge hover:text-fg transition-colors">This machine</a>
     </div>
 
     {{ with .Error }}
       <div
-        class="mt-6 rounded-card border border-danger/25 bg-danger/5 px-4 py-3 text-[13px] text-danger max-w-[860px]"
+        class="mt-6 rounded-card border border-danger/25 bg-danger/5 px-4 py-3 text-[13px] text-danger max-w-[860px] break-words"
         role="alert"
       >
         {{ . }}
       </div>
     {{ end }}
 
-    <form method="get" action="/import/github" class="mt-6 flex flex-wrap gap-2 max-w-[860px]">
+    <form method="get" action="/import/repo" class="mt-6 flex flex-wrap gap-2 max-w-[860px]">
       <input
         name="repo"
         value="{{ .RepoURL }}"
         placeholder="https://github.com/owner/repo  ·  gitlab.com/group/project  ·  owner/repo"
-        aria-label="GitHub repository URL"
-        class="field field-mono flex-1 min-w-[280px]"
+        aria-label="Repository URL"
+        class="field field-mono flex-1 min-w-[240px]"
         autofocus
       />
-      <button type="submit" class="btn">Find skills</button>
+      <button type="submit" class="btn">Look inside</button>
     </form>
     <p class="hint max-w-[860px]">
-      Works with GitHub, GitLab, Bitbucket, Codeberg and self-hosted Gitea or Forgejo. Paste a link
-      to the whole repo, or to one folder, branch or tag inside it.
+      We look for SKILL.md, CLAUDE.md, AGENTS.md, markdown in a rules folder, and .mcp.json. Works
+      with GitHub, GitLab, Bitbucket, Codeberg and self-hosted Gitea or Forgejo. Paste a link to the
+      whole repo, or to one folder, branch or tag inside it.
       {{ if not .HasToken }}
         For private repos, set a token: <span class="font-mono">GITHUB_TOKEN</span>,
         <span class="font-mono">GITLAB_TOKEN</span> or
@@ -52,16 +53,16 @@
               href="{{ .Meta.HTMLURL }}"
               target="_blank"
               rel="noopener"
-              class="text-[15px] font-medium text-fg hover:underline underline-offset-4"
+              class="text-[15px] font-medium text-fg hover:underline underline-offset-4 break-all"
               >{{ .Meta.FullName }}</a
             >
             {{ with .Meta.Description }}
               <p class="text-[13px] text-fg-3 mt-1 leading-snug">{{ truncate 160 . }}</p>
             {{ end }}
           </div>
-          <div class="meta flex items-center gap-3 shrink-0">
+          <div class="meta flex items-center gap-3 shrink-0 flex-wrap">
             {{ if .Meta.Stars }}<span>★ {{ .Meta.Stars }}</span>{{ end }}
-            <span>{{ .Meta.Ref }}</span>
+            <span class="break-all">{{ .Meta.Ref }}</span>
             {{ if .Meta.CommitSHA }}
               <span title="{{ .Meta.CommitSHA }}">{{ truncate 7 .Meta.CommitSHA }}</span>
             {{ end }}
@@ -71,21 +72,21 @@
       </div>
     {{ end }}
 
-    {{ if .Candidates }}
-      <form method="post" action="/import/github" class="mt-6 max-w-[860px]">
+    {{ if .Total }}
+      <form method="post" action="/import/repo" class="mt-6 max-w-[860px]">
         <input type="hidden" name="repo" value="{{ .RepoURL }}" />
 
         <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
           <p class="meta">
-            {{ len .Candidates }} {{ pluralize (len .Candidates) "skill" "skills" }} found ·
+            {{ .Total }} {{ pluralize .Total "thing" "things" }} found ·
             <span data-selected-count>0</span> selected
           </p>
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-2 flex-wrap">
             <input
               type="search"
               placeholder="Filter"
-              aria-label="Filter skills"
-              class="field h-8 w-[180px] text-[13px]"
+              aria-label="Filter what was found"
+              class="field h-8 w-[120px] sm:w-[180px] text-[13px]"
               data-filter="#gh-picker"
             />
             <button type="button" class="btn btn-sm" data-select-all="#gh-picker">All</button>
@@ -93,46 +94,133 @@
           </div>
         </div>
 
-        <div id="gh-picker" class="flex flex-col divide-y divide-line border-y border-line">
-          {{ range .Candidates }}
-            <label
-              class="flex items-start gap-3 py-3 cursor-pointer"
-              data-filter-item="{{ .Name }} {{ lower .Description }} {{ .Path }}"
-            >
-              <input
-                type="checkbox"
-                name="names"
-                value="{{ .Name }}"
-                class="mt-1 accent-accent shrink-0"
-                {{ if not .Exists }}checked{{ end }}
-              />
-              <span class="min-w-0 flex-1">
-                <span class="flex items-center gap-2 flex-wrap">
-                  <span class="text-[14px] font-medium text-fg">{{ .Name }}</span>
-                  {{ if .Exists }}<span class="badge">already in registry</span>{{ end }}
-                </span>
-                <span class="block text-[13px] text-fg-3 leading-snug mt-1 line-clamp-2"
-                  >{{ truncate 180 .Description }}</span
-                >
-                <span class="block meta mt-1.5">
-                  {{ .Path }} · {{ .FileCount }} {{ pluralize .FileCount "file" "files" }} ·
-                  {{ bytes .Size }}{{ if not .UpdatedAt.IsZero }} · updated {{ ago .UpdatedAt }}{{ end }}
-                </span>
-              </span>
-            </label>
+        {{/* Grouped by kind: someone taking the skills and leaving the rules is
+             the normal case, not an edge one. */}}
+        <div id="gh-picker" class="flex flex-col gap-7">
+          {{ if .Candidates }}
+            <section>
+              <p class="eyebrow mb-2">
+                Skills · {{ len .Candidates }}
+              </p>
+              <div class="flex flex-col divide-y divide-line border-y border-line">
+                {{ range .Candidates }}
+                  <label
+                    class="flex items-start gap-3 py-3 cursor-pointer"
+                    data-filter-item="{{ .Name }} {{ lower .Description }} {{ .Path }}"
+                  >
+                    <input
+                      type="checkbox"
+                      name="names"
+                      value="{{ .Name }}"
+                      class="mt-1 accent-accent shrink-0"
+                      {{ if not .Exists }}checked{{ end }}
+                    />
+                    <span class="min-w-0 flex-1">
+                      <span class="flex items-center gap-2 flex-wrap">
+                        <span class="text-[14px] font-medium text-fg break-all">{{ .Name }}</span>
+                        {{ if .Exists }}<span class="badge">already in registry</span>{{ end }}
+                      </span>
+                      <span class="block text-[13px] text-fg-3 leading-snug mt-1 line-clamp-2"
+                        >{{ truncate 180 .Description }}</span
+                      >
+                      <span class="block meta mt-1.5 break-all">
+                        {{ .Path }} · {{ .FileCount }} {{ pluralize .FileCount "file" "files" }} ·
+                        {{ bytes .Size }}{{ if not .UpdatedAt.IsZero }} · updated
+                          {{ ago .UpdatedAt }}{{ end }}
+                      </span>
+                    </span>
+                  </label>
+                {{ end }}
+              </div>
+            </section>
+          {{ end }}
+
+          {{ if .Rules }}
+            <section>
+              <p class="eyebrow mb-2">
+                Rules · {{ len .Rules }}
+              </p>
+              <div class="flex flex-col divide-y divide-line border-y border-line">
+                {{ range .Rules }}
+                  <label
+                    class="flex items-start gap-3 py-3 cursor-pointer"
+                    data-filter-item="{{ .Name }} {{ lower .Description }} {{ .Path }}"
+                  >
+                    <input
+                      type="checkbox"
+                      name="rules"
+                      value="{{ .Name }}"
+                      class="mt-1 accent-accent shrink-0"
+                      {{ if not .Exists }}checked{{ end }}
+                    />
+                    <span class="min-w-0 flex-1">
+                      <span class="flex items-center gap-2 flex-wrap">
+                        <span class="text-[14px] font-medium text-fg break-all">{{ .Name }}</span>
+                        <span class="badge">{{ .Target }}</span>
+                        {{ if .Exists }}<span class="badge">already in registry</span>{{ end }}
+                      </span>
+                      <span class="block text-[13px] text-fg-3 leading-snug mt-1 line-clamp-2"
+                        >{{ truncate 180 .Description }}</span
+                      >
+                      <span class="block meta mt-1.5 break-all">{{ .Path }}</span>
+                    </span>
+                  </label>
+                {{ end }}
+              </div>
+            </section>
+          {{ end }}
+
+          {{ if .Servers }}
+            <section>
+              <p class="eyebrow mb-2">
+                MCP servers · {{ len .Servers }}
+              </p>
+              <div class="flex flex-col divide-y divide-line border-y border-line">
+                {{ range .Servers }}
+                  <label
+                    class="flex items-start gap-3 py-3 cursor-pointer"
+                    data-filter-item="{{ .Server.Name }} {{ lower .Server.CommandLine }} {{ .Path }}"
+                  >
+                    <input
+                      type="checkbox"
+                      name="mcps"
+                      value="{{ .Server.Name }}"
+                      class="mt-1 accent-accent shrink-0"
+                      {{ if not .Exists }}checked{{ end }}
+                    />
+                    <span class="min-w-0 flex-1">
+                      <span class="flex items-center gap-2 flex-wrap">
+                        <span class="text-[14px] font-medium text-fg break-all"
+                          >{{ .Server.Name }}</span
+                        >
+                        <span class="badge">{{ .Server.TransportOrDefault }}</span>
+                        {{ if .Exists }}<span class="badge">already in registry</span>{{ end }}
+                      </span>
+                      <span class="block meta mt-1 break-all">{{ .Server.CommandLine }}</span>
+                      {{ if .Server.EnvNames }}
+                        <span class="block hint mt-1 break-all"
+                          >needs {{ join .Server.EnvNames ", " }} in your environment</span
+                        >
+                      {{ end }}
+                      <span class="block meta mt-1 break-all">{{ .Path }}</span>
+                    </span>
+                  </label>
+                {{ end }}
+              </div>
+            </section>
           {{ end }}
         </div>
-        <p class="hint mt-2" data-filter-empty hidden>No skills match that filter.</p>
+        <p class="hint mt-2" data-filter-empty hidden>Nothing matches that filter.</p>
 
         <div class="mt-5 flex flex-col gap-3">
           <label class="flex items-center gap-2.5 text-[13px] text-fg-2 cursor-pointer">
             <input type="checkbox" name="overwrite" value="1" class="accent-accent" />
-            Overwrite skills that already exist
+            Replace anything I already have
           </label>
 
-          {{ if .Stats.Bundles }}
-            <div class="flex items-center gap-2.5 text-[13px] text-fg-2">
-              <label for="folder">Add everything imported to</label>
+          {{ if and .Stats.Bundles .Candidates }}
+            <div class="flex items-center gap-2.5 text-[13px] text-fg-2 flex-wrap">
+              <label for="folder">Add imported skills to</label>
               <select id="folder" name="folder" class="field h-8 w-auto text-[13px] py-0">
                 <option value="">no folder</option>
                 {{ range .Folders }}<option value="{{ .Name }}">{{ .DisplayTitle }}</option>{{ end }}
@@ -150,8 +238,8 @@
       <div class="mt-8 max-w-[860px]">
         {{ template "empty"
           (dict
-            "Title" "No skills in that repo"
-            "Body" "Nothing in it contains a SKILL.md file."
+            "Title" "Nothing to import in that repo"
+            "Body" "We found no SKILL.md, no CLAUDE.md or AGENTS.md, no rules folder and no .mcp.json."
             "Action" ""
             "ActionLabel" ""
           )

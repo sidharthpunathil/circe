@@ -35,11 +35,25 @@ type ghCandidate struct {
 	FileCount int
 }
 
+// ghRule and ghServer are the other two things a repository can hold, shown
+// beside the skills so one visit brings in everything.
+type ghRule struct {
+	store.FoundRule
+	Exists bool
+}
+
+type ghServer struct {
+	store.FoundMCP
+	Exists bool
+}
+
 type githubView struct {
 	base
 	RepoURL    string
 	Meta       *gitsource.Metadata
 	Candidates []ghCandidate
+	Rules      []ghRule
+	Servers    []ghServer
 	Folders    []*store.Bundle
 	Error      string
 	Searched   bool
@@ -47,7 +61,10 @@ type githubView struct {
 	Providers  []string
 }
 
-// handleImportGitHub discovers the skills in a repository without importing.
+// Total is everything found across the three kinds.
+func (v githubView) Total() int { return len(v.Candidates) + len(v.Rules) + len(v.Servers) }
+
+// handleImportRepo discovers what is in a repository without importing.
 func (s *Server) handleImportRepo(w http.ResponseWriter, r *http.Request) {
 	raw := strings.TrimSpace(r.URL.Query().Get("repo"))
 	view := githubView{
@@ -93,21 +110,41 @@ func (s *Server) handleImportRepo(w http.ResponseWriter, r *http.Request) {
 	sort.Slice(view.Candidates, func(i, j int) bool {
 		return view.Candidates[i].Name < view.Candidates[j].Name
 	})
+
+	// Skills come from the discovery that already grouped the archive; the rest
+	// of the tree is where the rules and MCP servers are.
+	found := store.DetectContent(res.Files, repo.Name)
+	for _, fr := range found.Rules {
+		gr := ghRule{FoundRule: fr}
+		if _, err := s.store.Rule(fr.Name); err == nil {
+			gr.Exists = true
+		}
+		view.Rules = append(view.Rules, gr)
+	}
+	for _, fm := range found.MCPs {
+		gs := ghServer{FoundMCP: fm}
+		if _, err := s.store.MCPServer(fm.Server.Name); err == nil {
+			gs.Exists = true
+		}
+		view.Servers = append(view.Servers, gs)
+	}
 	s.tmpl.render(w, r, http.StatusOK, "repo", view)
 }
 
-// handleImportGitHubRun copies the selected skills into the registry and
-// records where each one came from.
+// handleImportRepoRun copies the selected skills, rules and servers into the
+// registry, and records where each imported skill came from.
 func (s *Server) handleImportRepoRun(w http.ResponseWriter, r *http.Request) {
 	_ = r.ParseForm()
 	raw := strings.TrimSpace(r.FormValue("repo"))
 	names := r.Form["names"]
+	wantRules := chosen(r.Form["rules"])
+	wantServers := chosen(r.Form["mcps"])
 	overwrite := r.FormValue("overwrite") == "1"
 	folder := strings.TrimSpace(r.FormValue("folder"))
 
 	back := "/import/repo?repo=" + urlQueryEscape(raw)
-	if len(names) == 0 {
-		s.setFlash(w, "error", "Select at least one skill to import.")
+	if len(names)+len(wantRules)+len(wantServers) == 0 {
+		s.setFlash(w, "error", "Pick at least one thing to import.")
 		http.Redirect(w, r, back, http.StatusSeeOther)
 		return
 	}
@@ -131,13 +168,10 @@ func (s *Server) handleImportRepoRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	want := map[string]bool{}
-	for _, n := range names {
-		want[n] = true
-	}
-
+	want := chosen(names)
 	sources := s.loadSources()
-	var imported, skipped, failed []string
+	var tally importTally
+	var imported []string
 
 	for _, c := range res.Candidates {
 		if !want[c.Name] {
@@ -145,21 +179,54 @@ func (s *Server) handleImportRepoRun(w http.ResponseWriter, r *http.Request) {
 		}
 		if err := s.store.WriteSkillFiles(c.Name, c.Files, overwrite); err != nil {
 			if strings.Contains(err.Error(), "already exists") {
-				skipped = append(skipped, c.Name)
+				tally.Skipped++
 			} else {
-				failed = append(failed, c.Name+": "+err.Error())
+				tally.Failed = append(tally.Failed, c.Name+": "+err.Error())
 			}
 			continue
 		}
 		sources[c.Name] = gitsource.NewSource(c.Name, repo, res.Meta, c)
 		imported = append(imported, c.Name)
+		tally.Skills++
+	}
+
+	// Names are derived from the tree, so the same tree has to be read again
+	// rather than trusting anything the form said about what a rule is called.
+	found := store.DetectContent(res.Files, repo.Name)
+	for _, fr := range found.Rules {
+		if !wantRules[fr.Name] {
+			continue
+		}
+		written, err := s.saveFoundRule(fr, overwrite)
+		switch {
+		case err != nil:
+			tally.Failed = append(tally.Failed, fr.Name+": "+err.Error())
+		case written:
+			tally.Rules++
+		default:
+			tally.Skipped++
+		}
+	}
+	for _, fm := range found.MCPs {
+		if !wantServers[fm.Server.Name] {
+			continue
+		}
+		written, err := s.saveFoundServer(fm.Server, overwrite)
+		switch {
+		case err != nil:
+			tally.Failed = append(tally.Failed, fm.Server.Name+": "+err.Error())
+		case written:
+			tally.Servers++
+		default:
+			tally.Skipped++
+		}
 	}
 
 	if err := gitsource.SaveSources(s.sourcesPath(), sources); err != nil {
 		logError("save sources", err)
 	}
 
-	// Optionally drop everything imported straight into a folder.
+	// Optionally drop every imported skill straight into a folder.
 	if folder != "" && len(imported) > 0 {
 		if b, err := s.store.Bundle(folder); err == nil {
 			updated := *b
@@ -175,28 +242,9 @@ func (s *Server) handleImportRepoRun(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	var parts []string
-	if n := len(imported); n > 0 {
-		parts = append(parts, fmt.Sprintf("imported %d from %s", n, repo.String()))
-	}
-	if n := len(skipped); n > 0 {
-		parts = append(parts, fmt.Sprintf("skipped %d already present", n))
-	}
-	if n := len(failed); n > 0 {
-		parts = append(parts, fmt.Sprintf("%d failed", n))
-	}
-	msg := "Nothing to do."
-	if len(parts) > 0 {
-		msg = strings.Join(parts, ", ")
-		msg = strings.ToUpper(msg[:1]) + msg[1:] + "."
-	}
-	kind := "ok"
-	if len(failed) > 0 {
-		kind = "error"
-		msg += " " + strings.Join(failed, "; ")
-	}
+	msg, kind := tally.message("from " + repo.String())
 	s.setFlash(w, kind, msg)
-	http.Redirect(w, r, "/skills", http.StatusSeeOther)
+	http.Redirect(w, r, s.afterImport(tally, back), http.StatusSeeOther)
 }
 
 // handleSkillResync re-fetches a single skill from the repository it came from,
