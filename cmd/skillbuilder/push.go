@@ -20,21 +20,181 @@ func newPushCmd() *cobra.Command {
 	var (
 		tags   []string
 		dryRun bool
+		force  bool
 	)
 	cmd := &cobra.Command{
 		Use:   "push <dir>",
-		Short: "Publish a local skill directory to the registry",
-		Long: "Read a skill directory's SKILL.md and create or replace that skill in the\n" +
-			"registry. The skill's name comes from its frontmatter, or from the\n" +
-			"directory name when the frontmatter has none.",
+		Short: "Publish local skills to the registry",
+		Long: "Publish one skill, or a whole directory of them.\n\n" +
+			"If <dir> contains a SKILL.md it is published as a single skill. Otherwise\n" +
+			"every subdirectory containing a SKILL.md is published, which is how you get\n" +
+			"a local library such as ~/.claude/skills into a hosted registry.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runPush(cmd, args[0], tags, dryRun)
+			return runPushPath(cmd, args[0], tags, dryRun, force)
 		},
 	}
 	cmd.Flags().StringArrayVar(&tags, "tag", nil, "tag to publish with (repeatable)")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "show what would be published without publishing it")
+	cmd.Flags().BoolVar(&force, "force", false, "replace skills that already exist in the registry")
 	return cmd
+}
+
+// runPushPath decides between a single skill and a library of them, so the
+// user does not have to know which shape they are pointing at.
+func runPushPath(cmd *cobra.Command, dir string, tags []string, dryRun, force bool) error {
+	// A quoted "~/.claude/skills" reaches us unexpanded, and the docs tell
+	// people to type exactly that.
+	dir = expandTilde(dir)
+	abs, err := filepath.Abs(dir)
+	if err != nil {
+		return fmt.Errorf("resolve %s: %w", dir, err)
+	}
+	info, err := os.Stat(abs)
+	if err != nil {
+		return fmt.Errorf("read %s: %w", dir, err)
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("%s is not a directory", dir)
+	}
+
+	if _, err := os.Stat(filepath.Join(abs, "SKILL.md")); err == nil {
+		return runPush(cmd, abs, tags, dryRun)
+	}
+
+	children, err := skillDirsIn(abs)
+	if err != nil {
+		return err
+	}
+	if len(children) == 0 {
+		return fmt.Errorf("no SKILL.md in %s, and no subdirectory contains one", dir)
+	}
+	return runPushMany(cmd, children, tags, dryRun, force)
+}
+
+// skillDirsIn lists immediate subdirectories that are skills. Symlinks are
+// resolved, since a real skills library is largely symlinks into plugin dirs.
+func skillDirsIn(root string) ([]string, error) {
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", root, err)
+	}
+	var out []string
+	for _, e := range entries {
+		if strings.HasPrefix(e.Name(), ".") {
+			continue
+		}
+		full := filepath.Join(root, e.Name())
+		if info, err := os.Stat(full); err != nil || !info.IsDir() {
+			continue
+		}
+		if _, err := os.Stat(filepath.Join(full, "SKILL.md")); err == nil {
+			out = append(out, full)
+		}
+	}
+	sort.Strings(out)
+	return out, nil
+}
+
+// runPushMany publishes a whole library, reporting per skill and continuing
+// past failures so one malformed skill does not abandon the rest.
+func runPushMany(cmd *cobra.Command, dirs []string, tags []string, dryRun, force bool) error {
+	ctx := cmd.Context()
+	out := cmd.OutOrStdout()
+
+	client, err := newClient()
+	if err != nil {
+		return err
+	}
+	fmt.Fprintln(out, dimStyle.Render(fmt.Sprintf("%d %s to publish to %s",
+		len(dirs), pluralWord(len(dirs), "skill", "skills"), client.BaseURL)))
+
+	col := 0
+	type item struct {
+		req   installer.PushRequest
+		extra []string
+		err   error
+	}
+	items := make([]item, 0, len(dirs))
+	for _, d := range dirs {
+		req, extra, err := readSkillDir(d, tags)
+		items = append(items, item{req, extra, err})
+		if n := len(req.Name); n > col {
+			col = n
+		}
+		if n := len(filepath.Base(d)); err != nil && n > col {
+			col = n
+		}
+	}
+
+	var created, updated, skipped, failed int
+	for i, it := range items {
+		label := it.req.Name
+		if label == "" {
+			label = filepath.Base(dirs[i])
+		}
+		pad := strings.Repeat(" ", max(0, col-len(label)))
+
+		if it.err != nil {
+			failed++
+			fmt.Fprintln(out, "  "+errStyle.Render("✗")+" "+label+pad+"  "+dimStyle.Render(it.err.Error()))
+			continue
+		}
+
+		exists, err := client.Exists(ctx, it.req.Name)
+		if err != nil {
+			return err
+		}
+		if exists && !force {
+			skipped++
+			fmt.Fprintln(out, "  "+dimStyle.Render("· "+label+pad+"  already in the registry (--force to replace)"))
+			continue
+		}
+		if dryRun {
+			verb := "create"
+			if exists {
+				verb = "replace"
+			}
+			fmt.Fprintln(out, "  "+dimStyle.Render("· "+label+pad+"  would "+verb))
+			continue
+		}
+
+		if exists {
+			err = client.UpdateSkill(ctx, it.req)
+		} else {
+			err = client.CreateSkill(ctx, it.req)
+		}
+		if err != nil {
+			failed++
+			fmt.Fprintln(out, "  "+errStyle.Render("✗")+" "+label+pad+"  "+dimStyle.Render(err.Error()))
+			continue
+		}
+		if exists {
+			updated++
+			fmt.Fprintln(out, "  "+okStyle.Render("✓")+" "+label+pad+"  "+okStyle.Render("updated"))
+		} else {
+			created++
+			fmt.Fprintln(out, "  "+okStyle.Render("✓")+" "+label+pad+"  "+okStyle.Render("created"))
+		}
+	}
+
+	var parts []string
+	for _, p := range []struct {
+		n int
+		s string
+	}{{created, "created"}, {updated, "updated"}, {skipped, "skipped"}, {failed, "failed"}} {
+		if p.n > 0 {
+			parts = append(parts, fmt.Sprintf("%d %s", p.n, p.s))
+		}
+	}
+	if len(parts) == 0 {
+		parts = append(parts, "nothing to do")
+	}
+	fmt.Fprintln(out, dimStyle.Render(strings.Join(parts, ", ")))
+	if failed > 0 {
+		return fmt.Errorf("%d %s could not be published", failed, pluralWord(failed, "skill", "skills"))
+	}
+	return nil
 }
 
 func runPush(cmd *cobra.Command, dir string, tags []string, dryRun bool) error {
@@ -164,11 +324,39 @@ func readSkillDir(dir string, tags []string) (installer.PushRequest, []string, e
 		Tags:        normalizeTags(append(tags, frontmatterTags(f)...)),
 		Files:       files,
 	}
+
+	// The registry caps a push at 16 MiB. Say so here, naming the biggest
+	// offenders, rather than letting the server answer with a bare 400.
+	total := len(req.Body)
+	for _, c := range files {
+		total += len(c)
+	}
+	if total > maxPushPayload {
+		return req, unpublished, fmt.Errorf(
+			"%s is %s of text across %d files, over the %d MiB limit — %s",
+			f.Name, humanSize(total), len(files)+1, maxPushPayload>>20,
+			"trim it, or keep large assets out of the skill directory")
+	}
 	return req, unpublished, nil
 }
 
-// maxPushFileSize matches the server's per-file limit.
-const maxPushFileSize = 4 << 20
+// maxPushFileSize matches the server's per-file limit, and maxPushPayload its
+// whole-request limit.
+const (
+	maxPushFileSize = 4 << 20
+	maxPushPayload  = 16 << 20
+)
+
+func humanSize(n int) string {
+	switch {
+	case n >= 1<<20:
+		return fmt.Sprintf("%.1f MiB", float64(n)/(1<<20))
+	case n >= 1<<10:
+		return fmt.Sprintf("%.0f KiB", float64(n)/(1<<10))
+	default:
+		return fmt.Sprintf("%d B", n)
+	}
+}
 
 // companionFiles lists everything in a skill directory except SKILL.md itself.
 func companionFiles(dir string) ([]string, error) {
@@ -197,6 +385,17 @@ func companionFiles(dir string) ([]string, error) {
 	}
 	sort.Strings(out)
 	return out, nil
+}
+
+// excludedFromPush mirrors the server's packaging exclusions. .venv matters
+// most: a skill that vendors a virtualenv is hundreds of megabytes, which the
+// registry rejects outright, and none of it is part of the skill.
+func excludedFromPush(name string) bool {
+	switch name {
+	case ".git", "node_modules", "__pycache__", ".venv", "venv", "evals":
+		return true
+	}
+	return false
 }
 
 // frontmatterTags reads a `tags:` key, which is not part of the official skill
@@ -261,4 +460,16 @@ func describeTags(tags []string) string {
 		return "none"
 	}
 	return strings.Join(tags, ", ")
+}
+
+// expandTilde resolves a leading ~ that the shell did not.
+func expandTilde(p string) string {
+	if p != "~" && !strings.HasPrefix(p, "~/") {
+		return p
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return p
+	}
+	return filepath.Join(home, strings.TrimPrefix(strings.TrimPrefix(p, "~"), "/"))
 }

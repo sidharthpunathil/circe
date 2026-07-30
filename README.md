@@ -29,8 +29,9 @@ Skillbuilder is a small self-hosted app that fixes that:
 - **Group them into folders.** A folder is the unit you install.
 - **Install with one command** — `skillbuilder my-folder` drops every skill in it into
   `./.claude/skills/`.
-- **Import from anywhere** — your local `~/.claude/skills`, or any public GitHub repo.
-  Content is copied in, so it stays yours even if the source repo disappears.
+- **Import from anywhere** — your local `~/.claude/skills`, any public GitHub repo, or a
+  share code from someone else's registry. Content is copied in, so it stays yours even if
+  the source disappears.
 - **No database.** Everything is plain files on disk, so the storage directory *is* your
   backup. Commit it to git if you like.
 
@@ -107,7 +108,7 @@ so a typo fails here rather than somewhere confusing later. `skillbuilder logout
 | `skillbuilder search <query>` | Search the registry. |
 | `skillbuilder pull` | Re-download everything in the lockfile. |
 | `skillbuilder remove <skill>…` | Delete skills and drop them from the lockfile. |
-| `skillbuilder push <dir>` | Publish a local skill directory, companion files included. |
+| `skillbuilder push <dir>` | Publish one skill, or every skill in a directory. |
 | `skillbuilder import <code>` | Install from someone else's share code — no setup needed. |
 | `skillbuilder login [url]` | Connect to a registry, verifying the token before saving. |
 | `skillbuilder config` | Show the resolved registry, config and install paths. |
@@ -123,6 +124,23 @@ so folders install with stock Claude Code and no extra tooling:
 ```
 /plugin marketplace add https://your-app.up.railway.app
 ```
+
+## Getting a local library into a hosted registry
+
+The **Local directory** import reads the filesystem of whatever machine the registry runs
+on — which for a hosted deployment is a container that cannot see your laptop. Push from
+your machine instead:
+
+```bash
+skillbuilder login https://your-app.up.railway.app
+skillbuilder push ~/.claude/skills          # every skill in there
+```
+
+`push` publishes one skill if the directory has a `SKILL.md`, otherwise every subdirectory
+that does. Companion files come along; existing skills are left alone unless you pass
+`--force`. Directories that aren't part of a skill — `.venv`, `node_modules`,
+`__pycache__`, `.git` — are excluded, which matters because a skill that vendors a
+virtualenv can be hundreds of megabytes.
 
 ## Sharing
 

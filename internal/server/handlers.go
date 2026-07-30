@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"unicode/utf8"
@@ -891,6 +893,11 @@ type importView struct {
 	Candidates []store.ImportCandidate
 	Scanned    bool
 	Error      string
+	// Remote is set when the server cannot see the requested directory, which
+	// on a hosted deployment is the normal case rather than an error: the
+	// container has no access to the operator's machine.
+	Remote  bool
+	BaseURL string
 }
 
 func (s *Server) handleImport(w http.ResponseWriter, r *http.Request) {
@@ -898,12 +905,17 @@ func (s *Server) handleImport(w http.ResponseWriter, r *http.Request) {
 	if src == "" {
 		src = store.DefaultImportSource()
 	}
-	view := importView{base: s.base(w, r, "import"), Source: src}
+	view := importView{base: s.base(w, r, "import"), Source: src, BaseURL: s.baseURL(r)}
 
 	candidates, err := s.store.Scan(src)
-	if err != nil {
+	switch {
+	case err != nil && !dirExists(src):
+		// Do not call this an error — the user's laptop is simply not reachable
+		// from wherever this server runs.
+		view.Remote = true
+	case err != nil:
 		view.Error = err.Error()
-	} else {
+	default:
 		view.Candidates = candidates
 		view.Scanned = true
 	}
@@ -1032,4 +1044,20 @@ func (s *Server) handleBundleContextSave(w http.ResponseWriter, r *http.Request)
 		s.setFlash(w, "ok", fmt.Sprintf("Saved %s for %s.", file, b.DisplayTitle()))
 	}
 	http.Redirect(w, r, "/bundles/"+b.Name, http.StatusSeeOther)
+}
+
+// dirExists reports whether the server itself can see a directory.
+func dirExists(p string) bool {
+	if strings.TrimSpace(p) == "" {
+		return false
+	}
+	if strings.HasPrefix(p, "~") {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return false
+		}
+		p = filepath.Join(home, strings.TrimPrefix(strings.TrimPrefix(p, "~"), "/"))
+	}
+	info, err := os.Stat(p)
+	return err == nil && info.IsDir()
 }

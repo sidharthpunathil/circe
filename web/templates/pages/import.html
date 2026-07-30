@@ -16,6 +16,61 @@
       </div>
     {{ end }}
 
+    {{ if .Remote }}
+      <div class="mt-6 max-w-[860px] rounded-card border border-line bg-card p-5">
+        <p class="text-[15px] font-medium text-fg">This registry can't see your machine</p>
+        <p class="mt-2 text-[13.5px] text-fg-2 leading-relaxed">
+          Scanning reads the filesystem of whatever machine the registry runs on. This one is
+          hosted, so <span class="font-mono text-[12.5px]">{{ .Source }}</span> doesn't exist
+          there. Push your skills up from your own machine instead.
+        </p>
+
+        <div class="mt-4 flex flex-col gap-2">
+          <p class="eyebrow">One-time setup</p>
+          <div
+            class="flex items-center gap-2 rounded-[10px] border border-line-soft bg-surface px-3.5 py-2.5"
+          >
+            <code
+              class="font-mono text-[12.5px] text-fg overflow-x-auto whitespace-nowrap flex-1 scrollbar-none"
+              >skillbuilder login {{ .BaseURL }}</code
+            >
+            <button
+              type="button"
+              class="btn btn-sm shrink-0"
+              data-copy="skillbuilder login {{ .BaseURL }}"
+            >
+              Copy
+            </button>
+          </div>
+
+          <p class="eyebrow mt-2">Then push your whole library</p>
+          <div
+            class="flex items-center gap-2 rounded-[10px] border border-line-soft bg-surface px-3.5 py-2.5"
+          >
+            <code
+              class="font-mono text-[12.5px] text-fg overflow-x-auto whitespace-nowrap flex-1 scrollbar-none"
+              >skillbuilder push ~/.claude/skills</code
+            >
+            <button
+              type="button"
+              class="btn btn-sm shrink-0"
+              data-copy="skillbuilder push ~/.claude/skills"
+            >
+              Copy
+            </button>
+          </div>
+        </div>
+
+        <p class="hint">
+          Pushes every skill in that directory, companion files included. Existing skills are
+          left alone unless you add <span class="font-mono">--force</span>. Or use
+          <a href="/import/github" class="text-fg-2 underline underline-offset-2">GitHub repo</a>
+          and <a href="/import/code" class="text-fg-2 underline underline-offset-2">From a code</a>,
+          which both work from anywhere.
+        </p>
+      </div>
+    {{ end }}
+
     <div class="mt-6 flex items-center gap-1 text-[14px]">
       <a href="/import" class="badge badge-active">Local directory</a>
       <a href="/import/github" class="badge hover:text-fg transition-colors">GitHub repo</a>
