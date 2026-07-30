@@ -43,7 +43,24 @@
             </button>
           </div>
 
-          <p class="eyebrow mt-2">Then push your whole library</p>
+          <p class="eyebrow mt-2">Push one skill</p>
+          <div
+            class="flex items-center gap-2 rounded-[10px] border border-line-soft bg-surface px-3.5 py-2.5"
+          >
+            <code
+              class="font-mono text-[12.5px] text-fg overflow-x-auto whitespace-nowrap flex-1 scrollbar-none"
+              >skillbuilder push ~/.claude/skills/my-skill</code
+            >
+            <button
+              type="button"
+              class="btn btn-sm shrink-0"
+              data-copy="skillbuilder push ~/.claude/skills/my-skill"
+            >
+              Copy
+            </button>
+          </div>
+
+          <p class="eyebrow mt-2">Or the whole library at once</p>
           <div
             class="flex items-center gap-2 rounded-[10px] border border-line-soft bg-surface px-3.5 py-2.5"
           >
@@ -62,8 +79,9 @@
         </div>
 
         <p class="hint">
-          Pushes every skill in that directory, companion files included. Existing skills are
-          left alone unless you add <span class="font-mono">--force</span>. Or use
+          Point it at one skill directory or a directory of them — it works out which. Companion
+          files come along, and existing skills are left alone unless you add
+          <span class="font-mono">--force</span>. Or use
           <a href="/import/github" class="text-fg-2 underline underline-offset-2">GitHub repo</a>
           and <a href="/import/code" class="text-fg-2 underline underline-offset-2">From a code</a>,
           which both work from anywhere.

@@ -94,12 +94,18 @@ main() {
   # Verify the checksum when the release publishes one. Not fatal if absent,
   # so an older release without checksums still installs.
   if curl -fsSL "https://github.com/$REPO/releases/download/$version/checksums.txt" -o "$tmp/checksums.txt" 2>/dev/null; then
+    verify=''
     if command -v sha256sum >/dev/null 2>&1; then
-      ( cd "$tmp" && grep " $tarball\$" checksums.txt | sha256sum -c - >/dev/null 2>&1 ) \
-        && ok "checksum verified" || die "checksum mismatch for $tarball — refusing to install"
+      verify='sha256sum -c -'
     elif command -v shasum >/dev/null 2>&1; then
-      ( cd "$tmp" && grep " $tarball\$" checksums.txt | shasum -a 256 -c - >/dev/null 2>&1 ) \
-        && ok "checksum verified" || die "checksum mismatch for $tarball — refusing to install"
+      verify='shasum -a 256 -c -'
+    fi
+    if [ -n "$verify" ]; then
+      if (cd "$tmp" && grep " ${tarball}\$" checksums.txt | $verify >/dev/null 2>&1); then
+        ok "checksum verified"
+      else
+        die "checksum mismatch for $tarball — refusing to install"
+      fi
     fi
   fi
 
@@ -124,7 +130,23 @@ main() {
   else
     say "${BOLD}$dir is not on your PATH.${RESET}"
     say "Add it:"
-    say "  ${DIM}echo 'export PATH=\"$dir:\$PATH\"' >> ~/.zshrc && exec \$SHELL${RESET}"
+    # Name the startup file for the shell actually in use rather than assuming
+    # zsh, and print real paths so the line can be pasted as-is.
+    case "${SHELL:-}" in
+      */fish)
+        say "  ${DIM}fish_add_path $dir${RESET}"
+        ;;
+      */bash)
+        say "  ${DIM}echo 'export PATH=\"$dir:\$PATH\"' >> $HOME/.bashrc && exec \$SHELL${RESET}"
+        ;;
+      */zsh)
+        say "  ${DIM}echo 'export PATH=\"$dir:\$PATH\"' >> $HOME/.zshrc && exec \$SHELL${RESET}"
+        ;;
+      *)
+        say "  ${DIM}export PATH=\"$dir:\$PATH\"${RESET}"
+        dim "  (add that to your shell's startup file to make it permanent)"
+        ;;
+    esac
   fi
   say ""
 }
