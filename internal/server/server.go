@@ -109,6 +109,9 @@ func (s *Server) routes() {
 
 	m.HandleFunc("GET /import", s.handleImport)
 	m.HandleFunc("POST /import", s.handleImportRun)
+	m.HandleFunc("GET /import/file", s.handleImportFile)
+	m.HandleFunc("POST /import/file", s.handleImportFilePreview)
+	m.HandleFunc("POST /import/file/create", s.handleImportFileCreate)
 	m.HandleFunc("GET /import/code", s.handleImportCode)
 	m.HandleFunc("POST /import/code", s.handleImportCodeRun)
 	m.HandleFunc("GET /import/github", s.handleImportGitHub)

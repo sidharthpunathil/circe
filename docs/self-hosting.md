@@ -52,6 +52,20 @@ origin so install commands and share links render correctly.
 | `SKILLBUILDER_SEED_FOLDER` | — | Folder to put seeded skills in. |
 | `GITHUB_TOKEN` | — | Raises GitHub's 60/hr limit and reaches private repos. |
 
+## Getting skills in
+
+Four routes, on the Import page:
+
+| Source | Works when |
+| --- | --- |
+| Local directory | The registry runs on the same machine as the skills. |
+| GitHub repo | Always — the server fetches the repo itself. |
+| From a file | Always — you paste or upload the markdown. |
+| From a code | Always — someone shared a folder or skill with you. |
+
+For a hosted registry, `skillbuilder push ~/.claude/skills` from your own machine is
+usually the fastest way to move an existing library up.
+
 ## Backups
 
 `data/` is the whole thing:
