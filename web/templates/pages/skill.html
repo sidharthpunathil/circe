@@ -23,7 +23,7 @@
 
         {{ if .Problems }}
           <div class="mt-6 rounded-[10px] border border-line px-4 py-3.5">
-            <p class="eyebrow mb-2.5">Validation</p>
+            <p class="eyebrow mb-2.5">Worth fixing</p>
             <ul class="flex flex-col gap-2">
               {{ range .Problems }}
                 <li class="flex items-start gap-2 text-[13px] leading-relaxed">
@@ -32,7 +32,7 @@
                     aria-hidden="true"
                   ></span>
                   <span class="{{ if .Fatal }}text-danger{{ else }}text-fg-3{{ end }}">
-                    <span class="font-mono text-[12px]">{{ .Field }}</span> — {{ .Message }}
+                    <span class="font-mono text-[12px]">{{ .Field }}</span>: {{ .Message }}
                   </span>
                 </li>
               {{ end }}
@@ -48,7 +48,7 @@
         </div>
 
         <div class="mt-8">
-          <p class="eyebrow mb-2.5">Install</p>
+          <p class="eyebrow mb-2.5">Drop into a project</p>
           <div
             class="flex items-center gap-2 rounded-[10px] border border-line-soft bg-surface px-3.5 py-2.5"
           >
@@ -137,7 +137,7 @@
 
         {{ with .Source }}
           <div>
-            <p class="eyebrow mb-2.5">Source</p>
+            <p class="eyebrow mb-2.5">Came from</p>
             <dl class="flex flex-col gap-2 meta">
               <div class="flex justify-between gap-3">
                 <dt>Repo</dt>
@@ -171,17 +171,15 @@
               </div>
             </dl>
             <form action="/skills/{{ $.Skill.Name }}/resync" method="post" class="mt-3">
-              <button type="submit" class="btn btn-sm w-full">Re-sync from source</button>
+              <button type="submit" class="btn btn-sm w-full">Pull latest</button>
             </form>
-            <p class="hint">
-              This copy is stored locally and stays even if the repo is deleted.
-            </p>
+            <p class="hint">This is your own copy. It stays put whatever happens upstream.</p>
           </div>
         {{ end }}
 
         {{ if .Bundles }}
           <div>
-            <p class="eyebrow mb-2.5">In folders</p>
+            <p class="eyebrow mb-2.5">Part of</p>
             <ul class="flex flex-col gap-1.5">
               {{ range .Bundles }}
                 <li>
@@ -219,12 +217,12 @@
               data-confirm="Stop sharing? The code stops working immediately.">
               <button type="submit" class="btn btn-sm w-full">Stop sharing</button>
             </form>
-            <p class="hint">Anyone with the code can import a copy.</p>
+            <p class="hint">Anyone with this can take their own copy.</p>
           {{ else }}
             <form action="/skills/{{ .Skill.Name }}/share" method="post">
               <button type="submit" class="btn btn-sm w-full">Create share code</button>
             </form>
-            <p class="hint">Lets someone else import this into their own registry.</p>
+            <p class="hint">Let someone else grab this for their own registry.</p>
           {{ end }}
         </div>
 

@@ -178,7 +178,7 @@ func (f *File) Validate() []Problem {
 	}
 
 	if lines := strings.Count(f.Body, "\n"); lines > 500 {
-		warn("body", fmt.Sprintf("SKILL.md is %d lines; under 500 is recommended — move detail into reference files", lines))
+		warn("body", fmt.Sprintf("SKILL.md is %d lines; under 500 is recommended. Move detail into reference files", lines))
 	}
 	if strings.TrimSpace(f.Body) == "" {
 		warn("body", "the body is empty; the skill will provide no instructions")

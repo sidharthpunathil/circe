@@ -184,7 +184,7 @@
         class="container-page py-7 flex flex-col sm:flex-row gap-3 sm:items-center justify-between meta"
       >
         <span class="min-w-0 break-words"
-          >{{ .Stats.Skills }} skills · {{ .Stats.Bundles }} folders · stored in
+          >{{ .Stats.Skills }} {{ pluralize .Stats.Skills "skill" "skills" }} · {{ .Stats.Bundles }} {{ pluralize .Stats.Bundles "folder" "folders" }} · stored in
           <span class="break-all">{{ .DataDir }}</span></span
         >
         <span class="flex items-center gap-4 shrink-0">

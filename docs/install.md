@@ -57,7 +57,7 @@ skillbuilder login https://your-registry.example.com
 ```
 
 It prompts for the passcode, checks it against the registry, and only saves once it
-works — so a typo fails immediately instead of surfacing later. Settings live in
+works: so a typo fails immediately instead of surfacing later. Settings live in
 `~/.skillbuilder/config.json`; `skillbuilder logout` forgets the token.
 
 Without a registry of your own you can still use a share code someone sent you:

@@ -26,7 +26,7 @@ func main() {
 		baseURL = flag.String("base-url", os.Getenv("SKILLBUILDER_BASE_URL"), "public base URL, if behind a proxy")
 	)
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "skillbuilder-server — a personal registry for Claude agent skills\n\n")
+		fmt.Fprintf(os.Stderr, "skillbuilder-server: a personal registry for Claude agent skills\n\n")
 		fmt.Fprintf(os.Stderr, "Usage:\n  %s [flags]\n\nFlags:\n", os.Args[0])
 		flag.PrintDefaults()
 		fmt.Fprintf(os.Stderr, `

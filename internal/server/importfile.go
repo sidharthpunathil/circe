@@ -55,7 +55,7 @@ func parseMarkdownSkill(filename string, raw []byte) parsedSkill {
 
 	f, err := skillfile.Parse(raw)
 	if err != nil {
-		out.Problem = "could not parse: " + err.Error()
+		out.Problem = "couldn't read this file: " + err.Error()
 		return out
 	}
 	out.Front, out.Body = f.Frontmatter, f.Body
@@ -81,15 +81,15 @@ func parseMarkdownSkill(filename string, raw []byte) parsedSkill {
 
 	switch {
 	case out.Name == "":
-		out.Problem = "no name — add `name:` to the frontmatter, or a # heading"
+		out.Problem = "we couldn't work out a name; add one below, or give the file a # heading"
 	case store.ValidateName(out.Name) != nil:
 		out.Problem = store.ValidateName(out.Name).Error()
 	case out.Description == "":
-		out.Problem = "no description — add `description:` to the frontmatter"
+		out.Problem = "we couldn't work out a description; add one below"
 	case strings.ContainsAny(out.Description, "<>"):
-		out.Problem = "description must not contain < or > characters"
+		out.Problem = "descriptions can't contain < or > characters"
 	case strings.TrimSpace(out.Body) == "":
-		out.Problem = "the file has no content below the frontmatter"
+		out.Problem = "there are no instructions in this file"
 	}
 	return out
 }
@@ -163,7 +163,7 @@ func (s *Server) handleImportFilePreview(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	if len(parsed) == 0 {
-		view.Error = "Paste a SKILL.md, or choose one or more .md files."
+		view.Error = "Paste a skill, or choose a file or two."
 		s.tmpl.render(w, r, http.StatusBadRequest, "import_file", view)
 		return
 	}
@@ -192,7 +192,7 @@ func (s *Server) handleImportFileCreate(w http.ResponseWriter, r *http.Request) 
 	folder := strings.TrimSpace(r.FormValue("folder"))
 
 	if len(names) == 0 || len(names) != len(descs) || len(names) != len(bodies) {
-		s.setFlash(w, "error", "That form was incomplete — try again.")
+		s.setFlash(w, "error", "Something went missing along the way. Try again.")
 		http.Redirect(w, r, "/import/file", http.StatusSeeOther)
 		return
 	}

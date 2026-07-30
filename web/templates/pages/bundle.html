@@ -23,7 +23,7 @@
         </div>
 
         <div class="mt-8">
-          <p class="eyebrow mb-2.5">Install into a project</p>
+          <p class="eyebrow mb-2.5">Drop into a project</p>
           <div
             class="flex items-center gap-2 rounded-[10px] border border-line-soft bg-surface px-3.5 py-2.5"
           >
@@ -40,8 +40,7 @@
             </button>
           </div>
           <p class="hint">
-            Prompts you to choose which skills to install. Add
-            <span class="font-mono">-y</span> to install all of them without prompting.
+            Asks which ones you want. Add <span class="font-mono">-y</span> to take the lot.
           </p>
         </div>
 
@@ -54,7 +53,7 @@
               <a
                 href="/skills/new?bundle={{ .Bundle.Name }}"
                 class="text-[14px] text-fg-3 hover:text-fg transition-colors"
-                >New skill here</a
+                >Write one here</a
               >
               <a
                 href="/bundles/{{ .Bundle.Name }}/edit"
@@ -71,8 +70,8 @@
           {{ else }}
             {{ template "empty"
               (dict
-                "Title" "This folder is empty"
-                "Body" "Add skills to it so there is something to install."
+                "Title" "Nothing in here yet"
+                "Body" "Add a few skills and this folder becomes installable."
                 "Action" (printf "/bundles/%s/edit" .Bundle.Name)
                 "ActionLabel" "Add skills"
               )
@@ -110,7 +109,7 @@
         </div>
 
         <div>
-          <p class="eyebrow mb-2.5">Project instructions</p>
+          <p class="eyebrow mb-2.5">Project rules</p>
           <ul class="flex flex-col">
             {{ $ctx := .Context }}
             {{ range .ContextNames }}
@@ -128,7 +127,7 @@
               </li>
             {{ end }}
           </ul>
-          <p class="hint">Merged into the project on install, inside a marked block.</p>
+          <p class="hint">Added to the project’s own file when you install this folder.</p>
         </div>
 
 
@@ -152,23 +151,23 @@
               data-confirm="Stop sharing? The code stops working immediately.">
               <button type="submit" class="btn btn-sm w-full">Stop sharing</button>
             </form>
-            <p class="hint">Anyone with the code can import a copy.</p>
+            <p class="hint">Anyone with this can take their own copy.</p>
           {{ else }}
             <form action="/bundles/{{ .Bundle.Name }}/share" method="post">
               <button type="submit" class="btn btn-sm w-full">Create share code</button>
             </form>
-            <p class="hint">Lets someone else import this into their own registry.</p>
+            <p class="hint">Let someone else grab this for their own registry.</p>
           {{ end }}
         </div>
 
         <div>
-          <p class="eyebrow mb-2.5">Also installable with</p>
+          <p class="eyebrow mb-2.5">Without the CLI</p>
           <div class="rounded-[10px] border border-line-soft bg-surface p-3">
             <code class="font-mono text-[11.5px] text-fg-2 leading-relaxed block break-all"
               >/plugin marketplace add {{ .MarketplaceURL }}</code
             >
           </div>
-          <p class="hint">Native Claude Code install, no CLI required.</p>
+          <p class="hint">Works straight from Claude Code.</p>
         </div>
 
         <div class="pt-2 border-t border-line-soft">

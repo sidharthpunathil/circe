@@ -91,7 +91,7 @@ func runConfigSet(out io.Writer, key, value string) error {
 		return nil
 	}
 	if key != "registry" {
-		return fmt.Errorf("unknown config key %q — valid keys are `registry` and `token`", key)
+		return fmt.Errorf("unknown config key %q. Valid keys are `registry` and `token`", key)
 	}
 
 	url := installer.NormalizeRegistry(value)

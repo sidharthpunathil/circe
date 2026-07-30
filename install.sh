@@ -104,7 +104,7 @@ main() {
       if (cd "$tmp" && grep " ${tarball}\$" checksums.txt | $verify >/dev/null 2>&1); then
         ok "checksum verified"
       else
-        die "checksum mismatch for $tarball — refusing to install"
+        die "checksum mismatch for $tarball: refusing to install"
       fi
     fi
   fi

@@ -27,9 +27,9 @@ Skillbuilder is a small self-hosted app that fixes that:
 - **Write and edit skills** in a proper editor, with validation against the real
   `SKILL.md` rules.
 - **Group them into folders.** A folder is the unit you install.
-- **Install with one command** — `skillbuilder my-folder` drops every skill in it into
+- **Install with one command**: `skillbuilder my-folder` drops every skill in it into
   `./.claude/skills/`.
-- **Import from anywhere** — a repo on any git host (GitHub, GitLab, Bitbucket, Codeberg,
+- **Import from anywhere**: a repo on any git host (GitHub, GitLab, Bitbucket, Codeberg,
   self-hosted Gitea/Forgejo), a pasted `SKILL.md`, your local `~/.claude/skills`, or a
   share code from someone else's registry. Content is copied in, so it stays yours even if
   the source disappears.
@@ -48,7 +48,7 @@ Set **`SKILLBUILDER_PASSWORD`** when prompted, and attach a **volume mounted at 
 so your skills survive redeploys. That's it.
 
 It's cheap to run: the image is ~15 MB, it idles at around 20 MB of RAM and effectively
-zero CPU, and it needs no database — just a small volume. Enable **App Sleeping** and it
+zero CPU, and it needs no database: just a small volume. Enable **App Sleeping** and it
 costs close to nothing when you aren't using it.
 
 ### Docker
@@ -96,8 +96,8 @@ skillbuilder add design-taste # install a single skill
 ```
 
 Skills land in `.claude/skills/<name>/` and are recorded in `skillbuilder.json`, so
-`skillbuilder pull` restores the same set on any machine. Local edits are never clobbered
-— `pull` holds back anything you've changed unless you pass `--force`.
+`skillbuilder pull` restores the same set on any machine. Local edits are never clobbered:
+`pull` holds back anything you've changed unless you pass `--force`.
 
 Point the CLI at your deployment once:
 
@@ -105,8 +105,8 @@ Point the CLI at your deployment once:
 skillbuilder login https://your-app.up.railway.app
 ```
 
-It prompts for the passcode, checks it against the registry, and only then saves —
-so a typo fails here rather than somewhere confusing later. `skillbuilder logout` forgets it.
+It prompts for the passcode, checks it against the registry, and only then saves, so a typo
+fails here rather than somewhere confusing later. `skillbuilder logout` forgets it.
 
 ### Commands
 
@@ -119,7 +119,7 @@ so a typo fails here rather than somewhere confusing later. `skillbuilder logout
 | `skillbuilder pull` | Re-download everything in the lockfile. |
 | `skillbuilder remove <skill>…` | Delete skills and drop them from the lockfile. |
 | `skillbuilder push <dir>` | Publish one skill, or every skill in a directory. |
-| `skillbuilder import <code>` | Install from someone else's share code — no setup needed. |
+| `skillbuilder import <code>` | Install from someone else's share code: no setup needed. |
 | `skillbuilder login [url]` | Connect to a registry, verifying the token before saving. |
 | `skillbuilder config` | Show the resolved registry, config and install paths. |
 
@@ -138,7 +138,7 @@ so folders install with stock Claude Code and no extra tooling:
 ## Getting a local library into a hosted registry
 
 The **Local directory** import reads the filesystem of whatever machine the registry runs
-on — which for a hosted deployment is a container that cannot see your laptop. Push from
+on: which for a hosted deployment is a container that cannot see your laptop. Push from
 your machine instead:
 
 ```bash
@@ -148,13 +148,13 @@ skillbuilder push ~/.claude/skills          # every skill in there
 
 `push` publishes one skill if the directory has a `SKILL.md`, otherwise every subdirectory
 that does. Companion files come along; existing skills are left alone unless you pass
-`--force`. Directories that aren't part of a skill — `.venv`, `node_modules`,
-`__pycache__`, `.git` — are excluded, which matters because a skill that vendors a
+`--force`. Directories that aren't part of a skill: `.venv`, `node_modules`,
+`__pycache__`, `.git`: are excluded, which matters because a skill that vendors a
 virtualenv can be hundreds of megabytes.
 
 ## Sharing
 
-Everyone self-hosts, so there is no central index — a share is a code your registry mints
+Everyone self-hosts, so there is no central index: a share is a code your registry mints
 for one folder or skill:
 
 1. Open a folder or skill and hit **Create share code**.
@@ -162,7 +162,7 @@ for one folder or skill:
 3. They paste it into **Import → From a code**, or run `skillbuilder import sb_…`.
 
 The content is copied into their registry, so their copy keeps working even if yours goes
-away. Sharing is opt-in per resource and revocable — **Stop sharing** kills the code
+away. Sharing is opt-in per resource and revocable: **Stop sharing** kills the code
 immediately. A password-protected registry stays private: the only public endpoints are
 the ones serving resources you explicitly shared.
 
@@ -193,12 +193,12 @@ Everything is environment variables. Nothing is baked into the binary.
 | `PORT` | `8080` | Listen port. Most hosts inject this. |
 | `SKILLBUILDER_ADDR` | `127.0.0.1:8080` | Full listen address, if you'd rather set it directly. |
 | `SKILLBUILDER_DATA` | `./data` | Where skills and folders are stored. |
-| `SKILLBUILDER_PASSWORD` | — | Enables auth. **Set this for any public deployment.** |
+| `SKILLBUILDER_PASSWORD` |: | Enables auth. **Set this for any public deployment.** |
 | `SKILLBUILDER_USER` | any | Optional basic-auth username. |
-| `SKILLBUILDER_BASE_URL` | — | Public origin, if behind a proxy or custom domain. |
-| `SKILLBUILDER_SEED_REPO` | — | On first boot, when empty, import every skill from this repo. |
-| `SKILLBUILDER_SEED_FOLDER` | — | Put the seeded skills into a folder with this name. |
-| `GITHUB_TOKEN` | — | Raises the GitHub rate limit (60/hr unauthenticated) and reaches private repos. |
+| `SKILLBUILDER_BASE_URL` |: | Public origin, if behind a proxy or custom domain. |
+| `SKILLBUILDER_SEED_REPO` |: | On first boot, when empty, import every skill from this repo. |
+| `SKILLBUILDER_SEED_FOLDER` |: | Put the seeded skills into a folder with this name. |
+| `GITHUB_TOKEN` |: | Raises the GitHub rate limit (60/hr unauthenticated) and reaches private repos. |
 
 Seeding only runs when the registry is empty, so redeploys never overwrite your edits.
 
@@ -218,8 +218,8 @@ data/
 A skill directory here is byte-for-byte what gets installed into a project, so you can
 also just copy one into `~/.claude/skills/` by hand.
 
-Frontmatter round-trips losslessly. Keys the app doesn't model — `argument-hint`,
-`user-invokable`, anything else you've added — are preserved rather than dropped, and
+Frontmatter round-trips losslessly. Keys the app doesn't model: `argument-hint`,
+`user-invokable`, anything else you've added: are preserved rather than dropped, and
 `allowed-tools` keeps whichever form it was authored in. The parser is tested against a
 library of 116 real-world skills.
 
@@ -248,7 +248,7 @@ make test     # go test ./... -race
 make lint     # go vet + gofmt check
 ```
 
-Contributions are welcome — issues and pull requests both. If you're changing the UI,
+Contributions are welcome: issues and pull requests both. If you're changing the UI,
 `make dev` reloads templates on every request so you don't need to restart.
 
 ## Security notes
@@ -271,7 +271,7 @@ Found something? Open an issue.
 ## Credits
 
 The interface design is heavily inspired by **[animations.dev](https://animations.dev/) by
-[Emil Kowalski](https://emilkowal.ski/)** — the warm neutral palette, the way surfaces
+[Emil Kowalski](https://emilkowal.ski/)**: the warm neutral palette, the way surfaces
 recede instead of lifting, the restraint with the amber accent, and the idea that hierarchy
 should come from weight and brightness rather than size. If you build interfaces, his
 course is worth your time.
@@ -280,4 +280,4 @@ The skill format is Anthropic's [Agent Skills](https://code.claude.com/docs/en/s
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT: see [LICENSE](LICENSE).

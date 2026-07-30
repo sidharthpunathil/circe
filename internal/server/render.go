@@ -102,7 +102,7 @@ func humanBytes(n int64) string {
 
 func humanTime(t time.Time) string {
 	if t.IsZero() {
-		return "—"
+		return "never"
 	}
 	d := time.Since(t)
 	switch {

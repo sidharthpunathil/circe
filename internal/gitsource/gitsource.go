@@ -364,7 +364,7 @@ func ParseRepoURL(s string) (Repo, error) {
 
 	parts := splitPath(p)
 	if len(parts) < 2 {
-		return Repo{}, fmt.Errorf("cannot find owner/repo in %q — expected something like https://github.com/owner/repo", s)
+		return Repo{}, fmt.Errorf("cannot find owner/repo in %q. Expected something like https://github.com/owner/repo", s)
 	}
 
 	r := Repo{Owner: parts[0], Name: strings.TrimSuffix(parts[1], ".git")}

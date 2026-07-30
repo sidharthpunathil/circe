@@ -41,7 +41,7 @@ func runPull(cmd *cobra.Command, flags installFlags) error {
 	}
 	locked := installer.LockedSkills(lf)
 	if len(locked) == 0 {
-		fmt.Fprintln(out, dimStyle.Render("nothing to pull — "+installer.LockfileName+" records no skills"))
+		fmt.Fprintln(out, dimStyle.Render("nothing to pull: "+installer.LockfileName+" records no skills"))
 		return nil
 	}
 

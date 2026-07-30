@@ -115,12 +115,12 @@ func fetchSharePayload(ctx context.Context, origin, id string) (*sharePayload, e
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("cannot reach %s — check the code and that the registry is online", origin)
+		return nil, fmt.Errorf("cannot reach %s; check the code, and that the registry is online", origin)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusNotFound {
-		return nil, fmt.Errorf("that share no longer exists — whoever shared it may have stopped")
+		return nil, fmt.Errorf("that share no longer exists; whoever shared it may have stopped")
 	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("%s returned %d", origin, resp.StatusCode)

@@ -47,7 +47,7 @@ func runListLocal(cmd *cobra.Command, dir string, dirSet bool) error {
 	dir = installer.ResolveDir(dir, dirSet, lf)
 	skills := installer.LockedSkills(lf)
 	if len(skills) == 0 {
-		fmt.Fprintln(out, dimStyle.Render("no skills installed — run `skillbuilder init <bundle>` or `skillbuilder add <skill>`"))
+		fmt.Fprintln(out, dimStyle.Render("no skills installed. Run `skillbuilder <folder>` or `skillbuilder add <skill>`"))
 		return nil
 	}
 
@@ -84,7 +84,7 @@ func runListLocal(cmd *cobra.Command, dir string, dirSet bool) error {
 
 	summary := fmt.Sprintf("%d installed in %s", len(skills), dir)
 	if drifted > 0 {
-		summary += fmt.Sprintf(", %d changed since install — `skillbuilder pull --force` restores them", drifted)
+		summary += fmt.Sprintf(", %d changed since install. `skillbuilder pull --force` restores them", drifted)
 	}
 	fmt.Fprintln(out, dimStyle.Render(summary))
 	return nil

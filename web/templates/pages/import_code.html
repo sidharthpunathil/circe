@@ -1,18 +1,17 @@
 {{ define "content" }}
   <div class="container-page pt-12 pb-16">
-    <p class="eyebrow mb-3">Import</p>
-    <h1 class="text-[32px] md:text-[40px]">From a code</h1>
+    <p class="eyebrow mb-3">Add skills</p>
+    <h1 class="text-[32px] md:text-[40px]">Someone shared skills with you</h1>
     <p class="mt-3 text-[15px] text-fg-3 max-w-[62ch]">
-      Someone running their own Skillbuilder can share a folder or a skill with you. Paste their
-      code here and it gets copied into your registry — your copy is yours, and keeps working even
-      if theirs disappears.
+      Paste the code they sent you. Whatever they shared lands in your registry as your own copy,
+      and stays there whether or not they keep sharing it.
     </p>
 
     <div class="mt-6 flex items-center gap-1 text-[14px] flex-wrap">
-      <a href="/import/repo" class="badge hover:text-fg transition-colors">Repository</a>
-      <a href="/import/file" class="badge hover:text-fg transition-colors">From a file</a>
-      <a href="/import/code" class="badge badge-active">From a code</a>
-      <a href="/import/local" class="badge hover:text-fg transition-colors">Local directory</a>
+      <a href="/import/repo" class="badge hover:text-fg transition-colors">Repo</a>
+      <a href="/import/file" class="badge hover:text-fg transition-colors">Markdown</a>
+      <a href="/import/code" class="badge badge-active">Shared with you</a>
+      <a href="/import/local" class="badge hover:text-fg transition-colors">This machine</a>
     </div>
 
     {{ with .Error }}
@@ -33,7 +32,7 @@
         class="field field-mono flex-1 min-w-[280px]"
         autofocus
       />
-      <button type="submit" class="btn">Look up</button>
+      <button type="submit" class="btn">Take a look</button>
     </form>
 
     {{ with .Preview }}
@@ -80,18 +79,18 @@
         <div class="mt-5 flex flex-col gap-3">
           <label class="flex items-center gap-2.5 text-[13px] text-fg-2 cursor-pointer">
             <input type="checkbox" name="overwrite" value="1" class="accent-accent" />
-            Overwrite skills I already have
+            Replace skills I already have
           </label>
           {{ if eq .Kind "folder" }}
             <label class="flex items-center gap-2.5 text-[13px] text-fg-2 cursor-pointer">
               <input type="checkbox" name="folder" value="1" checked class="accent-accent" />
-              Recreate this as a folder in my registry
+              Keep them together as a folder
             </label>
           {{ end }}
         </div>
 
         <div class="flex flex-wrap items-center gap-2.5 mt-6">
-          <button type="submit" class="btn btn-primary">Import</button>
+          <button type="submit" class="btn btn-primary">Add to my registry</button>
           <a href="/skills" class="btn">Cancel</a>
         </div>
       </form>

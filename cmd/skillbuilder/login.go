@@ -98,7 +98,7 @@ func runLogin(cmd *cobra.Command, url, token string) error {
 		var unauthorized *installer.UnauthorizedError
 		if errors.As(err, &unauthorized) {
 			if client.Token == "" {
-				return fmt.Errorf("%s needs a token — run `skillbuilder login %s` and paste it", url, url)
+				return fmt.Errorf("%s needs a token. Run `skillbuilder login %s` and paste it", url, url)
 			}
 			return fmt.Errorf("%s rejected that token", url)
 		}

@@ -51,7 +51,7 @@ func runInit(cmd *cobra.Command, bundle string, takeAll bool, flags installFlags
 	manifest, err := client.GetBundle(ctx, bundle)
 	if err != nil {
 		if installer.IsNotFound(err) {
-			return fmt.Errorf("no bundle named %q at %s — try `skillbuilder list --remote`: %w", bundle, client.BaseURL, err)
+			return fmt.Errorf("no folder named %q at %s. Try `skillbuilder list --remote`: %w", bundle, client.BaseURL, err)
 		}
 		return err
 	}
@@ -96,7 +96,7 @@ func chooseBundleSkills(manifest *api.BundleManifest, takeAll bool) ([]string, e
 		return skillNames(manifest.Skills), nil
 	}
 	if !interactive() {
-		return nil, errors.New("stdin is not a terminal, so the skill picker cannot run — pass -y to install every skill in the bundle")
+		return nil, errors.New("stdin is not a terminal, so the skill picker cannot run. Pass -y to install every skill in the folder")
 	}
 	title := manifest.Bundle.Title
 	if title == "" {
@@ -104,7 +104,7 @@ func chooseBundleSkills(manifest *api.BundleManifest, takeAll bool) ([]string, e
 	}
 	// A bundle is already a curated set, so everything starts selected and the
 	// user opts out rather than in.
-	return selectSkills(fmt.Sprintf("%s — %d skills", title, len(manifest.Skills)), manifest.Skills, true)
+	return selectSkills(fmt.Sprintf("%s · %d skills", title, len(manifest.Skills)), manifest.Skills, true)
 }
 
 // installSelection downloads through the bundle archive when the whole bundle

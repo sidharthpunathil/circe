@@ -102,15 +102,15 @@ type APIError struct {
 func (e *APIError) Error() string {
 	switch {
 	case e.Status == http.StatusNotFound:
-		return fmt.Sprintf("repository not found or private — set %s to access private repositories", e.tokenEnv())
+		return fmt.Sprintf("repository not found or private. Set %s to access private repositories", e.tokenEnv())
 	case e.rateLimited:
 		if e.RateLimitReset.IsZero() {
-			return fmt.Sprintf("%s rate limit reached — set %s to raise it", e.providerLabel(), e.tokenEnv())
+			return fmt.Sprintf("%s rate limit reached. Set %s to raise it", e.providerLabel(), e.tokenEnv())
 		}
-		return fmt.Sprintf(e.providerLabel()+" rate limit reached, resets at %s — set "+e.tokenEnv()+" to raise it",
+		return fmt.Sprintf(e.providerLabel()+" rate limit reached, resets at %s. Set "+e.tokenEnv()+" to raise it",
 			e.RateLimitReset.Local().Format("15:04 MST"))
 	case e.Status == http.StatusUnauthorized:
-		return fmt.Sprintf("%s rejected the credentials — check %s", e.providerLabel(), e.tokenEnv())
+		return fmt.Sprintf("%s rejected the credentials. Check %s", e.providerLabel(), e.tokenEnv())
 	case e.Message != "":
 		return fmt.Sprintf("GitHub returned %d: %s", e.Status, e.Message)
 	default:

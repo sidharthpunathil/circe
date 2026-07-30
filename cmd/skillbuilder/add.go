@@ -15,7 +15,7 @@ func newAddCmd() *cobra.Command {
 		Use:   "add [skill...]",
 		Short: "Install individual skills",
 		Long: "Install skills by name. With no names, pick from everything in the\n" +
-			"registry — which needs a terminal, so pass names explicitly in CI.",
+			"registry, which needs a terminal, so pass names explicitly in CI.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runAdd(cmd, args, flags)
 		},
@@ -39,7 +39,7 @@ func runAdd(cmd *cobra.Command, names []string, flags installFlags) error {
 
 	if len(names) == 0 {
 		if !interactive() {
-			return errors.New("stdin is not a terminal, so the skill picker cannot run — name the skills to add, e.g. `skillbuilder add brand-design`")
+			return errors.New("stdin is not a terminal, so the skill picker cannot run. Name the skills to add, e.g. `skillbuilder add brand-design`")
 		}
 		resp, err := client.ListSkills(ctx, "", "")
 		if err != nil {
@@ -62,7 +62,7 @@ func runAdd(cmd *cobra.Command, names []string, flags installFlags) error {
 	results, err := installer.Install(ctx, client, names, flags.optionsIn(dir))
 	if err != nil {
 		if installer.IsNotFound(err) {
-			return fmt.Errorf("the registry does not have all of %v — try `skillbuilder search`: %w", names, err)
+			return fmt.Errorf("the registry does not have all of %v. Try `skillbuilder search`: %w", names, err)
 		}
 		return err
 	}

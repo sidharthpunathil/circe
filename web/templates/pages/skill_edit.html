@@ -16,8 +16,8 @@
 
     <h1 class="text-[32px] md:text-[40px]">{{ if .IsNew }}New skill{{ else }}Edit skill{{ end }}</h1>
     <p class="mt-3 text-[15px] text-fg-3 max-w-[60ch]">
-      A skill is a <span class="font-mono text-[13px] text-fg-2">SKILL.md</span> file: YAML
-      frontmatter describing when to use it, then markdown instructions for the agent.
+      Teach Claude to do something. The description is how it decides when this applies. The
+      instructions are what it follows once it does.
     </p>
 
     {{ with .Error }}
@@ -49,8 +49,8 @@
             {{ if not .IsNew }}data-rename-from="{{ .Skill.Name }}"{{ end }}
           />
           <p class="hint">
-            Lowercase letters, digits and hyphens. This becomes the directory name.
-            {{ if not .IsNew }}Renaming moves the folder and updates bundles.{{ end }}
+            Lowercase, hyphens between words.
+            {{ if not .IsNew }}Renaming is safe: folders follow along.{{ end }}
           </p>
         </div>
 
@@ -63,7 +63,7 @@
             placeholder="design, frontend, review"
             class="field"
           />
-          <p class="hint">Comma separated. Used for filtering.</p>
+          <p class="hint">Comma separated. Makes things easier to find later.</p>
         </div>
       </div>
 
@@ -76,13 +76,13 @@
           rows="3"
           maxlength="1024"
           data-counter="description-count"
-          placeholder="What this does, and when the agent should use it. Include trigger phrases."
+          placeholder="What this does, and when Claude should reach for it."
           class="field resize-y leading-relaxed"
         >{{ .Form.Description }}</textarea>
         <p class="hint flex justify-between gap-3">
           <span
-            >This is the only thing the model sees when deciding whether to load the skill. Say what
-            it does <em>and</em> when to use it. No <code>&lt;</code> or <code>&gt;</code>.</span
+            >This is all Claude sees when deciding whether to use this skill, so say what it does
+            <em>and</em> when it applies.</span
           >
           <span class="font-mono shrink-0" id="description-count">0/1024</span>
         </p>
@@ -94,13 +94,12 @@
           id="body"
           name="body"
           rows="18"
-          placeholder="# My Skill&#10;&#10;Steps the agent should follow…"
+          placeholder="# My Skill&#10;&#10;What Claude should actually do…"
           class="field field-mono resize-y leading-[1.6]"
           spellcheck="false"
         >{{ .Form.Body }}</textarea>
         <p class="hint">
-          Markdown. Keep it under 500 lines — move long reference material into separate files and
-          link to them.
+          Keep it tight. Anything long belongs in its own file alongside, linked from here.
         </p>
       </div>
 
@@ -108,8 +107,8 @@
         <div>
           <span class="label mb-0">Folders</span>
           <p class="hint mt-1 mb-2.5">
-            Folders are what the CLI installs — <span class="font-mono">skillbuilder &lt;folder&gt;</span>
-            drops every skill in one into a project.
+            Folders are what you install. <span class="font-mono">skillbuilder &lt;folder&gt;</span>
+            pulls in everything inside one.
           </p>
           <div class="flex flex-wrap gap-2">
             {{ $inB := .InB }}

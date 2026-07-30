@@ -2,20 +2,20 @@
   <section class="container-page pt-16 pb-12 md:pt-24 md:pb-16">
     <h1 class="text-[40px] md:text-[56px] max-w-[15ch]">Skillbuilder</h1>
     <p class="mt-5 text-[17px] md:text-[20px] leading-[1.5] tracking-[-0.03em] text-fg-3 max-w-[54ch]">
-      A personal registry for your Claude agent skills. Write them once, group them into folders,
-      and install them into any project from the command line.
+      Every skill you’ve written, in one place. Group the ones that belong together, then drop the
+      whole set into any project with a single command.
     </p>
 
     <div class="mt-8 flex flex-wrap items-center gap-2.5">
       <a href="/skills/new" class="btn btn-primary">New skill</a>
-      <a href="/import" class="btn">Import from ~/.claude/skills</a>
+      <a href="/import/repo" class="btn">Add existing skills</a>
     </div>
 
     <div class="mt-10 flex flex-wrap items-center gap-x-7 gap-y-2 meta">
-      <span><span class="text-fg">{{ .Stats.Skills }}</span> skills</span>
-      <span><span class="text-fg">{{ .Stats.Bundles }}</span> folders</span>
+      <span><span class="text-fg">{{ .Stats.Skills }}</span> {{ pluralize .Stats.Skills "skill" "skills" }}</span>
+      <span><span class="text-fg">{{ .Stats.Bundles }}</span> {{ pluralize .Stats.Bundles "folder" "folders" }}</span>
       {{ if .Stats.Tags }}
-        <span><span class="text-fg">{{ .Stats.Tags }}</span> tags</span>
+        <span><span class="text-fg">{{ .Stats.Tags }}</span> {{ pluralize .Stats.Tags "tag" "tags" }}</span>
       {{ end }}
       <span><span class="text-fg">{{ bytes .Stats.Size }}</span> on disk</span>
     </div>
@@ -24,7 +24,7 @@
   {{ if .Bundles }}
     <section class="container-page pb-14">
       <div class="flex items-baseline justify-between mb-5">
-        <h2 class="text-[24px] md:text-[28px]">Folders</h2>
+        <h2 class="text-[24px] md:text-[28px]">Your folders</h2>
         <a href="/bundles" class="text-[14px] text-fg-3 hover:text-fg transition-colors">View all</a>
       </div>
 
@@ -58,7 +58,7 @@
   <section class="container-page pb-16">
     <div class="flex items-baseline justify-between mb-5">
       <h2 class="text-[24px] md:text-[28px]">
-        {{ if .Query }}Results{{ else }}Recently updated{{ end }}
+        {{ if .Query }}Results{{ else }}Latest changes{{ end }}
       </h2>
       <a href="/skills" class="text-[14px] text-fg-3 hover:text-fg transition-colors">View all</a>
     </div>
@@ -70,10 +70,10 @@
     {{ else }}
       {{ template "empty"
         (dict
-          "Title" "No skills yet"
-          "Body" "Create your first skill, or import the ones you already have in ~/.claude/skills."
+          "Title" "Nothing here yet"
+          "Body" "Write your first skill, or bring across the ones you already have."
           "Action" "/skills/new"
-          "ActionLabel" "Create a skill"
+          "ActionLabel" "Write a skill"
         )
       }}
     {{ end }}

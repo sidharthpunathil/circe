@@ -142,7 +142,7 @@ func printResults(w io.Writer, results []installer.Result, dir string, dryRun bo
 		line := "  " + mark + " " + pad(r.Name, col) + "  " + style.Render(string(r.Status))
 		if r.Reason != "" {
 			if reason := truncate(r.Reason, width-lipgloss.Width(line)-4); reason != "" {
-				line += dimStyle.Render(" — " + reason)
+				line += dimStyle.Render(" · " + reason)
 			}
 		}
 		fmt.Fprintln(w, line)
@@ -157,7 +157,7 @@ func printResults(w io.Writer, results []installer.Result, dir string, dryRun bo
 	}
 	summary := strings.Join(parts, ", ")
 	if dryRun {
-		fmt.Fprintln(w, dimStyle.Render("dry run — "+summary+"; nothing was written"))
+		fmt.Fprintln(w, dimStyle.Render("dry run: "+summary+"; nothing was written"))
 		return
 	}
 	fmt.Fprintln(w, dimStyle.Render(summary+" in "+dir))

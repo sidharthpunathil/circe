@@ -472,7 +472,7 @@ func TestSiteNameAndDescriptionComeFromEnv(t *testing.T) {
 	if m.Description != "Internal agent skills for Acme." {
 		t.Errorf("Description = %q", m.Description)
 	}
-	if got := metaFor(s, "/skills/code-review").Title; !strings.HasSuffix(got, "— Acme Skills") {
+	if got := metaFor(s, "/skills/code-review").Title; !strings.HasSuffix(got, "· Acme Skills") {
 		t.Errorf("skill title should carry the configured site name, got %q", got)
 	}
 }

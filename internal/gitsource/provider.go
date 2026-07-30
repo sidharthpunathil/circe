@@ -237,5 +237,5 @@ func SupportedProviders() []string {
 }
 
 func unsupportedHostError(host string) error {
-	return fmt.Errorf("could not work out what kind of git host %q is — GitHub, GitLab, Bitbucket, Codeberg, Gitea and Forgejo are supported", host)
+	return fmt.Errorf("could not work out what kind of git host %q is. GitHub, GitLab, Bitbucket, Codeberg, Gitea and Forgejo are supported", host)
 }

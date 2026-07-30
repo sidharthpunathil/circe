@@ -104,14 +104,14 @@ func (s *Server) handleSkillsBulk(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(names) == 0 {
-		s.setFlash(w, "error", "Select at least one skill first.")
+		s.setFlash(w, "error", "Pick at least one skill first.")
 		http.Redirect(w, r, back, http.StatusSeeOther)
 		return
 	}
 
 	b, err := s.store.Bundle(target)
 	if err != nil {
-		s.setFlash(w, "error", fmt.Sprintf("No folder named %q.", target))
+		s.setFlash(w, "error", fmt.Sprintf("There is no folder called %q.", target))
 		http.Redirect(w, r, back, http.StatusSeeOther)
 		return
 	}
@@ -137,7 +137,7 @@ func (s *Server) handleSkillsBulk(w http.ResponseWriter, r *http.Request) {
 
 	switch {
 	case added == 0:
-		s.setFlash(w, "ok", fmt.Sprintf("Everything selected was already in %s.", b.DisplayTitle()))
+		s.setFlash(w, "ok", fmt.Sprintf("Those were already in %s.", b.DisplayTitle()))
 	default:
 		s.setFlash(w, "ok", fmt.Sprintf("Added %d %s to %s.", added, plural(added, "skill", "skills"), b.DisplayTitle()))
 	}
@@ -361,13 +361,13 @@ func validateSkillForm(f skillForm) string {
 		return "Name: " + err.Error()
 	}
 	if f.Description == "" {
-		return "A description is required — it is how the agent decides when to use the skill."
+		return "Add a description. It is how Claude decides when to use this skill."
 	}
 	if utf8.RuneCountInString(f.Description) > skillfile.MaxDescriptionLen {
 		return fmt.Sprintf("Description must be %d characters or fewer.", skillfile.MaxDescriptionLen)
 	}
 	if strings.ContainsAny(f.Description, "<>") {
-		return "Description must not contain < or > characters."
+		return "Descriptions can't contain < or > characters."
 	}
 	if utf8.RuneCountInString(f.Compatibility) > skillfile.MaxCompatibilityLen {
 		return fmt.Sprintf("Compatibility must be %d characters or fewer.", skillfile.MaxCompatibilityLen)
@@ -929,7 +929,7 @@ func (s *Server) handleImportRun(w http.ResponseWriter, r *http.Request) {
 	overwrite := r.FormValue("overwrite") == "1"
 
 	if len(names) == 0 {
-		s.setFlash(w, "error", "Select at least one skill to import.")
+		s.setFlash(w, "error", "Pick at least one skill first.")
 		http.Redirect(w, r, "/import/local?src="+urlQueryEscape(src), http.StatusSeeOther)
 		return
 	}

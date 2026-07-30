@@ -178,17 +178,17 @@ func EncodeShareCode(origin, id string) string {
 func DecodeShareCode(input string) (origin, id string, err error) {
 	in := strings.TrimSpace(input)
 	if in == "" {
-		return "", "", fmt.Errorf("paste a share code or link")
+		return "", "", fmt.Errorf("paste the code or link you were sent")
 	}
 
 	if strings.HasPrefix(in, codePrefix) {
 		raw, decErr := base64.RawURLEncoding.DecodeString(strings.TrimPrefix(in, codePrefix))
 		if decErr != nil {
-			return "", "", fmt.Errorf("that share code is not valid")
+			return "", "", fmt.Errorf("that code doesn't look right")
 		}
 		origin, id, ok := strings.Cut(string(raw), "|")
 		if !ok || origin == "" || id == "" {
-			return "", "", fmt.Errorf("that share code is not valid")
+			return "", "", fmt.Errorf("that code doesn't look right")
 		}
 		return normalizeOrigin(origin), id, nil
 	}
@@ -198,12 +198,12 @@ func DecodeShareCode(input string) (origin, id string, err error) {
 		before, after, _ := strings.Cut(in, "/s/")
 		id = strings.Trim(strings.SplitN(after, "?", 2)[0], "/")
 		if before == "" || id == "" {
-			return "", "", fmt.Errorf("that share link is not valid")
+			return "", "", fmt.Errorf("that link doesn't look right")
 		}
 		return normalizeOrigin(before), id, nil
 	}
 
-	return "", "", fmt.Errorf("expected a share code starting with %s, or a share link", codePrefix)
+	return "", "", fmt.Errorf("expected a code starting with %s, or a share link", codePrefix)
 }
 
 // normalizeOrigin ensures a scheme, defaulting to https for anything that is

@@ -16,7 +16,7 @@ on first boot.
 
 Costs are small: a ~15 MB image, ~20 MB of RAM at idle, effectively no CPU, and a volume
 measured in megabytes. Turn on **App Sleeping** and an idle registry costs close to
-nothing — a Go binary cold-starts in about 100 ms.
+nothing: a Go binary cold-starts in about 100 ms.
 
 ## Docker
 
@@ -29,7 +29,7 @@ docker run -d -p 8080:8080 \
 
 ## Anywhere else
 
-The binary is self-contained — templates, stylesheet and fonts are embedded.
+The binary is self-contained: templates, stylesheet and fonts are embedded.
 
 ```bash
 SKILLBUILDER_PASSWORD=… SKILLBUILDER_DATA=/var/lib/skillbuilder ./skillbuilder-server
@@ -45,15 +45,15 @@ origin so install commands and share links render correctly.
 | `PORT` | `8080` | Listen port. Most hosts inject this. Binds `0.0.0.0` when set. |
 | `SKILLBUILDER_ADDR` | `127.0.0.1:8080` | Full listen address. |
 | `SKILLBUILDER_DATA` | `./data` | Storage directory. |
-| `SKILLBUILDER_PASSWORD` | — | Enables authentication. |
+| `SKILLBUILDER_PASSWORD` |: | Enables authentication. |
 | `SKILLBUILDER_USER` | any | Optional basic-auth username. |
-| `SKILLBUILDER_BASE_URL` | — | Public origin, behind a proxy. |
-| `SKILLBUILDER_SEED_REPO` | — | Import from this repo when the registry is empty. |
-| `SKILLBUILDER_SEED_FOLDER` | — | Folder to put seeded skills in. |
-| `GITHUB_TOKEN` | — | Raises GitHub's 60/hr limit and reaches private repos. |
-| `GITLAB_TOKEN` | — | Same, for GitLab. |
-| `GITEA_TOKEN` | — | Same, for Gitea/Forgejo/Codeberg. |
-| `BITBUCKET_TOKEN` | — | Same, for Bitbucket. |
+| `SKILLBUILDER_BASE_URL` |: | Public origin, behind a proxy. |
+| `SKILLBUILDER_SEED_REPO` |: | Import from this repo when the registry is empty. |
+| `SKILLBUILDER_SEED_FOLDER` |: | Folder to put seeded skills in. |
+| `GITHUB_TOKEN` |: | Raises GitHub's 60/hr limit and reaches private repos. |
+| `GITLAB_TOKEN` |: | Same, for GitLab. |
+| `GITEA_TOKEN` |: | Same, for Gitea/Forgejo/Codeberg. |
+| `BITBUCKET_TOKEN` |: | Same, for Bitbucket. |
 
 ## Getting skills in
 
@@ -62,9 +62,9 @@ Four routes, on the Import page:
 | Source | Works when |
 | --- | --- |
 | Local directory | The registry runs on the same machine as the skills. |
-| Repository | Always — GitHub, GitLab, Bitbucket, Codeberg, Gitea, Forgejo. |
-| From a file | Always — you paste or upload the markdown. |
-| From a code | Always — someone shared a folder or skill with you. |
+| Repository | Always: GitHub, GitLab, Bitbucket, Codeberg, Gitea, Forgejo. |
+| From a file | Always: you paste or upload the markdown. |
+| From a code | Always: someone shared a folder or skill with you. |
 
 For a hosted registry, `skillbuilder push ~/.claude/skills` from your own machine is
 usually the fastest way to move an existing library up.
@@ -93,7 +93,7 @@ directory back.
   password, so changing the password signs everyone out.
 - The CLI authenticates with `Authorization: Bearer <password>`.
 - **Only these paths are public:** `/api/v1/health`, `/login`, static assets, OG images,
-  and `/s/…` plus `/api/v1/share/…` — which serve *only* resources you explicitly shared.
+  and `/s/…` plus `/api/v1/share/…`: which serve *only* resources you explicitly shared.
 - Cross-origin mutations are rejected, bundled-file paths are checked against traversal
   and symlink escapes, archive extraction rejects Zip-Slip entries, and markdown renders
   with raw HTML escaped so an imported third-party skill can't inject script.

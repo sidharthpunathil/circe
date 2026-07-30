@@ -143,7 +143,7 @@ func applyContext(out io.Writer, root, folder string, files map[string]string, m
 	switch m {
 	case installer.ContextMerge, installer.ContextSkip, installer.ContextOverwrite:
 	default:
-		return fmt.Errorf("unknown --context mode %q — use merge, skip or overwrite", mode)
+		return fmt.Errorf("unknown --context mode %q. Use merge, skip or overwrite", mode)
 	}
 
 	names := make([]string, 0, len(files))

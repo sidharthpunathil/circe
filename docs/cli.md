@@ -30,7 +30,7 @@ Install individual skills. With no arguments, opens a picker over the whole regi
 
 ### `skillbuilder import <code>`
 
-Install from a share code someone gave you. Needs no configuration at all — the code
+Install from a share code someone gave you. Needs no configuration at all: the code
 carries the origin registry.
 
 ## Keeping skills current
@@ -66,7 +66,7 @@ If the directory has a `SKILL.md` it's treated as one skill; otherwise every sub
 that has one is published. Companion files come along. Existing skills are left alone
 unless you pass `--force`.
 
-`.git`, `node_modules`, `__pycache__`, `.venv` and `evals` are excluded — a skill that
+`.git`, `node_modules`, `__pycache__`, `.venv` and `evals` are excluded: a skill that
 vendors a virtualenv would otherwise be hundreds of megabytes.
 
 | Flag | Purpose |

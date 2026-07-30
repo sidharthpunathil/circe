@@ -180,7 +180,7 @@ func (s *Server) handleShareCreate(w http.ResponseWriter, r *http.Request) {
 	if _, err := s.store.CreateShare(kind, name); err != nil {
 		s.setFlash(w, "error", err.Error())
 	} else {
-		s.setFlash(w, "ok", "Share link created. Anyone with the code can import this, until you stop sharing.")
+		s.setFlash(w, "ok", "Ready to share. Anyone with this code can take a copy until you stop sharing.")
 	}
 	http.Redirect(w, r, back, http.StatusSeeOther)
 }
@@ -190,7 +190,7 @@ func (s *Server) handleShareRevoke(w http.ResponseWriter, r *http.Request) {
 	if err := s.store.RevokeShare(kind, name); err != nil {
 		s.setFlash(w, "error", err.Error())
 	} else {
-		s.setFlash(w, "ok", "Sharing stopped. The old code no longer works.")
+		s.setFlash(w, "ok", "Sharing stopped. That code no longer works.")
 	}
 	http.Redirect(w, r, back, http.StatusSeeOther)
 }
@@ -258,12 +258,12 @@ func (s *Server) fetchShare(r *http.Request, code string) (*sharePayload, string
 
 	resp, err := shareClient.Do(req)
 	if err != nil {
-		return nil, origin, fmt.Errorf("cannot reach %s — check the code and that the registry is online", origin)
+		return nil, origin, fmt.Errorf("couldn't reach %s; check the code, and that their registry is up", origin)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusNotFound {
-		return nil, origin, fmt.Errorf("that share no longer exists — the owner may have stopped sharing it")
+		return nil, origin, fmt.Errorf("that share is gone; whoever sent it may have stopped sharing")
 	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, origin, fmt.Errorf("%s returned %d", origin, resp.StatusCode)

@@ -231,7 +231,7 @@ func runPush(cmd *cobra.Command, dir string, tags []string, dryRun bool) error {
 		verb = "updated"
 	}
 	if dryRun {
-		fmt.Fprintln(out, dimStyle.Render(fmt.Sprintf("dry run — would have %s %s at %s (%d bytes, tags: %s)",
+		fmt.Fprintln(out, dimStyle.Render(fmt.Sprintf("dry run: would have %s %s at %s (%d bytes, tags: %s)",
 			verb, req.Name, client.BaseURL, len(req.Body), describeTags(req.Tags))))
 		return nil
 	}
@@ -258,12 +258,12 @@ func readSkillDir(dir string, tags []string) (installer.PushRequest, []string, e
 		return req, nil, fmt.Errorf("read %s: %w", dir, err)
 	}
 	if !info.IsDir() {
-		return req, nil, fmt.Errorf("%s is not a directory — push takes a skill directory containing SKILL.md", dir)
+		return req, nil, fmt.Errorf("%s is not a directory. Push takes a skill directory containing SKILL.md", dir)
 	}
 
 	src, err := os.ReadFile(filepath.Join(dir, "SKILL.md"))
 	if errors.Is(err, fs.ErrNotExist) {
-		return req, nil, fmt.Errorf("no SKILL.md in %s — a skill directory must contain one", dir)
+		return req, nil, fmt.Errorf("no SKILL.md in %s; a skill directory must contain one", dir)
 	}
 	if err != nil {
 		return req, nil, fmt.Errorf("read SKILL.md: %w", err)
@@ -287,7 +287,7 @@ func readSkillDir(dir string, tags []string) (installer.PushRequest, []string, e
 		}
 	}
 	if len(fatal) > 0 {
-		return req, nil, fmt.Errorf("%s is not a valid skill — %s", dir, strings.Join(fatal, "; "))
+		return req, nil, fmt.Errorf("%s is not a valid skill: %s", dir, strings.Join(fatal, "; "))
 	}
 
 	extra, err := companionFiles(dir)
@@ -333,7 +333,7 @@ func readSkillDir(dir string, tags []string) (installer.PushRequest, []string, e
 	}
 	if total > maxPushPayload {
 		return req, unpublished, fmt.Errorf(
-			"%s is %s of text across %d files, over the %d MiB limit — %s",
+			"%s is %s of text across %d files, over the %d MiB limit. %s",
 			f.Name, humanSize(total), len(files)+1, maxPushPayload>>20,
 			"trim it, or keep large assets out of the skill directory")
 	}

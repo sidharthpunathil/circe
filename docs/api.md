@@ -58,7 +58,7 @@ One top-level directory per skill.
 
 ## Shares
 
-Public — no credentials, and only for resources explicitly shared.
+Public: no credentials, and only for resources explicitly shared.
 
 ```
 GET /api/v1/share/{id}                   what is shared

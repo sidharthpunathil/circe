@@ -1,10 +1,10 @@
 {{ define "content" }}
   <div class="container-page pt-12 pb-16">
-    <p class="eyebrow mb-3">Backup</p>
-    <h1 class="text-[32px] md:text-[40px]">Import skills</h1>
+    <p class="eyebrow mb-3">Add skills</p>
+    <h1 class="text-[32px] md:text-[40px]">Skills already on this machine</h1>
     <p class="mt-3 text-[15px] text-fg-3 max-w-[62ch]">
-      Copy skills from a directory on this machine into your registry. Symlinked skills are followed
-      and copied by value, so the registry becomes a real backup rather than a set of pointers.
+      Point at a folder and we’ll pull in everything that looks like a skill. You get real copies,
+      not shortcuts, so this doubles as a backup.
     </p>
 
     {{ with .Error }}
@@ -18,15 +18,15 @@
 
     {{ if .Remote }}
       <div class="mt-6 max-w-[860px] rounded-card border border-line bg-card p-5">
-        <p class="text-[15px] font-medium text-fg">This registry can't see your machine</p>
+        <p class="text-[15px] font-medium text-fg">Your skills are on your machine, not here</p>
         <p class="mt-2 text-[13.5px] text-fg-2 leading-relaxed">
-          Scanning reads the filesystem of whatever machine the registry runs on. This one is
-          hosted, so <span class="font-mono text-[12.5px]">{{ .Source }}</span> doesn't exist
-          there. Push your skills up from your own machine instead.
+          This registry lives in the cloud, so it can’t reach
+          <span class="font-mono text-[12.5px]">{{ .Source }}</span> on your laptop. Send them up
+          from your terminal instead. Two commands and you’re done.
         </p>
 
         <div class="mt-4 flex flex-col gap-2">
-          <p class="eyebrow">One-time setup</p>
+          <p class="eyebrow">First, connect</p>
           <div
             class="flex items-center gap-2 rounded-[10px] border border-line-soft bg-surface px-3.5 py-2.5"
           >
@@ -43,7 +43,7 @@
             </button>
           </div>
 
-          <p class="eyebrow mt-2">Push one skill</p>
+          <p class="eyebrow mt-2">Then send one skill</p>
           <div
             class="flex items-center gap-2 rounded-[10px] border border-line-soft bg-surface px-3.5 py-2.5"
           >
@@ -60,7 +60,7 @@
             </button>
           </div>
 
-          <p class="eyebrow mt-2">Or the whole library at once</p>
+          <p class="eyebrow mt-2">Or everything at once</p>
           <div
             class="flex items-center gap-2 rounded-[10px] border border-line-soft bg-surface px-3.5 py-2.5"
           >
@@ -79,21 +79,20 @@
         </div>
 
         <p class="hint">
-          Point it at one skill directory or a directory of them — it works out which. Companion
-          files come along, and existing skills are left alone unless you add
-          <span class="font-mono">--force</span>. Or use
-          <a href="/import/repo" class="text-fg-2 underline underline-offset-2">Repository</a>
-          and <a href="/import/code" class="text-fg-2 underline underline-offset-2">From a code</a>,
+          Point it at one skill or a whole folder of them and it works out which. Everything that
+          belongs to a skill comes along, and nothing you already have gets overwritten. Or try
+          <a href="/import/repo" class="text-fg-2 underline underline-offset-2">a repo</a>
+          and <a href="/import/code" class="text-fg-2 underline underline-offset-2">a share code</a>,
           which both work from anywhere.
         </p>
       </div>
     {{ end }}
 
     <div class="mt-6 flex items-center gap-1 text-[14px] flex-wrap">
-      <a href="/import/repo" class="badge hover:text-fg transition-colors">Repository</a>
-      <a href="/import/file" class="badge hover:text-fg transition-colors">From a file</a>
-      <a href="/import/code" class="badge hover:text-fg transition-colors">From a code</a>
-      <a href="/import/local" class="badge badge-active">Local directory</a>
+      <a href="/import/repo" class="badge hover:text-fg transition-colors">Repo</a>
+      <a href="/import/file" class="badge hover:text-fg transition-colors">Markdown</a>
+      <a href="/import/code" class="badge hover:text-fg transition-colors">Shared with you</a>
+      <a href="/import/local" class="badge badge-active">This machine</a>
     </div>
 
     <form method="get" action="/import/local" class="mt-6 flex flex-wrap gap-2 max-w-[860px]">
@@ -104,7 +103,7 @@
         aria-label="Source directory"
         class="field field-mono flex-1 min-w-[260px]"
       />
-      <button type="submit" class="btn">Scan</button>
+      <button type="submit" class="btn">Look inside</button>
     </form>
 
     {{ if .Candidates }}
@@ -162,11 +161,11 @@
 
         <label class="flex items-center gap-2.5 mt-5 text-[13px] text-fg-2 cursor-pointer">
           <input type="checkbox" name="overwrite" value="1" class="accent-accent" />
-          Overwrite skills that already exist in the registry
+          Replace skills I already have
         </label>
 
         <div class="flex flex-wrap items-center gap-2.5 mt-6">
-          <button type="submit" class="btn btn-primary">Import selected</button>
+          <button type="submit" class="btn btn-primary">Add selected</button>
           <a href="/skills" class="btn">Cancel</a>
         </div>
       </form>
@@ -175,7 +174,7 @@
         {{ template "empty"
           (dict
             "Title" "No skills found"
-            "Body" "That directory has no subdirectories containing a SKILL.md file."
+            "Body" "Nothing in that folder looks like a skill."
             "Action" ""
             "ActionLabel" ""
           )

@@ -156,7 +156,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// so state-changing requests must prove they came from this origin.
 	if isMutation(r.Method) && !s.sameOrigin(r) {
 		s.renderError(w, r, http.StatusForbidden, "Blocked",
-			"That request did not come from this site, so it was refused.")
+			"That request didn't come from this site, so we blocked it.")
 		return
 	}
 	s.mux.ServeHTTP(w, r)
@@ -337,7 +337,7 @@ func (s *Server) renderError(w http.ResponseWriter, r *http.Request, status int,
 
 func (s *Server) notFound(w http.ResponseWriter, r *http.Request, what string) {
 	s.renderError(w, r, http.StatusNotFound, "Not found",
-		fmt.Sprintf("There is no %s here. It may have been renamed or deleted.", what))
+		fmt.Sprintf("We couldn't find that %s. It may have been renamed or removed.", what))
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {

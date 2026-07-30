@@ -48,7 +48,7 @@ type UnreachableError struct {
 }
 
 func (e *UnreachableError) Error() string {
-	return fmt.Sprintf("cannot reach registry at %s — is the server running?", e.Registry)
+	return fmt.Sprintf("cannot reach registry at %s; is the server running?", e.Registry)
 }
 
 func (e *UnreachableError) Unwrap() error { return e.Err }
@@ -57,7 +57,7 @@ func (e *UnreachableError) Unwrap() error { return e.Err }
 type UnauthorizedError struct{ Registry string }
 
 func (e *UnauthorizedError) Error() string {
-	return fmt.Sprintf("%s requires a token — set $%s or run `skillbuilder config set token <token>`",
+	return fmt.Sprintf("%s requires a token. Set $%s, or run `skillbuilder config set token <token>`",
 		e.Registry, EnvToken)
 }
 

@@ -68,7 +68,7 @@ func runRemove(cmd *cobra.Command, names []string, dir string, dirSet bool, dryR
 	}
 
 	if dryRun {
-		fmt.Fprintln(out, dimStyle.Render(fmt.Sprintf("dry run — %d of %d would be removed; nothing was deleted", removed, len(names))))
+		fmt.Fprintln(out, dimStyle.Render(fmt.Sprintf("dry run: %d of %d would be removed; nothing was deleted", removed, len(names))))
 		return nil
 	}
 	fmt.Fprintln(out, dimStyle.Render(fmt.Sprintf("%d removed from %s", removed, dir)))

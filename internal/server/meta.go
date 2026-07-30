@@ -107,7 +107,7 @@ func pageTitle(title, site string) string {
 	case title == "", title == site:
 		return site
 	default:
-		return clipRunes(title+" — "+site, metaTitleMax)
+		return clipRunes(title+" · "+site, metaTitleMax)
 	}
 }
 
@@ -287,7 +287,7 @@ func (s *Server) skillsMeta(r *http.Request) PageMeta {
 	in := metaInput{
 		Path:  "/skills",
 		Title: "Skills",
-		Description: fmt.Sprintf("Every skill in this %s registry — %d in total, searchable by name, description and tag.",
+		Description: fmt.Sprintf("Every skill in this %s registry. %d in total, searchable by name, description and tag.",
 			s.siteName(), s.store.SkillCount()),
 	}
 	switch {
@@ -336,7 +336,7 @@ func (s *Server) skillRouteMeta(r *http.Request, rest string) PageMeta {
 		Description: sk.Description,
 		Type:        "article",
 		ImagePath:   ogPath("skill", sk.Name),
-		ImageAlt:    sk.Name + " — " + metaDescription(sk.Description),
+		ImageAlt:    sk.Name + " · " + metaDescription(sk.Description),
 		JSONLD:      s.skillLD(r, sk),
 	})
 }
@@ -345,7 +345,7 @@ func (s *Server) bundlesMeta(r *http.Request) PageMeta {
 	in := metaInput{
 		Path:  "/bundles",
 		Title: "Folders",
-		Description: fmt.Sprintf("Skill folders in this %s registry — %d groups you can install together in one command.",
+		Description: fmt.Sprintf("Skill folders in this %s registry. %d groups you can install together in one command.",
 			s.siteName(), s.store.BundleCount()),
 	}
 	in.JSONLD = s.collectionLD(r, in.Title, in.Description, "/bundles")

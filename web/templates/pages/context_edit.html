@@ -12,10 +12,10 @@
 
     <h1 class="text-[28px] md:text-[32px] font-mono tracking-[-0.02em]">{{ .File }}</h1>
     <p class="mt-3 text-[15px] text-fg-3 max-w-[64ch]">
-      Project instructions that ship with <span class="text-fg-2">{{ .Bundle.DisplayTitle }}</span>.
-      Installing the folder merges this into the project's own
-      <span class="font-mono text-[13px]">{{ .File }}</span> inside a marked block, so anything
-      already in that file is left alone and re-installing only replaces this block.
+      Rules that travel with <span class="text-fg-2">{{ .Bundle.DisplayTitle }}</span>. When you
+      install this folder, these get added to the project’s own
+      <span class="font-mono text-[13px]">{{ .File }}</span>, in their own block, so nothing
+      you wrote there is touched.
     </p>
 
     {{ with .Error }}
@@ -42,11 +42,11 @@
           spellcheck="false"
           placeholder="# Project conventions&#10;&#10;Rules every agent working in this project should follow…"
         >{{ .Content }}</textarea>
-        <p class="hint">Markdown. Leave empty to remove this file from the folder.</p>
+        <p class="hint">Leave it empty to drop this file from the folder.</p>
       </div>
 
       <div class="rounded-card border border-line bg-surface p-4">
-        <p class="eyebrow mb-2.5">How it lands in a project</p>
+        <p class="eyebrow mb-2.5">How it looks once installed</p>
         <pre class="font-mono text-[11.5px] leading-relaxed text-fg-3 overflow-x-auto"><code>&lt;!-- skillbuilder:start {{ .Bundle.Name }} --&gt;
 &lt;!-- Managed by skillbuilder. Edits inside this block are replaced on reinstall. --&gt;
 

@@ -19,11 +19,11 @@ var nameRe = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
 func ValidateName(s string) error {
 	switch {
 	case s == "":
-		return fmt.Errorf("name is required")
+		return fmt.Errorf("give it a name")
 	case len(s) > 64:
-		return fmt.Errorf("name must be 64 characters or fewer")
+		return fmt.Errorf("that name is too long; keep it under 64 characters")
 	case !nameRe.MatchString(s):
-		return fmt.Errorf("name must be lowercase letters, digits and single hyphens (e.g. my-skill)")
+		return fmt.Errorf("use lowercase letters, digits and hyphens, like my-skill")
 	}
 	return nil
 }
