@@ -55,6 +55,10 @@ type BundleListResponse struct {
 type BundleManifest struct {
 	Bundle Bundle  `json:"bundle"`
 	Skills []Skill `json:"skills"`
+	// Context holds project-level agent instructions the folder ships with,
+	// keyed by filename (CLAUDE.md, AGENTS.md). The CLI merges these into the
+	// target project rather than overwriting whatever is already there.
+	Context map[string]string `json:"context,omitempty"`
 	// Registry is the base URL the CLI should use for follow-up downloads.
 	Registry string `json:"registry,omitempty"`
 }

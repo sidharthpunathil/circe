@@ -110,6 +110,28 @@
         </div>
 
         <div>
+          <p class="eyebrow mb-2.5">Project instructions</p>
+          <ul class="flex flex-col">
+            {{ $ctx := .Context }}
+            {{ range .ContextNames }}
+              <li>
+                <a
+                  href="/bundles/{{ $.Bundle.Name }}/context/{{ . }}"
+                  class="flex items-center gap-2 py-1.5 meta hover:text-fg transition-colors"
+                >
+                  <span class="text-fg-3/50" aria-hidden="true">›</span>
+                  <span class="flex-1 truncate {{ if index $ctx . }}text-fg{{ end }}">{{ . }}</span>
+                  <span class="shrink-0 text-fg-3/60">
+                    {{ if index $ctx . }}set{{ else }}add{{ end }}
+                  </span>
+                </a>
+              </li>
+            {{ end }}
+          </ul>
+          <p class="hint">Merged into the project on install, inside a marked block.</p>
+        </div>
+
+        <div>
           <p class="eyebrow mb-2.5">Also installable with</p>
           <div class="rounded-[10px] border border-line-soft bg-surface p-3">
             <code class="font-mono text-[11.5px] text-fg-2 leading-relaxed block break-all"

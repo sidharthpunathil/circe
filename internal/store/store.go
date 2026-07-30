@@ -735,6 +735,10 @@ func (s *Store) DeleteBundle(name string) error {
 	if err := os.Remove(filepath.Join(s.bundlesDir(), name+".json")); err != nil && !os.IsNotExist(err) {
 		return err
 	}
+	// Context files live in a sibling directory and would otherwise be orphaned.
+	if err := s.deleteBundleContexts(name); err != nil {
+		return err
+	}
 	s.mu.Lock()
 	delete(s.bundles, name)
 	s.mu.Unlock()

@@ -2,7 +2,9 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
+	"sort"
 
 	"github.com/spf13/cobra"
 
@@ -126,4 +128,44 @@ func recordInstall(root, registry, bundle, dir string, results []installer.Resul
 		installer.AddBundle(lf, bundle)
 	}
 	return installer.SaveLockfile(root, lf)
+}
+
+// applyContext merges a folder's CLAUDE.md / AGENTS.md into the project.
+//
+// These are the user's own files, so the default is a marked block that leaves
+// everything around it untouched: re-installing replaces only our block, and
+// several folders can contribute to one file without fighting.
+func applyContext(out io.Writer, root, folder string, files map[string]string, mode string, dryRun bool) error {
+	if len(files) == 0 {
+		return nil
+	}
+	m := installer.ContextMode(mode)
+	switch m {
+	case installer.ContextMerge, installer.ContextSkip, installer.ContextOverwrite:
+	default:
+		return fmt.Errorf("unknown --context mode %q — use merge, skip or overwrite", mode)
+	}
+
+	names := make([]string, 0, len(files))
+	for name := range files {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	for _, name := range names {
+		res, err := installer.WriteContextFile(root, folder, name, files[name], m, dryRun)
+		if err != nil {
+			return err
+		}
+		switch res.Action {
+		case "unchanged":
+			fmt.Fprintln(out, "  "+dimStyle.Render("· "+name+"  unchanged"))
+		case "skipped":
+			fmt.Fprintln(out, "  "+warnStyle.Render("!")+" "+name+"  "+
+				dimStyle.Render("left alone (--context=skip)"))
+		default:
+			fmt.Fprintln(out, "  "+okStyle.Render("✓")+" "+name+"  "+okStyle.Render(res.Action))
+		}
+	}
+	return nil
 }

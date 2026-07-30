@@ -211,7 +211,11 @@ func (s *Server) apiBundle(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusNotFound, "not_found", err.Error())
 		return
 	}
-	out := api.BundleManifest{Bundle: toAPIBundle(b), Registry: s.baseURL(r)}
+	out := api.BundleManifest{
+		Bundle:   toAPIBundle(b),
+		Registry: s.baseURL(r),
+		Context:  s.store.BundleContexts(b.Name),
+	}
 	for _, sk := range s.store.BundleSkills(b) {
 		out.Skills = append(out.Skills, toAPISkill(sk, false))
 	}

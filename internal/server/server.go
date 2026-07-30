@@ -90,6 +90,8 @@ func (s *Server) routes() {
 	m.HandleFunc("POST /bundles/{name}/edit", s.handleBundleUpdate)
 	m.HandleFunc("POST /bundles/{name}/delete", s.handleBundleDelete)
 	m.HandleFunc("GET /bundles/{name}/download", s.handleBundleDownload)
+	m.HandleFunc("GET /bundles/{name}/context/{file}", s.handleBundleContextEdit)
+	m.HandleFunc("POST /bundles/{name}/context/{file}", s.handleBundleContextSave)
 
 	m.HandleFunc("GET /import", s.handleImport)
 	m.HandleFunc("POST /import", s.handleImportRun)

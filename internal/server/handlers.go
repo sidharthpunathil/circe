@@ -657,6 +657,8 @@ type bundleView struct {
 	Skills         []*store.Skill
 	Size           int64
 	MarketplaceURL string
+	Context        map[string]string
+	ContextNames   []string
 }
 
 func (s *Server) handleBundle(w http.ResponseWriter, r *http.Request) {
@@ -676,6 +678,8 @@ func (s *Server) handleBundle(w http.ResponseWriter, r *http.Request) {
 		Skills:         skills,
 		Size:           size,
 		MarketplaceURL: s.baseURL(r),
+		Context:        s.store.BundleContexts(b.Name),
+		ContextNames:   store.ContextFileNames(),
 	})
 }
 
@@ -819,6 +823,10 @@ func (s *Server) handleBundleUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if form.Name != current {
+		// Move context files before the old folder (and its directory) is removed.
+		if err := s.store.MoveBundleContexts(current, form.Name); err != nil {
+			logError("move folder context files", err)
+		}
 		if err := s.store.DeleteBundle(current); err != nil {
 			logError("delete old bundle", err)
 		}
@@ -948,4 +956,65 @@ func plural(n int, one, many string) string {
 		return one
 	}
 	return many
+}
+
+// ---------- folder context files ----------
+
+type contextEditView struct {
+	base
+	Bundle  *store.Bundle
+	File    string
+	Content string
+	Error   string
+}
+
+func (s *Server) handleBundleContextEdit(w http.ResponseWriter, r *http.Request) {
+	b, err := s.store.Bundle(r.PathValue("name"))
+	if err != nil {
+		s.notFound(w, r, "folder")
+		return
+	}
+	file := r.PathValue("file")
+	if !store.ValidContextFile(file) {
+		s.notFound(w, r, "context file")
+		return
+	}
+	content, err := s.store.BundleContext(b.Name, file)
+	if err != nil {
+		s.notFound(w, r, "context file")
+		return
+	}
+	s.tmpl.render(w, r, http.StatusOK, "context_edit", contextEditView{
+		base:    s.base(w, r, "bundles"),
+		Bundle:  b,
+		File:    file,
+		Content: content,
+	})
+}
+
+func (s *Server) handleBundleContextSave(w http.ResponseWriter, r *http.Request) {
+	b, err := s.store.Bundle(r.PathValue("name"))
+	if err != nil {
+		s.notFound(w, r, "folder")
+		return
+	}
+	file := r.PathValue("file")
+	content := normalizeNewlines(r.FormValue("content"))
+
+	if err := s.store.SaveBundleContext(b.Name, file, content); err != nil {
+		s.tmpl.render(w, r, http.StatusBadRequest, "context_edit", contextEditView{
+			base:    s.base(w, r, "bundles"),
+			Bundle:  b,
+			File:    file,
+			Content: content,
+			Error:   err.Error(),
+		})
+		return
+	}
+	if strings.TrimSpace(content) == "" {
+		s.setFlash(w, "ok", fmt.Sprintf("Removed %s from %s.", file, b.DisplayTitle()))
+	} else {
+		s.setFlash(w, "ok", fmt.Sprintf("Saved %s for %s.", file, b.DisplayTitle()))
+	}
+	http.Redirect(w, r, "/bundles/"+b.Name, http.StatusSeeOther)
 }

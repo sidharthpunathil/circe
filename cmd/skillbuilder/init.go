@@ -13,8 +13,9 @@ import (
 
 func newInitCmd() *cobra.Command {
 	var (
-		flags    installFlags
-		yes, all bool
+		contextMode string
+		flags       installFlags
+		yes, all    bool
 	)
 	cmd := &cobra.Command{
 		Use:   "init <bundle>",
@@ -24,16 +25,18 @@ func newInitCmd() *cobra.Command {
 			"Without a terminal (CI, a pipe) there is nothing to pick with, so pass -y.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runInit(cmd, args[0], yes || all, flags)
+			return runInit(cmd, args[0], yes || all, flags, contextMode)
 		},
 	}
 	flags.register(cmd)
 	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "install every skill in the bundle without prompting")
 	cmd.Flags().BoolVar(&all, "all", false, "alias for --yes")
+	cmd.Flags().StringVar(&contextMode, "context", "merge",
+		"how to apply the folder's CLAUDE.md/AGENTS.md: merge, skip or overwrite")
 	return cmd
 }
 
-func runInit(cmd *cobra.Command, bundle string, takeAll bool, flags installFlags) error {
+func runInit(cmd *cobra.Command, bundle string, takeAll bool, flags installFlags, contextMode string) error {
 	ctx := cmd.Context()
 	out := cmd.OutOrStdout()
 
@@ -82,6 +85,9 @@ func runInit(cmd *cobra.Command, bundle string, takeAll bool, flags installFlags
 		return nil
 	}
 
+	if err := applyContext(out, root, bundle, manifest.Context, contextMode, flags.dryRun); err != nil {
+		return err
+	}
 	return recordInstall(root, client.BaseURL, bundle, dir, results)
 }
 
