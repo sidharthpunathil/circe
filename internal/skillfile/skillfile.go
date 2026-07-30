@@ -163,9 +163,6 @@ func (f *File) Validate() []Problem {
 	case strings.ContainsAny(f.Description, "<>"):
 		fatal("description", "description must not contain < or > characters")
 	}
-	if desc != "" && len(desc) < 40 {
-		warn("description", "a short description gives the model little to match on; describe what it does and when to use it")
-	}
 
 	if len(f.Compatibility) > MaxCompatibilityLen {
 		fatal("compatibility", fmt.Sprintf("compatibility must be %d characters or fewer", MaxCompatibilityLen))
