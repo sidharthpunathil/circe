@@ -6,7 +6,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/sidharthpunathil/skillbuilder/internal/store"
+	"github.com/sidharthpunathil/circe/internal/store"
 )
 
 // An import can now produce three different things at once, so the code that

@@ -12,7 +12,7 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/sidharthpunathil/skillbuilder/internal/store"
+	"github.com/sidharthpunathil/circe/internal/store"
 )
 
 // Per-page SEO metadata.
@@ -29,12 +29,12 @@ import (
 // optional env vars with neutral product defaults.
 
 const (
-	envSiteName        = "SKILLBUILDER_SITE_NAME"
-	envSiteDescription = "SKILLBUILDER_SITE_DESCRIPTION"
-	envTwitterSite     = "SKILLBUILDER_TWITTER_SITE"
+	envSiteName        = "CIRCE_SITE_NAME"
+	envSiteDescription = "CIRCE_SITE_DESCRIPTION"
+	envTwitterSite     = "CIRCE_TWITTER_SITE"
 
-	defaultSiteName        = "Skillbuilder"
-	defaultSiteDescription = "A registry for Claude agent skills. Browse, organise and install them into Claude Code with one command."
+	defaultSiteName        = "Circe"
+	defaultSiteDescription = "Your own registry for Claude agent skills, rules and MCP servers. Group them into folders and install a folder into any project with one command."
 
 	// metaDescriptionMax is the point past which search engines and social
 	// cards truncate for you, usually mid-word.
@@ -42,9 +42,17 @@ const (
 	metaTitleMax       = 70
 )
 
+// envOrDefault reads a CIRCE_ prefixed variable, falling back to the
+// SKILLBUILDER_ name this tool used before the rename so an existing
+// deployment does not silently lose its configured branding.
 func envOrDefault(key, fallback string) string {
 	if v := strings.TrimSpace(os.Getenv(key)); v != "" {
 		return v
+	}
+	if legacy, ok := strings.CutPrefix(key, "CIRCE_"); ok {
+		if v := strings.TrimSpace(os.Getenv("SKILLBUILDER_" + legacy)); v != "" {
+			return v
+		}
 	}
 	return fallback
 }

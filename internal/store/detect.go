@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/sidharthpunathil/skillbuilder/internal/skillfile"
+	"github.com/sidharthpunathil/circe/internal/skillfile"
 )
 
 // Content detection, shared by every import path: a repository tarball, an

@@ -218,7 +218,7 @@ func entryMode(hdr *tar.Header) fs.FileMode {
 // truncated file that a later checksum would silently accept.
 func writeFileAtomic(dst string, mode fs.FileMode, r io.Reader) (int64, error) {
 	dir := filepath.Dir(dst)
-	tmp, err := os.CreateTemp(dir, ".skillbuilder-tmp-*")
+	tmp, err := os.CreateTemp(dir, ".circe-tmp-*")
 	if err != nil {
 		return 0, fmt.Errorf("create temporary file in %s: %w", dir, err)
 	}

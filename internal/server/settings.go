@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/sidharthpunathil/skillbuilder/internal/gitsource"
-	"github.com/sidharthpunathil/skillbuilder/internal/store"
+	"github.com/sidharthpunathil/circe/internal/gitsource"
+	"github.com/sidharthpunathil/circe/internal/store"
 )
 
 // tokenRow is one access token as the settings page shows it.

@@ -4,7 +4,7 @@ Everything under `/api/v1`. Responses are JSON; errors are `{"error": "...", "me
 
 ## Authentication
 
-When `SKILLBUILDER_PASSWORD` is set, send it as a bearer token:
+When `CIRCE_PASSWORD` is set, send it as a bearer token:
 
 ```bash
 curl -H "Authorization: Bearer $TOKEN" https://your-registry/api/v1/skills

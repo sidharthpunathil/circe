@@ -17,7 +17,7 @@ const (
 	defaultBaseURL = "https://api.github.com"
 	// GitHub asks every client to identify itself and to pin the API version;
 	// unversioned requests are free to change shape under us.
-	userAgent  = "skillbuilder"
+	userAgent  = "circe"
 	apiVersion = "2022-11-28"
 
 	requestTimeout = 90 * time.Second // a large repository tarball is slow

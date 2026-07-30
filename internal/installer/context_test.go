@@ -29,10 +29,10 @@ func TestContextCreatesFile(t *testing.T) {
 	if !strings.Contains(got, "Use tabs.") {
 		t.Errorf("content missing:\n%s", got)
 	}
-	if !strings.Contains(got, "skillbuilder:start design") {
+	if !strings.Contains(got, "circe:start design") {
 		t.Errorf("no start marker:\n%s", got)
 	}
-	if !strings.Contains(got, "skillbuilder:end design") {
+	if !strings.Contains(got, "circe:end design") {
 		t.Errorf("no end marker:\n%s", got)
 	}
 }
@@ -68,7 +68,7 @@ func TestContextIsIdempotent(t *testing.T) {
 		}
 	}
 	got := read(t, filepath.Join(root, "CLAUDE.md"))
-	if n := strings.Count(got, "skillbuilder:start design"); n != 1 {
+	if n := strings.Count(got, "circe:start design"); n != 1 {
 		t.Errorf("block written %d times, want 1:\n%s", n, got)
 	}
 	if n := strings.Count(got, "Use tabs."); n != 1 {
@@ -171,7 +171,7 @@ func TestRemoveContextBlock(t *testing.T) {
 		t.Fatalf("removed=%v err=%v", removed, err)
 	}
 	got := read(t, path)
-	if strings.Contains(got, "theirs") || strings.Contains(got, "skillbuilder:start") {
+	if strings.Contains(got, "theirs") || strings.Contains(got, "circe:start") {
 		t.Errorf("block not removed:\n%s", got)
 	}
 	if !strings.Contains(got, "keep me") {

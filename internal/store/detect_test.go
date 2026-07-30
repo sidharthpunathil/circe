@@ -33,7 +33,7 @@ func sampleTree() map[string][]byte {
 }
 
 func TestDetectContentFindsEachKind(t *testing.T) {
-	found := DetectContent(sampleTree(), "skillbuilder")
+	found := DetectContent(sampleTree(), "circe")
 
 	if got := len(found.Skills); got != 1 {
 		t.Fatalf("skills = %d, want 1: %+v", got, found.Skills)
@@ -49,10 +49,10 @@ func TestDetectContentFindsEachKind(t *testing.T) {
 	// it is markdown inside a rules directory, which is an explicit statement
 	// of intent, unlike the README at the root.
 	wantRules := map[string]string{
-		"skillbuilder":        TargetClaude,
-		"skillbuilder-agents": TargetAgents,
-		"foo":                 TargetClaude,
-		"skillbuilder-readme": TargetClaude,
+		"circe":        TargetClaude,
+		"circe-agents": TargetAgents,
+		"foo":          TargetClaude,
+		"circe-readme": TargetClaude,
 	}
 	if len(found.Rules) != len(wantRules) {
 		t.Fatalf("rules = %d, want %d: %+v", len(found.Rules), len(wantRules), ruleNames(found))
@@ -104,7 +104,7 @@ func TestDetectContentFindsEachKind(t *testing.T) {
 }
 
 func TestDetectContentIgnoresEverythingElse(t *testing.T) {
-	found := DetectContent(sampleTree(), "skillbuilder")
+	found := DetectContent(sampleTree(), "circe")
 
 	for _, r := range found.Rules {
 		switch r.Path {
@@ -124,7 +124,7 @@ func TestDetectContentIgnoresEverythingElse(t *testing.T) {
 	tree := sampleTree()
 	tree["skills/code-review/CLAUDE.md"] = []byte("Skill-local guidance.\n")
 	tree["skills/code-review/.mcp.json"] = []byte(`{"mcpServers":{"local":{"command":"x"}}}`)
-	found = DetectContent(tree, "skillbuilder")
+	found = DetectContent(tree, "circe")
 	for _, r := range found.Rules {
 		if r.Path == "skills/code-review/CLAUDE.md" {
 			t.Error("a CLAUDE.md inside a skill must not become a separate rule")

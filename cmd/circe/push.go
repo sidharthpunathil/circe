@@ -12,8 +12,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/sidharthpunathil/skillbuilder/internal/installer"
-	"github.com/sidharthpunathil/skillbuilder/internal/skillfile"
+	"github.com/sidharthpunathil/circe/internal/installer"
+	"github.com/sidharthpunathil/circe/internal/skillfile"
 )
 
 func newPushCmd() *cobra.Command {

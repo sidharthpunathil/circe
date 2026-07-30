@@ -16,21 +16,35 @@ const (
 	// DefaultRegistry is used when nothing else names one.
 	DefaultRegistry = "http://localhost:8080"
 	// EnvRegistry overrides the config file.
-	EnvRegistry = "SKILLBUILDER_REGISTRY"
+	EnvRegistry = "CIRCE_REGISTRY"
 
-	configDirName  = ".skillbuilder"
+	configDirName  = ".circe"
 	configFileName = "config.json"
 )
 
-// Config is the user-level configuration at ~/.skillbuilder/config.json.
+// Config is the user-level configuration at ~/.circe/config.json.
 // EnvToken overrides the stored token.
-const EnvToken = "SKILLBUILDER_TOKEN"
+const EnvToken = "CIRCE_TOKEN"
 
 type Config struct {
 	Registry string `json:"registry,omitempty"`
 	// Token authenticates against a registry that has a password set. It is
 	// sent as a bearer token, so no username is needed.
 	Token string `json:"token,omitempty"`
+}
+
+// legacyEnv reads a CIRCE_ prefixed variable, falling back to the
+// SKILLBUILDER_ name used before the rename. Someone with the old name exported
+// in their shell or set in CI should not suddenly find the CLI talking to
+// localhost with no token.
+func legacyEnv(key string) string {
+	if v := strings.TrimSpace(os.Getenv(key)); v != "" {
+		return v
+	}
+	if rest, ok := strings.CutPrefix(key, "CIRCE_"); ok {
+		return strings.TrimSpace(os.Getenv("SKILLBUILDER_" + rest))
+	}
+	return ""
 }
 
 // ConfigPath returns the absolute path of the user config file.
@@ -42,6 +56,17 @@ func ConfigPath() (string, error) {
 	return filepath.Join(home, configDirName, configFileName), nil
 }
 
+// legacyConfigPath is where the config lived before the rename. It is read when
+// the current path has nothing, so an existing install keeps its registry URL
+// and token instead of silently falling back to localhost.
+func legacyConfigPath() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("locate home directory: %w", err)
+	}
+	return filepath.Join(home, ".skillbuilder", configFileName), nil
+}
+
 // LoadConfig reads the user config. A missing file yields a zero Config, since
 // running with no config at all is the normal first-use state.
 func LoadConfig() (*Config, error) {
@@ -51,9 +76,18 @@ func LoadConfig() (*Config, error) {
 	}
 	b, err := os.ReadFile(p)
 	if errors.Is(err, fs.ErrNotExist) {
-		return &Config{}, nil
-	}
-	if err != nil {
+		// Fall back to the pre-rename location before giving up, so an existing
+		// install keeps its registry and token. The next save writes the new path.
+		if legacy, lerr := legacyConfigPath(); lerr == nil {
+			if lb, lerr := os.ReadFile(legacy); lerr == nil {
+				b, p = lb, legacy
+			} else {
+				return &Config{}, nil
+			}
+		} else {
+			return &Config{}, nil
+		}
+	} else if err != nil {
 		return nil, fmt.Errorf("read %s: %w", p, err)
 	}
 	var c Config
@@ -63,7 +97,7 @@ func LoadConfig() (*Config, error) {
 	return &c, nil
 }
 
-// SaveConfig writes the user config, creating ~/.skillbuilder if needed.
+// SaveConfig writes the user config, creating ~/.circe if needed.
 func SaveConfig(c *Config) error {
 	p, err := ConfigPath()
 	if err != nil {
@@ -99,7 +133,7 @@ const (
 // ResolveToken picks the auth token: environment first, then the config file.
 // There is no flag, so a token never lands in shell history.
 func ResolveToken(cfg *Config) string {
-	if v := strings.TrimSpace(os.Getenv(EnvToken)); v != "" {
+	if v := legacyEnv(EnvToken); v != "" {
 		return v
 	}
 	if cfg != nil {
@@ -112,7 +146,7 @@ func ResolveRegistry(flag string, cfg *Config) (string, RegistrySource) {
 	if v := strings.TrimSpace(flag); v != "" {
 		return NormalizeRegistry(v), SourceFlag
 	}
-	if v := strings.TrimSpace(os.Getenv(EnvRegistry)); v != "" {
+	if v := legacyEnv(EnvRegistry); v != "" {
 		return NormalizeRegistry(v), SourceEnv
 	}
 	if cfg != nil {

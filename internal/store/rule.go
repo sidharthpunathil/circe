@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sidharthpunathil/skillbuilder/internal/skillfile"
+	"github.com/sidharthpunathil/circe/internal/skillfile"
 )
 
 // Rules are project guidance rather than agent capability: the text that ends
@@ -117,7 +117,7 @@ func (s *Store) reloadRules() error {
 			}
 			r, err := s.loadRule(name)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "skillbuilder: skipping rule %q: %v\n", name, err)
+				fmt.Fprintf(os.Stderr, "circe: skipping rule %q: %v\n", name, err)
 				continue
 			}
 			rules[name] = r
@@ -140,7 +140,7 @@ func (s *Store) reloadRules() error {
 			}
 			var set RuleSet
 			if err := json.Unmarshal(raw, &set); err != nil {
-				fmt.Fprintf(os.Stderr, "skillbuilder: skipping rule folder %q: %v\n", name, err)
+				fmt.Fprintf(os.Stderr, "circe: skipping rule folder %q: %v\n", name, err)
 				continue
 			}
 			set.Name = name

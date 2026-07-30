@@ -10,7 +10,7 @@ import (
 	"github.com/charmbracelet/huh"
 	"github.com/spf13/cobra"
 
-	"github.com/sidharthpunathil/skillbuilder/internal/installer"
+	"github.com/sidharthpunathil/circe/internal/installer"
 )
 
 // login exists so connecting to a hosted registry is one command instead of
@@ -69,7 +69,7 @@ func runLogin(cmd *cobra.Command, url, token string) error {
 		if token == "" {
 			fields = append(fields, huh.NewInput().
 				Title("Token").
-				Description("The registry's SKILLBUILDER_PASSWORD. Leave empty if it has none.").
+				Description("The registry's CIRCE_PASSWORD. Leave empty if it has none.").
 				EchoMode(huh.EchoModePassword).
 				Value(&token))
 		}
@@ -98,7 +98,7 @@ func runLogin(cmd *cobra.Command, url, token string) error {
 		var unauthorized *installer.UnauthorizedError
 		if errors.As(err, &unauthorized) {
 			if client.Token == "" {
-				return fmt.Errorf("%s needs a token. Run `skillbuilder login %s` and paste it", url, url)
+				return fmt.Errorf("%s needs a token. Run `circe login %s` and paste it", url, url)
 			}
 			return fmt.Errorf("%s rejected that token", url)
 		}

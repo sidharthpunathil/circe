@@ -1,14 +1,14 @@
 #!/bin/sh
-# Install the skillbuilder CLI.
+# Install the circe CLI.
 #
-#   curl -fsSL https://raw.githubusercontent.com/sidharthpunathil/skillbuilder/main/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/sidharthpunathil/circe/main/install.sh | sh
 #
 # Downloads the release binary for this machine and puts it on your PATH.
 # Override with: VERSION=v0.2.0 INSTALL_DIR=~/bin sh install.sh
 set -eu
 
-REPO="sidharthpunathil/skillbuilder"
-BINARY="skillbuilder"
+REPO="sidharthpunathil/circe"
+BINARY="circe"
 VERSION="${VERSION:-latest}"
 
 # Colours only when writing to a terminal, so piped output stays clean.

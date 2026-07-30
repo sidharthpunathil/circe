@@ -6,8 +6,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/sidharthpunathil/skillbuilder/internal/api"
-	"github.com/sidharthpunathil/skillbuilder/internal/installer"
+	"github.com/sidharthpunathil/circe/internal/api"
+	"github.com/sidharthpunathil/circe/internal/installer"
 )
 
 func newListCmd() *cobra.Command {
@@ -47,7 +47,7 @@ func runListLocal(cmd *cobra.Command, dir string, dirSet bool) error {
 	dir = installer.ResolveDir(dir, dirSet, lf)
 	skills := installer.LockedSkills(lf)
 	if len(skills) == 0 {
-		fmt.Fprintln(out, dimStyle.Render("no skills installed. Run `skillbuilder <folder>` or `skillbuilder add <skill>`"))
+		fmt.Fprintln(out, dimStyle.Render("no skills installed. Run `circe <folder>` or `circe add <skill>`"))
 		return nil
 	}
 
@@ -84,7 +84,7 @@ func runListLocal(cmd *cobra.Command, dir string, dirSet bool) error {
 
 	summary := fmt.Sprintf("%d installed in %s", len(skills), dir)
 	if drifted > 0 {
-		summary += fmt.Sprintf(", %d changed since install. `skillbuilder pull --force` restores them", drifted)
+		summary += fmt.Sprintf(", %d changed since install. `circe pull --force` restores them", drifted)
 	}
 	fmt.Fprintln(out, dimStyle.Render(summary))
 	return nil

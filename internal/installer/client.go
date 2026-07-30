@@ -12,12 +12,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sidharthpunathil/skillbuilder/internal/api"
+	"github.com/sidharthpunathil/circe/internal/api"
 )
 
 const (
 	apiPrefix      = "/api/" + api.Version
-	userAgent      = "skillbuilder-cli"
+	userAgent      = "circe-cli"
 	requestTimeout = 60 * time.Second
 	// maxErrorBody caps how much of a non-2xx body is read before giving up on
 	// finding an api.Error in it — a misrouted request can return a whole HTML
@@ -25,7 +25,7 @@ const (
 	maxErrorBody = 64 << 10
 )
 
-// Client talks to a skillbuilder registry.
+// Client talks to a circe registry.
 type Client struct {
 	BaseURL string
 	HTTP    *http.Client
@@ -57,7 +57,7 @@ func (e *UnreachableError) Unwrap() error { return e.Err }
 type UnauthorizedError struct{ Registry string }
 
 func (e *UnauthorizedError) Error() string {
-	return fmt.Sprintf("%s requires a token. Set $%s, or run `skillbuilder config set token <token>`",
+	return fmt.Sprintf("%s requires a token. Set $%s, or run `circe config set token <token>`",
 		e.Registry, EnvToken)
 }
 

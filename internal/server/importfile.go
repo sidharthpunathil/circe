@@ -10,8 +10,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/sidharthpunathil/skillbuilder/internal/skillfile"
-	"github.com/sidharthpunathil/skillbuilder/internal/store"
+	"github.com/sidharthpunathil/circe/internal/skillfile"
+	"github.com/sidharthpunathil/circe/internal/store"
 )
 
 // Importing a file you already have is the one path that needs no registry, no

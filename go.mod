@@ -1,4 +1,4 @@
-module github.com/sidharthpunathil/skillbuilder
+module github.com/sidharthpunathil/circe
 
 go 1.25.0
 

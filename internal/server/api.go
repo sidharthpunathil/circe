@@ -9,13 +9,13 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/sidharthpunathil/skillbuilder/internal/api"
-	"github.com/sidharthpunathil/skillbuilder/internal/store"
+	"github.com/sidharthpunathil/circe/internal/api"
+	"github.com/sidharthpunathil/circe/internal/store"
 )
 
 func logError(what string, err error) {
 	if err != nil {
-		log.Printf("skillbuilder: %s: %v", what, err)
+		log.Printf("circe: %s: %v", what, err)
 	}
 }
 

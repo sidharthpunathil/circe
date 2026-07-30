@@ -267,7 +267,7 @@ func (s *Store) reloadMCPs() error {
 			}
 			m, err := s.loadMCP(name)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "skillbuilder: skipping mcp server %q: %v\n", name, err)
+				fmt.Fprintf(os.Stderr, "circe: skipping mcp server %q: %v\n", name, err)
 				continue
 			}
 			servers[name] = m
@@ -290,7 +290,7 @@ func (s *Store) reloadMCPs() error {
 			}
 			var set MCPSet
 			if err := json.Unmarshal(raw, &set); err != nil {
-				fmt.Fprintf(os.Stderr, "skillbuilder: skipping mcp folder %q: %v\n", name, err)
+				fmt.Fprintf(os.Stderr, "circe: skipping mcp folder %q: %v\n", name, err)
 				continue
 			}
 			set.Name = name

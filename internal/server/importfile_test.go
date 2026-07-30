@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sidharthpunathil/skillbuilder/internal/gitsource"
-	"github.com/sidharthpunathil/skillbuilder/internal/store"
+	"github.com/sidharthpunathil/circe/internal/gitsource"
+	"github.com/sidharthpunathil/circe/internal/store"
 )
 
 // upload posts files to the preview step the way a browser does.

@@ -8,35 +8,41 @@
     <link rel="stylesheet" href="/static/css/app.css?v={{ .Build }}" />
     <link
       rel="icon"
-      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23111110'/><rect x='26' y='26' width='18' height='18' fill='%23FAD657'/><rect x='56' y='26' width='18' height='18' fill='%23FAD657'/><rect x='26' y='56' width='18' height='18' fill='%23FAD657'/></svg>"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23111110'/><g transform='translate(11.6 11.6) scale(3.2)' fill='none'><g stroke='%23ffffff' stroke-width='3.3'><path d='M19.99 13.84A8.2 8.2 0 0 1 13.84 19.99'/><path d='M10.16 19.99A8.2 8.2 0 0 1 4.01 13.84'/><path d='M4.01 10.16A8.2 8.2 0 0 1 10.16 4.01'/><path d='M13.84 4.01A8.2 8.2 0 0 1 19.99 10.16'/></g><rect x='9.5' y='9.5' width='5' height='5' fill='%23FAD657' transform='rotate(45 12 12)'/></g></svg>"
     />
   </head>
   <body class="min-h-screen flex flex-col">
     {{ if .Bare }}
       <header class="border-b border-line-soft">
         <div class="container-page h-14 flex items-center">
-          <a href="/" class="flex items-center gap-2.5" aria-label="Skillbuilder">
-            <span class="grid grid-cols-2 gap-[2px] w-[14px]" aria-hidden="true">
-              <span class="w-[6px] h-[6px] bg-fg"></span>
-              <span class="w-[6px] h-[6px] bg-fg"></span>
-              <span class="w-[6px] h-[6px] bg-fg"></span>
-              <span class="w-[6px] h-[6px] bg-fg/20"></span>
-            </span>
-            <span class="text-[15px] font-medium text-fg tracking-[-0.02em]">Skillbuilder</span>
+          <a href="/" class="flex items-center gap-2.5" aria-label="Circe">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" class="shrink-0" aria-hidden="true">
+            <g stroke="currentColor" stroke-width="3.3">
+              <path d="M19.99 13.84A8.2 8.2 0 0 1 13.84 19.99" />
+              <path d="M10.16 19.99A8.2 8.2 0 0 1 4.01 13.84" />
+              <path d="M4.01 10.16A8.2 8.2 0 0 1 10.16 4.01" />
+              <path d="M13.84 4.01A8.2 8.2 0 0 1 19.99 10.16" />
+            </g>
+            <rect x="9.5" y="9.5" width="5" height="5" fill="currentColor" transform="rotate(45 12 12)" />
+          </svg>
+            <span class="text-[15px] font-medium text-fg tracking-[-0.02em]">Circe</span>
           </a>
         </div>
       </header>
     {{ else }}
     <header class="sticky top-0 z-40 bg-bg/85 backdrop-blur-md border-b border-line-soft">
       <div class="container-page flex items-center gap-6 h-14">
-        <a href="/" class="flex items-center gap-2.5 shrink-0" aria-label="Skillbuilder home">
-          <span class="grid grid-cols-2 gap-[2px] w-[14px]" aria-hidden="true">
-            <span class="w-[6px] h-[6px] bg-fg"></span>
-            <span class="w-[6px] h-[6px] bg-fg"></span>
-            <span class="w-[6px] h-[6px] bg-fg"></span>
-            <span class="w-[6px] h-[6px] bg-fg/20"></span>
-          </span>
-          <span class="text-[15px] font-medium text-fg tracking-[-0.02em]">Skillbuilder</span>
+        <a href="/" class="flex items-center gap-2.5 shrink-0" aria-label="Circe home">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" class="shrink-0" aria-hidden="true">
+            <g stroke="currentColor" stroke-width="3.3">
+              <path d="M19.99 13.84A8.2 8.2 0 0 1 13.84 19.99" />
+              <path d="M10.16 19.99A8.2 8.2 0 0 1 4.01 13.84" />
+              <path d="M4.01 10.16A8.2 8.2 0 0 1 10.16 4.01" />
+              <path d="M13.84 4.01A8.2 8.2 0 0 1 19.99 10.16" />
+            </g>
+            <rect x="9.5" y="9.5" width="5" height="5" fill="currentColor" transform="rotate(45 12 12)" />
+          </svg>
+          <span class="text-[15px] font-medium text-fg tracking-[-0.02em]">Circe</span>
         </a>
 
         <nav class="hidden md:flex items-center gap-5 text-[14px]" aria-label="Main">

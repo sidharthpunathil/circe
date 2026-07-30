@@ -31,21 +31,21 @@ ARG VERSION=dev
 RUN CGO_ENABLED=0 GOOS=linux go build \
       -trimpath \
       -ldflags="-s -w -X main.version=${VERSION}" \
-      -o /out/skillbuilder-server ./cmd/server
+      -o /out/circe-server ./cmd/server
 
 FROM scratch
 # Only three things are needed at runtime: the binary, CA roots for the GitHub
 # API, and zoneinfo for timestamp formatting.
 COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=build /usr/local/go/lib/time/zoneinfo.zip /usr/local/go/lib/time/
-COPY --from=build /out/skillbuilder-server /skillbuilder-server
+COPY --from=build /out/circe-server /circe-server
 
 ENV ZONEINFO=/usr/local/go/lib/time/zoneinfo.zip \
-    SKILLBUILDER_DATA=/data
+    CIRCE_DATA=/data
 # Templates and static assets are embedded in the binary, so there is nothing
 # else to copy and no working directory to set up.
 #
 # No VOLUME instruction: Railway rejects it and manages persistence itself.
 # Mount a volume at /data on whichever platform you deploy to.
 EXPOSE 8080
-ENTRYPOINT ["/skillbuilder-server"]
+ENTRYPOINT ["/circe-server"]

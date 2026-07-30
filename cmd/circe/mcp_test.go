@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sidharthpunathil/skillbuilder/internal/store"
+	"github.com/sidharthpunathil/circe/internal/store"
 )
 
 func stdioServer(name string, env ...store.EnvVar) *store.MCPServer {
@@ -321,7 +321,7 @@ func fakeRegistry(t *testing.T) *httptest.Server {
 				{"name":"analytics","title":"Analytics","description":"Warehouse access","servers":["duckdb"],"updatedAt":"2026-01-01T00:00:00Z"}]}`))
 		case "/api/v1/mcpsets/essentials":
 			w.Write([]byte(`{"name":"essentials","title":"Essentials","description":"What every project wants","updatedAt":"2026-01-01T00:00:00Z","servers":[
-				{"name":"github","description":"Issues and pull requests","transport":"stdio","command":"npx","args":["-y","@example/github"],"env":[{"name":"SKILLBUILDER_TEST_GITHUB_TOKEN","required":true,"help":"a token with repo scope"}]},
+				{"name":"github","description":"Issues and pull requests","transport":"stdio","command":"npx","args":["-y","@example/github"],"env":[{"name":"CIRCE_TEST_GITHUB_TOKEN","required":true,"help":"a token with repo scope"}]},
 				{"name":"sentry","description":"Errors and releases","transport":"http","url":"https://mcp.sentry.example"}]}`))
 		default:
 			http.Error(w, `{"error":"not found"}`, http.StatusNotFound)
@@ -336,8 +336,8 @@ func runCLI(t *testing.T, args ...string) (string, error) {
 	t.Helper()
 	// A temporary home keeps the developer's own config and token out of it.
 	t.Setenv("HOME", t.TempDir())
-	t.Setenv("SKILLBUILDER_TOKEN", "")
-	t.Setenv("SKILLBUILDER_REGISTRY", "")
+	t.Setenv("CIRCE_TOKEN", "")
+	t.Setenv("CIRCE_REGISTRY", "")
 	registryFlag = ""
 
 	var buf bytes.Buffer
@@ -375,7 +375,7 @@ func TestMCPCommandInstallsFolder(t *testing.T) {
 		t.Fatalf("install: %v\n%s", err, out)
 	}
 	for _, want := range []string{"Essentials · 2 servers", "github", "sentry", "2 added",
-		"set these before the servers will start", "SKILLBUILDER_TEST_GITHUB_TOKEN", "a token with repo scope"} {
+		"set these before the servers will start", "CIRCE_TEST_GITHUB_TOKEN", "a token with repo scope"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("output does not mention %q:\n%s", want, out)
 		}
@@ -387,7 +387,7 @@ func TestMCPCommandInstallsFolder(t *testing.T) {
 		t.Errorf("github was not written as a stdio server: %v", github)
 	}
 	env, _ := github["env"].(map[string]any)
-	if env["SKILLBUILDER_TEST_GITHUB_TOKEN"] != "${SKILLBUILDER_TEST_GITHUB_TOKEN}" {
+	if env["CIRCE_TEST_GITHUB_TOKEN"] != "${CIRCE_TEST_GITHUB_TOKEN}" {
 		t.Errorf("the env reference is wrong: %v", env)
 	}
 	sentry, _ := got["sentry"].(map[string]any)
@@ -419,7 +419,7 @@ func TestMCPCommandUnknownFolder(t *testing.T) {
 	if err == nil {
 		t.Fatalf("want an error for a folder that does not exist:\n%s", out)
 	}
-	for _, want := range []string{`no mcp folder named "nope"`, "skillbuilder mcp"} {
+	for _, want := range []string{`no mcp folder named "nope"`, "circe mcp"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("error %q does not mention %q", err, want)
 		}

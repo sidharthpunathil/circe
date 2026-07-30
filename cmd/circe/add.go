@@ -6,7 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/sidharthpunathil/skillbuilder/internal/installer"
+	"github.com/sidharthpunathil/circe/internal/installer"
 )
 
 func newAddCmd() *cobra.Command {
@@ -39,7 +39,7 @@ func runAdd(cmd *cobra.Command, names []string, flags installFlags) error {
 
 	if len(names) == 0 {
 		if !interactive() {
-			return errors.New("stdin is not a terminal, so the skill picker cannot run. Name the skills to add, e.g. `skillbuilder add brand-design`")
+			return errors.New("stdin is not a terminal, so the skill picker cannot run. Name the skills to add, e.g. `circe add brand-design`")
 		}
 		resp, err := client.ListSkills(ctx, "", "")
 		if err != nil {
@@ -62,7 +62,7 @@ func runAdd(cmd *cobra.Command, names []string, flags installFlags) error {
 	results, err := installer.Install(ctx, client, names, flags.optionsIn(dir))
 	if err != nil {
 		if installer.IsNotFound(err) {
-			return fmt.Errorf("the registry does not have all of %v. Try `skillbuilder search`: %w", names, err)
+			return fmt.Errorf("the registry does not have all of %v. Try `circe search`: %w", names, err)
 		}
 		return err
 	}

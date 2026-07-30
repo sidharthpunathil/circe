@@ -11,8 +11,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/sidharthpunathil/skillbuilder/internal/installer"
-	"github.com/sidharthpunathil/skillbuilder/internal/store"
+	"github.com/sidharthpunathil/circe/internal/installer"
+	"github.com/sidharthpunathil/circe/internal/store"
 )
 
 // import installs from a share code without needing a registry of your own —
@@ -111,7 +111,7 @@ func fetchSharePayload(ctx context.Context, origin, id string) (*sharePayload, e
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("User-Agent", "skillbuilder-cli")
+	req.Header.Set("User-Agent", "circe-cli")
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {

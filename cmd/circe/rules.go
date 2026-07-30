@@ -11,7 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/sidharthpunathil/skillbuilder/internal/installer"
+	"github.com/sidharthpunathil/circe/internal/installer"
 )
 
 // Rules install differently from skills: a skill is a directory copied into
@@ -100,7 +100,7 @@ func fetchRuleSet(ctx context.Context, c *installer.Client, name string) (*ruleS
 	body, err := getRaw(ctx, c, "/api/v1/rulesets/"+name)
 	if err != nil {
 		if installer.IsNotFound(err) {
-			return nil, fmt.Errorf("no rule folder named %q at %s. Try `skillbuilder rules` to list them: %w",
+			return nil, fmt.Errorf("no rule folder named %q at %s. Try `circe rules` to list them: %w",
 				name, c.BaseURL, err)
 		}
 		return nil, err
@@ -164,7 +164,7 @@ func getRaw(ctx context.Context, c *installer.Client, path string) ([]byte, erro
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("User-Agent", "skillbuilder-cli")
+	req.Header.Set("User-Agent", "circe-cli")
 	req.Header.Set("Accept", "application/json")
 	if c.Token != "" {
 		req.Header.Set("Authorization", "Bearer "+c.Token)
@@ -183,7 +183,7 @@ func getRaw(ctx context.Context, c *installer.Client, path string) ([]byte, erro
 	return io.ReadAll(io.LimitReader(resp.Body, 8<<20))
 }
 
-// newSkillsCmd is the explicit counterpart to `skillbuilder rules`, so the two
+// newSkillsCmd is the explicit counterpart to `circe rules`, so the two
 // resource types read symmetrically.
 func newSkillsCmd() *cobra.Command {
 	var (
@@ -195,8 +195,8 @@ func newSkillsCmd() *cobra.Command {
 		Use:   "skills <folder>",
 		Short: "Add a folder of skills to this project",
 		Long: "Install the skills in a folder into this project.\n\n" +
-			"Same as `skillbuilder <folder>`, spelled out for symmetry with\n" +
-			"`skillbuilder rules <folder>`.",
+			"Same as `circe <folder>`, spelled out for symmetry with\n" +
+			"`circe rules <folder>`.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runInit(cmd, args[0], yes || all, flags, contextMode)

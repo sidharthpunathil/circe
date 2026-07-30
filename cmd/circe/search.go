@@ -7,7 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/sidharthpunathil/skillbuilder/internal/api"
+	"github.com/sidharthpunathil/circe/internal/api"
 )
 
 func newSearchCmd() *cobra.Command {
@@ -28,7 +28,7 @@ func newSearchCmd() *cobra.Command {
 func runSearch(cmd *cobra.Command, query, tag string) error {
 	out := cmd.OutOrStdout()
 	if query == "" && tag == "" {
-		return errors.New("give something to search for, e.g. `skillbuilder search design` or `--tag writing`")
+		return errors.New("give something to search for, e.g. `circe search design` or `--tag writing`")
 	}
 
 	client, err := newClient()

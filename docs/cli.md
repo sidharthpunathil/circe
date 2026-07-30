@@ -1,20 +1,20 @@
 # CLI reference
 
-`skillbuilder` installs skills from a registry into a project, and publishes local skills
+`circe` installs skills from a registry into a project, and publishes local skills
 back up to it.
 
 ## Installing skills
 
-### `skillbuilder <folder>`
+### `circe <folder>`
 
 Install a folder's skills into the current project. This is the shorthand you'll use most.
 
 ```bash
-skillbuilder frontend-kit        # pick which of its skills to install
-skillbuilder frontend-kit -y     # install all of them
+circe frontend-kit        # pick which of its skills to install
+circe frontend-kit -y     # install all of them
 ```
 
-`skillbuilder init <folder>` is the same thing spelled out.
+`circe init <folder>` is the same thing spelled out.
 
 | Flag | Purpose |
 | --- | --- |
@@ -24,42 +24,42 @@ skillbuilder frontend-kit -y     # install all of them
 | `--dry-run` | Report what would change without writing. |
 | `--context` | How to apply the folder's `CLAUDE.md`: `merge` (default), `skip`, `overwrite`. |
 
-### `skillbuilder add <skill>…`
+### `circe add <skill>…`
 
 Install individual skills. With no arguments, opens a picker over the whole registry.
 
-### `skillbuilder import <code>`
+### `circe import <code>`
 
 Install from a share code someone gave you. Needs no configuration at all: the code
 carries the origin registry.
 
 ## Keeping skills current
 
-### `skillbuilder list`
+### `circe list`
 
 Show what's installed and whether it has drifted from the registry: `modified` if you've
 edited it, `missing` if the directory is gone. `--remote` lists the registry instead.
 
-### `skillbuilder pull`
+### `circe pull`
 
-Re-download everything in `skillbuilder.json`.
+Re-download everything in `circe.json`.
 
 **Local edits are held back, not clobbered.** A skill you've modified is reported as
 skipped; pass `--force` to overwrite it.
 
-### `skillbuilder remove <skill>…`
+### `circe remove <skill>…`
 
 Delete skills from disk and drop them from the lockfile.
 
 ## Publishing
 
-### `skillbuilder push <dir>`
+### `circe push <dir>`
 
 Publish local skills to the registry.
 
 ```bash
-skillbuilder push ./my-skill          # one skill
-skillbuilder push ~/.claude/skills    # every skill in there
+circe push ./my-skill          # one skill
+circe push ~/.claude/skills    # every skill in there
 ```
 
 If the directory has a `SKILL.md` it's treated as one skill; otherwise every subdirectory
@@ -77,15 +77,15 @@ vendors a virtualenv would otherwise be hundreds of megabytes.
 
 ## Configuration
 
-### `skillbuilder login [url]`
+### `circe login [url]`
 
 Connect to a registry. Prompts for the passcode, verifies it, and only then saves.
 
-### `skillbuilder logout`
+### `circe logout`
 
 Forget the saved token.
 
-### `skillbuilder config`
+### `circe config`
 
 Show the resolved registry, config path, lockfile path and install directory.
 
@@ -94,16 +94,16 @@ Show the resolved registry, config path, lockfile path and install directory.
 Registry, in order of precedence:
 
 1. `--registry` flag
-2. `$SKILLBUILDER_REGISTRY`
-3. `~/.skillbuilder/config.json`
+2. `$CIRCE_REGISTRY`
+3. `~/.circe/config.json`
 4. `http://localhost:8080`
 
-Token: `$SKILLBUILDER_TOKEN`, then the config file. There is deliberately no `--token`
+Token: `$CIRCE_TOKEN`, then the config file. There is deliberately no `--token`
 flag on ordinary commands, so a token never lands in your shell history.
 
 ## The lockfile
 
-Installing writes `skillbuilder.json` in the project root:
+Installing writes `circe.json` in the project root:
 
 ```json
 {
@@ -122,6 +122,6 @@ Installing writes `skillbuilder.json` in the project root:
 }
 ```
 
-Commit it. Anyone who clones the project gets the same skills with `skillbuilder pull`.
+Commit it. Anyone who clones the project gets the same skills with `circe pull`.
 The checksum is what makes drift detection work, and `dir` is why you only pass `-d`
 once.

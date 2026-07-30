@@ -7,11 +7,11 @@ database.
 
 Click the deploy button in the [README](../README.md), then:
 
-1. Set **`SKILLBUILDER_PASSWORD`**. Without it, anyone who finds the URL can edit and
+1. Set **`CIRCE_PASSWORD`**. Without it, anyone who finds the URL can edit and
    delete your skills.
 2. Attach a **volume mounted at `/data`**, or you lose everything on redeploy.
 
-Optionally set `SKILLBUILDER_SEED_REPO` to populate a fresh registry from a GitHub repo
+Optionally set `CIRCE_SEED_REPO` to populate a fresh registry from a GitHub repo
 on first boot.
 
 Costs are small: a ~15 MB image, ~20 MB of RAM at idle, effectively no CPU, and a volume
@@ -22,9 +22,9 @@ nothing: a Go binary cold-starts in about 100 ms.
 
 ```bash
 docker run -d -p 8080:8080 \
-  -v skillbuilder-data:/data \
-  -e SKILLBUILDER_PASSWORD=pick-something-good \
-  ghcr.io/sidharthpunathil/skillbuilder:latest
+  -v circe-data:/data \
+  -e CIRCE_PASSWORD=pick-something-good \
+  ghcr.io/sidharthpunathil/circe:latest
 ```
 
 ## Anywhere else
@@ -32,10 +32,10 @@ docker run -d -p 8080:8080 \
 The binary is self-contained: templates, stylesheet and fonts are embedded.
 
 ```bash
-SKILLBUILDER_PASSWORD=… SKILLBUILDER_DATA=/var/lib/skillbuilder ./skillbuilder-server
+CIRCE_PASSWORD=… CIRCE_DATA=/var/lib/circe ./circe-server
 ```
 
-Put it behind a reverse proxy for TLS and set `SKILLBUILDER_BASE_URL` to the public
+Put it behind a reverse proxy for TLS and set `CIRCE_BASE_URL` to the public
 origin so install commands and share links render correctly.
 
 ## Environment
@@ -43,13 +43,13 @@ origin so install commands and share links render correctly.
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `PORT` | `8080` | Listen port. Most hosts inject this. Binds `0.0.0.0` when set. |
-| `SKILLBUILDER_ADDR` | `127.0.0.1:8080` | Full listen address. |
-| `SKILLBUILDER_DATA` | `./data` | Storage directory. |
-| `SKILLBUILDER_PASSWORD` |: | Enables authentication. |
-| `SKILLBUILDER_USER` | any | Optional basic-auth username. |
-| `SKILLBUILDER_BASE_URL` |: | Public origin, behind a proxy. |
-| `SKILLBUILDER_SEED_REPO` |: | Import from this repo when the registry is empty. |
-| `SKILLBUILDER_SEED_FOLDER` |: | Folder to put seeded skills in. |
+| `CIRCE_ADDR` | `127.0.0.1:8080` | Full listen address. |
+| `CIRCE_DATA` | `./data` | Storage directory. |
+| `CIRCE_PASSWORD` |: | Enables authentication. |
+| `CIRCE_USER` | any | Optional basic-auth username. |
+| `CIRCE_BASE_URL` |: | Public origin, behind a proxy. |
+| `CIRCE_SEED_REPO` |: | Import from this repo when the registry is empty. |
+| `CIRCE_SEED_FOLDER` |: | Folder to put seeded skills in. |
 | `GITHUB_TOKEN` |: | Raises GitHub's 60/hr limit and reaches private repos. |
 | `GITLAB_TOKEN` |: | Same, for GitLab. |
 | `GITEA_TOKEN` |: | Same, for Gitea/Forgejo/Codeberg. |
@@ -66,7 +66,7 @@ Four routes, on the Import page:
 | From a file | Always: you paste or upload the markdown. |
 | From a code | Always: someone shared a folder or skill with you. |
 
-For a hosted registry, `skillbuilder push ~/.claude/skills` from your own machine is
+For a hosted registry, `circe push ~/.claude/skills` from your own machine is
 usually the fastest way to move an existing library up.
 
 ## Backups

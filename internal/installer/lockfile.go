@@ -11,14 +11,23 @@ import (
 	"sort"
 	"time"
 
-	"github.com/sidharthpunathil/skillbuilder/internal/api"
+	"github.com/sidharthpunathil/circe/internal/api"
 )
 
-// LockfileName is the file skillbuilder writes in a project root.
-const LockfileName = "skillbuilder.json"
+// LockfileName is the file circe writes in a project root.
+const LockfileName = "circe.json"
+
+// legacyLockfileName is what this tool wrote before the rename. These files are
+// committed to real repositories, so a project that has one must keep working:
+// without this, `list` would report nothing installed in a project that plainly
+// has skills, and the next install would drop a second, disagreeing lockfile
+// beside the first.
+const legacyLockfileName = "skillbuilder.json"
 
 // LockfilePath returns the lockfile path for a project root.
 func LockfilePath(root string) string { return filepath.Join(root, LockfileName) }
+
+func legacyLockfilePath(root string) string { return filepath.Join(root, legacyLockfileName) }
 
 // NewLockfile returns an empty lockfile for a registry.
 func NewLockfile(registry string) *api.Lockfile {
@@ -35,7 +44,10 @@ func NewLockfile(registry string) *api.Lockfile {
 func LoadLockfile(root string) (*api.Lockfile, error) {
 	b, err := os.ReadFile(LockfilePath(root))
 	if errors.Is(err, fs.ErrNotExist) {
-		return NewLockfile(""), nil
+		b, err = os.ReadFile(legacyLockfilePath(root))
+		if errors.Is(err, fs.ErrNotExist) {
+			return NewLockfile(""), nil
+		}
 	}
 	if err != nil {
 		return nil, fmt.Errorf("read %s: %w", LockfileName, err)
@@ -46,7 +58,7 @@ func LoadLockfile(root string) (*api.Lockfile, error) {
 		return nil, fmt.Errorf("parse %s: %w", LockfileName, err)
 	}
 	if lf.Version > api.LockfileVersion {
-		return nil, fmt.Errorf("%s was written by a newer skillbuilder (lockfile version %d, this build understands %d)", LockfileName, lf.Version, api.LockfileVersion)
+		return nil, fmt.Errorf("%s was written by a newer circe (lockfile version %d, this build understands %d)", LockfileName, lf.Version, api.LockfileVersion)
 	}
 	if lf.Skills == nil {
 		lf.Skills = map[string]api.InstalledSkill{}
@@ -71,6 +83,10 @@ func SaveLockfile(root string, lf *api.Lockfile) error {
 	}
 	if _, err := writeFileAtomic(LockfilePath(root), 0o644, &buf); err != nil {
 		return err
+	}
+	// Upgrade in place rather than leaving two lockfiles that disagree.
+	if err := os.Remove(legacyLockfilePath(root)); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return fmt.Errorf("remove %s: %w", legacyLockfileName, err)
 	}
 	return nil
 }

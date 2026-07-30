@@ -1,4 +1,4 @@
-// Package server implements the Skillbuilder web UI and JSON API.
+// Package server implements the Circe web UI and JSON API.
 package server
 
 import (
@@ -13,10 +13,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sidharthpunathil/skillbuilder/internal/api"
-	"github.com/sidharthpunathil/skillbuilder/internal/gitsource"
-	"github.com/sidharthpunathil/skillbuilder/internal/store"
-	"github.com/sidharthpunathil/skillbuilder/web"
+	"github.com/sidharthpunathil/circe/internal/api"
+	"github.com/sidharthpunathil/circe/internal/gitsource"
+	"github.com/sidharthpunathil/circe/internal/store"
+	"github.com/sidharthpunathil/circe/web"
 )
 
 // Options configures a Server.
@@ -389,7 +389,7 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
 	if err := enc.Encode(v); err != nil {
-		log.Printf("skillbuilder: write json: %v", err)
+		log.Printf("circe: write json: %v", err)
 	}
 }
 
@@ -409,6 +409,6 @@ func (s *Server) ListenAndServe(addr string) error {
 	if err != nil {
 		return err
 	}
-	log.Printf("skillbuilder listening on http://%s (data: %s)", ln.Addr(), s.store.Root())
+	log.Printf("circe listening on http://%s (data: %s)", ln.Addr(), s.store.Root())
 	return srv.Serve(ln)
 }

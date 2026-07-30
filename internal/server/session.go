@@ -29,9 +29,15 @@ func (a Auth) mintSession(now time.Time) string {
 	return payload + "." + a.sign(payload)
 }
 
+// The salt is opaque and never leaves the server, so it carries no brand
+// value. It still says "skillbuilder" because changing it would invalidate
+// every cookie in circulation and sign everyone out of their own registry for
+// no benefit. Same reasoning for the cookie name above.
+const sessionSalt = "skillbuilder-session-v1|"
+
 func (a Auth) sign(payload string) string {
 	mac := hmac.New(sha256.New, []byte(a.Password))
-	mac.Write([]byte("skillbuilder-session-v1|" + payload))
+	mac.Write([]byte(sessionSalt + payload))
 	return base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
 }
 

@@ -1,8 +1,8 @@
-// Command skillbuilder installs skills from a personal registry into a project.
+// Command circe installs skills from a personal registry into a project.
 //
 // Skills are written to ./.claude/skills/<name>/ and recorded in
-// ./skillbuilder.json, so any checkout of the project can be brought back to the
-// same set with a single `skillbuilder pull`.
+// ./circe.json, so any checkout of the project can be brought back to the
+// same set with a single `circe pull`.
 package main
 
 import (
@@ -15,7 +15,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/sidharthpunathil/skillbuilder/internal/installer"
+	"github.com/sidharthpunathil/circe/internal/installer"
 )
 
 // version is overridden at build time with -ldflags "-X main.version=...".
@@ -52,11 +52,11 @@ func report(err error) int {
 
 func newRootCmd() *cobra.Command {
 	root := &cobra.Command{
-		Use:   "skillbuilder",
+		Use:   "circe",
 		Short: "Install skills from your personal registry",
-		Long: "skillbuilder installs skills from your personal registry into a project.\n\n" +
-			"Skills land in .claude/skills/ and are recorded in skillbuilder.json so the\n" +
-			"same set can be restored anywhere with `skillbuilder pull`.",
+		Long: "circe installs skills from your personal registry into a project.\n\n" +
+			"Skills land in .claude/skills/ and are recorded in circe.json so the\n" +
+			"same set can be restored anywhere with `circe pull`.",
 		Version:       version,
 		SilenceUsage:  true,
 		SilenceErrors: true,
@@ -84,8 +84,8 @@ func newRootCmd() *cobra.Command {
 	return root
 }
 
-// expandShorthand rewrites `skillbuilder <bundle> [flags]` into
-// `skillbuilder init <bundle> [flags]`, so installing a folder of skills is
+// expandShorthand rewrites `circe <bundle> [flags]` into
+// `circe init <bundle> [flags]`, so installing a folder of skills is
 // just its name. Done before cobra parses, because otherwise the init flags
 // (-y, -d, …) would be rejected as unknown root flags.
 func expandShorthand(root *cobra.Command, args []string) []string {

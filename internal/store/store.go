@@ -16,7 +16,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sidharthpunathil/skillbuilder/internal/skillfile"
+	"github.com/sidharthpunathil/circe/internal/skillfile"
 )
 
 // ErrNotFound is returned when a skill or bundle does not exist.
@@ -93,7 +93,7 @@ func (s *Store) Reload() error {
 		sk, err := s.loadSkill(name)
 		if err != nil {
 			// A malformed skill must not take down the whole index.
-			fmt.Fprintf(os.Stderr, "skillbuilder: skipping skill %q: %v\n", name, err)
+			fmt.Fprintf(os.Stderr, "circe: skipping skill %q: %v\n", name, err)
 			continue
 		}
 		skills[name] = sk
@@ -118,7 +118,7 @@ func (s *Store) Reload() error {
 		}
 		var b Bundle
 		if err := json.Unmarshal(raw, &b); err != nil {
-			fmt.Fprintf(os.Stderr, "skillbuilder: skipping bundle %q: %v\n", name, err)
+			fmt.Fprintf(os.Stderr, "circe: skipping bundle %q: %v\n", name, err)
 			continue
 		}
 		b.Name = name

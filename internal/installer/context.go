@@ -13,8 +13,8 @@ import (
 // installs idempotent, leaves everything the user wrote untouched, lets several
 // folders coexist in one file, and is trivially reversible by hand.
 const (
-	markerPrefix = "<!-- skillbuilder:start "
-	markerSuffix = "<!-- skillbuilder:end "
+	markerPrefix = "<!-- circe:start "
+	markerSuffix = "<!-- circe:end "
 )
 
 // ContextMode selects what happens to an existing file.
@@ -36,18 +36,40 @@ type ContextResult struct {
 	Action string // "created", "updated", "unchanged", "skipped", "overwritten"
 }
 
-// blockPattern matches a previously written block for a specific folder.
-func blockPattern(folder string) *regexp.Regexp {
-	return regexp.MustCompile(
-		`(?s)\n*` + regexp.QuoteMeta(markerPrefix+folder) + `.*?` +
-			regexp.QuoteMeta(markerSuffix+folder+" -->") + `\n?`)
+// Markers written before the rename. Projects in the wild already contain
+// these, so they have to stay recognisable: if they were not, reinstalling
+// would append a second block and leave the project with two sets of
+// instructions, and uninstalling would silently orphan the old one with no
+// command able to remove it.
+const (
+	legacyMarkerPrefix = "<!-- skillbuilder:start "
+	legacyMarkerSuffix = "<!-- skillbuilder:end "
+)
+
+// blockPatterns matches a previously written block for a folder: current
+// markers first, then the pre-rename ones.
+//
+// They are deliberately separate patterns applied in turn, never one
+// alternation. A single non-greedy pattern accepting either spelling at each
+// end could pair an old opening marker with a new closing one and delete
+// everything the author had written between two adjacent blocks.
+func blockPatterns(folder string) []*regexp.Regexp {
+	pattern := func(prefix, suffix string) *regexp.Regexp {
+		return regexp.MustCompile(
+			`(?s)\n*` + regexp.QuoteMeta(prefix+folder) + `.*?` +
+				regexp.QuoteMeta(suffix+folder+" -->") + `\n?`)
+	}
+	return []*regexp.Regexp{
+		pattern(markerPrefix, markerSuffix),
+		pattern(legacyMarkerPrefix, legacyMarkerSuffix),
+	}
 }
 
 // renderBlock wraps content in markers. The opening marker states that the
 // block is managed, so nobody has to guess why their edits vanished.
 func renderBlock(folder, content string) string {
 	body := strings.TrimRight(strings.ReplaceAll(content, "\r\n", "\n"), "\n")
-	return fmt.Sprintf("%s%s -->\n<!-- Managed by skillbuilder. Edits inside this block are replaced on reinstall. -->\n\n%s\n\n%s%s -->\n",
+	return fmt.Sprintf("%s%s -->\n<!-- Managed by circe. Edits inside this block are replaced on reinstall. -->\n\n%s\n\n%s%s -->\n",
 		markerPrefix, folder, body, markerSuffix, folder)
 }
 
@@ -86,13 +108,20 @@ func WriteContextFile(root, folder, file, content string, mode ContextMode, dryR
 	default:
 		current := string(existing)
 		block := renderBlock(folder, content)
-		if re := blockPattern(folder); re.MatchString(current) {
-			next = re.ReplaceAllString(current, "\n\n"+block)
-			res.Action = "updated"
+		replaced := false
+		for _, re := range blockPatterns(folder) {
+			if re.MatchString(current) {
+				current = re.ReplaceAllString(current, "\n\n"+block)
+				replaced = true
+				break
+			}
+		}
+		if replaced {
+			next = current
 		} else {
 			next = strings.TrimRight(current, "\n") + "\n\n" + block
-			res.Action = "updated"
 		}
+		res.Action = "updated"
 	}
 
 	next = normalizeBlankLines(next)
@@ -119,11 +148,17 @@ func RemoveContextBlock(root, folder, file string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	re := blockPattern(folder)
-	if !re.Match(existing) {
+	var matched *regexp.Regexp
+	for _, re := range blockPatterns(folder) {
+		if re.Match(existing) {
+			matched = re
+			break
+		}
+	}
+	if matched == nil {
 		return false, nil
 	}
-	next := normalizeBlankLines(re.ReplaceAllString(string(existing), "\n"))
+	next := normalizeBlankLines(matched.ReplaceAllString(string(existing), "\n"))
 
 	// A file that now holds nothing but whitespace was ours alone; remove it
 	// rather than leaving an empty CLAUDE.md behind.

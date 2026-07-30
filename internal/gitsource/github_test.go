@@ -417,7 +417,7 @@ func TestRequestHeaders(t *testing.T) {
 		if got := h.Get("Authorization"); got != "Bearer ghp_secret" {
 			t.Errorf("request %d Authorization = %q", i, got)
 		}
-		if got := h.Get("User-Agent"); got != "skillbuilder" {
+		if got := h.Get("User-Agent"); got != "circe" {
 			t.Errorf("request %d User-Agent = %q", i, got)
 		}
 		if got := h.Get("X-GitHub-Api-Version"); got != "2022-11-28" {

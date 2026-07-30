@@ -17,8 +17,8 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
 
-	"github.com/sidharthpunathil/skillbuilder/internal/installer"
-	"github.com/sidharthpunathil/skillbuilder/internal/store"
+	"github.com/sidharthpunathil/circe/internal/installer"
+	"github.com/sidharthpunathil/circe/internal/store"
 )
 
 // MCP servers install differently again: a skill is a directory copied into
@@ -139,7 +139,7 @@ func fetchMCPSet(ctx context.Context, c *installer.Client, name string) (*mcpSet
 	body, err := getRaw(ctx, c, "/api/v1/mcpsets/"+name)
 	if err != nil {
 		if installer.IsNotFound(err) {
-			return nil, fmt.Errorf("no mcp folder named %q at %s. Try `skillbuilder mcp` to list them: %w",
+			return nil, fmt.Errorf("no mcp folder named %q at %s. Try `circe mcp` to list them: %w",
 				name, c.BaseURL, err)
 		}
 		return nil, err

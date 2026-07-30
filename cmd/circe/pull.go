@@ -6,8 +6,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/sidharthpunathil/skillbuilder/internal/api"
-	"github.com/sidharthpunathil/skillbuilder/internal/installer"
+	"github.com/sidharthpunathil/circe/internal/api"
+	"github.com/sidharthpunathil/circe/internal/installer"
 )
 
 func newPullCmd() *cobra.Command {
@@ -109,7 +109,7 @@ func runPull(cmd *cobra.Command, flags installFlags) error {
 
 // pullClient prefers the registry recorded in the lockfile, because that is
 // where these particular skills came from. An explicit --registry or
-// $SKILLBUILDER_REGISTRY still wins; a personal config file does not.
+// $CIRCE_REGISTRY still wins; a personal config file does not.
 func pullClient(lf *api.Lockfile) (*installer.Client, error) {
 	url, source, err := resolveRegistry()
 	if err != nil {

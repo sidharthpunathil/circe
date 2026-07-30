@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sidharthpunathil/skillbuilder/internal/gitsource"
-	"github.com/sidharthpunathil/skillbuilder/internal/store"
+	"github.com/sidharthpunathil/circe/internal/gitsource"
+	"github.com/sidharthpunathil/circe/internal/store"
 )
 
 // sourcesPath is where provenance for remotely imported skills is recorded. It

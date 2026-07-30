@@ -1,4 +1,4 @@
-// Package installer contains everything the skillbuilder CLI needs to turn a
+// Package installer contains everything the circe CLI needs to turn a
 // registry into files on disk: the HTTP client, the safe archive extractor, the
 // deterministic checksum used to detect drift, and the project lockfile.
 //
@@ -111,7 +111,7 @@ func InstallArchive(r io.Reader, opts Options) ([]Result, error) {
 	} else if err := os.MkdirAll(dir, 0o755); err != nil {
 		return nil, fmt.Errorf("create %s: %w", dir, err)
 	}
-	stage, err := os.MkdirTemp(stageParent, ".skillbuilder-stage-")
+	stage, err := os.MkdirTemp(stageParent, ".circe-stage-")
 	if err != nil {
 		return nil, fmt.Errorf("create staging directory: %w", err)
 	}
@@ -182,7 +182,7 @@ func replaceDir(src, dst string) error {
 	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		return fmt.Errorf("create %s: %w", filepath.Dir(dst), err)
 	}
-	backup := dst + ".skillbuilder-old"
+	backup := dst + ".circe-old"
 	_ = os.RemoveAll(backup)
 
 	restore := false

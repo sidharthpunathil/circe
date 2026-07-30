@@ -10,6 +10,7 @@ import (
 	"image/draw"
 	"image/png"
 	"io/fs"
+	"math"
 	"net/http"
 	"os"
 	"path"
@@ -24,8 +25,8 @@ import (
 	"golang.org/x/image/math/fixed"
 	"golang.org/x/image/vector"
 
-	"github.com/sidharthpunathil/skillbuilder/internal/store"
-	"github.com/sidharthpunathil/skillbuilder/web"
+	"github.com/sidharthpunathil/circe/internal/store"
+	"github.com/sidharthpunathil/circe/web"
 )
 
 // Open Graph card rendering.
@@ -292,24 +293,17 @@ func renderOGCard(staticDir string, card ogCard) ([]byte, error) {
 		bottom     = ogHeight - 104
 	)
 
-	// --- wordmark: the same 2x2 mark as the favicon, accent on three cells ---
-	const (
-		cell = 11
-		gap  = 3
-	)
+	// --- wordmark: the same ring mark as the favicon ---
+	const markSize = 27
 	markY := contentTop
-	for i, c := range []color.RGBA{ogAccent, ogAccent, ogAccent, {0x2a, 0x2a, 0x28, 0xff}} {
-		cx := padX + (i%2)*(cell+gap)
-		cy := markY + (i/2)*(cell+gap)
-		draw.Draw(img, image.Rect(cx, cy, cx+cell, cy+cell), image.NewUniform(c), image.Point{}, draw.Src)
-	}
+	drawCirceMark(img, padX, markY, markSize, ogFG, ogAccent)
 
 	wordFace, err := ogFace(fonts.display, 25)
 	if err != nil {
 		return nil, err
 	}
 	defer wordFace.Close()
-	drawText(img, wordFace, ogFG, padX+2*cell+gap+14, markY+cell+gap+cell-2, card.Site)
+	drawText(img, wordFace, ogFG, padX+markSize+13, markY+markSize-4, card.Site)
 
 	// --- accent rule: the one place colour appears as colour ---
 	draw.Draw(img, image.Rect(padX, 190, padX+52, 194), image.NewUniform(ogAccent), image.Point{}, draw.Src)
@@ -547,4 +541,86 @@ func (s *Server) staticDir() string {
 		return s.opts.StaticDir
 	}
 	return ""
+}
+
+// drawCirceMark paints the logo: a ring of four arcs with a rotated square at
+// its centre, the one element taken out of the ring and changed.
+//
+// The geometry mirrors the SVG exactly, expressed on a 24 unit grid and scaled
+// to size. There is no vector renderer here, so it is drawn by testing each
+// pixel in polar coordinates, supersampled to keep the curve smooth.
+func drawCirceMark(img *image.RGBA, x, y, size int, ring, core color.RGBA) {
+	const (
+		grid    = 24.0
+		centre  = 12.0
+		radius  = 8.2  // arc radius
+		stroke  = 3.3  // arc thickness
+		coreArm = 3.54 // half diagonal of the 5x5 square, rotated 45 degrees
+		samples = 3
+	)
+	inner, outer := radius-stroke/2, radius+stroke/2
+	scale := float64(size) / grid
+
+	// Openings sit on the diagonals rather than the cardinals. On the cardinals
+	// the mark reads unmistakably as a lifebuoy.
+	inArc := func(deg float64) bool {
+		for _, start := range []float64{13, 103, 193, 283} {
+			if deg >= start && deg <= start+64 {
+				return true
+			}
+		}
+		return false
+	}
+
+	for py := 0; py < size; py++ {
+		for px := 0; px < size; px++ {
+			var ringHits, coreHits int
+			for sy := 0; sy < samples; sy++ {
+				for sx := 0; sx < samples; sx++ {
+					ux := (float64(px)+(float64(sx)+0.5)/samples)/scale - centre
+					uy := (float64(py)+(float64(sy)+0.5)/samples)/scale - centre
+
+					if math.Abs(ux)+math.Abs(uy) <= coreArm {
+						coreHits++
+						continue
+					}
+					r := math.Hypot(ux, uy)
+					if r < inner || r > outer {
+						continue
+					}
+					deg := math.Atan2(uy, ux) * 180 / math.Pi
+					if deg < 0 {
+						deg += 360
+					}
+					if inArc(deg) {
+						ringHits++
+					}
+				}
+			}
+			total := float64(samples * samples)
+			if coreHits > 0 {
+				blendPixel(img, x+px, y+py, core, float64(coreHits)/total)
+			}
+			if ringHits > 0 {
+				blendPixel(img, x+px, y+py, ring, float64(ringHits)/total)
+			}
+		}
+	}
+}
+
+// blendPixel composites c over the existing pixel at the given coverage.
+func blendPixel(img *image.RGBA, x, y int, c color.RGBA, alpha float64) {
+	if alpha <= 0 || !(image.Point{x, y}).In(img.Bounds()) {
+		return
+	}
+	if alpha > 1 {
+		alpha = 1
+	}
+	dst := img.RGBAAt(x, y)
+	mix := func(a, b uint8) uint8 {
+		return uint8(float64(a)*(1-alpha) + float64(b)*alpha + 0.5)
+	}
+	img.SetRGBA(x, y, color.RGBA{
+		R: mix(dst.R, c.R), G: mix(dst.G, c.G), B: mix(dst.B, c.B), A: 0xff,
+	})
 }

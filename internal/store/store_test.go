@@ -26,7 +26,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sidharthpunathil/skillbuilder/internal/skillfile"
+	"github.com/sidharthpunathil/circe/internal/skillfile"
 )
 
 // ---------- helpers ----------

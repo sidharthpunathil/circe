@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sidharthpunathil/skillbuilder/internal/mcpcatalog"
-	"github.com/sidharthpunathil/skillbuilder/internal/store"
+	"github.com/sidharthpunathil/circe/internal/mcpcatalog"
+	"github.com/sidharthpunathil/circe/internal/store"
 )
 
 // routesMCP registers everything MCP. It lives here rather than in routes() so

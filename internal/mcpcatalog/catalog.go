@@ -32,7 +32,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/sidharthpunathil/skillbuilder/internal/store"
+	"github.com/sidharthpunathil/circe/internal/store"
 )
 
 //go:embed catalog.json
@@ -126,7 +126,7 @@ var entries = sync.OnceValue(func() []Entry {
 		Entries []Entry `json:"entries"`
 	}
 	if err := json.Unmarshal(raw, &doc); err != nil {
-		fmt.Fprintf(os.Stderr, "skillbuilder: mcp catalog: %v\n", err)
+		fmt.Fprintf(os.Stderr, "circe: mcp catalog: %v\n", err)
 		return nil
 	}
 

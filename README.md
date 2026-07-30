@@ -2,15 +2,15 @@
 
 <img src="docs/logo.svg" alt="" width="76" height="76">
 
-# Skillbuilder
+# Circe
 
-**Your own registry for Claude agent skills.**
-Write them in the browser, group them into folders, install them into any project with one command.
+**Your own registry for Claude agent skills, rules and MCP servers.**
+Write them in the browser, group them into folders, install a folder into any project with one command.
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Go](https://img.shields.io/badge/go-1.26-00ADD8.svg)](go.mod)
 
-<img src="docs/screenshot.png" alt="Skillbuilder home page" width="820">
+<img src="docs/screenshot.png" alt="Circe home page" width="820">
 
 </div>
 
@@ -22,17 +22,26 @@ Write them in the browser, group them into folders, install them into any projec
 file that teach Claude how to do something. They pile up fast, they live scattered across
 machines and repos, and there's no good way to say *"give this project those six skills."*
 
-Skillbuilder is a small self-hosted app that fixes that:
+Circe is a small self-hosted app that fixes that. It holds three kinds of thing, because a
+project needs three different things from you:
 
-- **Write and edit skills** in a proper editor, with validation against the real
-  `SKILL.md` rules.
+| | What it is | Where it lands in a project |
+| --- | --- | --- |
+| **Skills** | A procedure the agent can follow | `./.claude/skills/` |
+| **Rules** | How you work, and what to avoid | `CLAUDE.md` / `AGENTS.md` |
+| **MCP servers** | A live connection to something outside the repo | `.mcp.json` |
+
+- **Write and edit** in a proper editor, with validation against the real `SKILL.md` rules.
 - **Group them into folders.** A folder is the unit you install.
-- **Install with one command**: `skillbuilder my-folder` drops every skill in it into
-  `./.claude/skills/`.
+- **Install with one command**: `circe my-folder` drops every skill in it into
+  `./.claude/skills/`. `circe rules <folder>` and `circe mcp <folder>` do the same for the
+  other two.
 - **Import from anywhere**: a repo on any git host (GitHub, GitLab, Bitbucket, Codeberg,
-  self-hosted Gitea/Forgejo), a pasted `SKILL.md`, your local `~/.claude/skills`, or a
-  share code from someone else's registry. Content is copied in, so it stays yours even if
-  the source disappears.
+  self-hosted Gitea/Forgejo), a pasted `SKILL.md` or `.mcp.json`, your local
+  `~/.claude/skills`, or a share code from someone else's registry. Content is copied in,
+  so it stays yours even if the source disappears.
+- **A catalog of 32 known MCP servers**, so adding GitHub or Postgres does not start with
+  looking up a command line.
 - **No database.** Everything is plain files on disk, so the storage directory *is* your
   backup. Commit it to git if you like.
 
@@ -42,9 +51,9 @@ It's two Go binaries and a directory of markdown. That's the whole system.
 
 ### One click
 
-[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/new/template?template=https%3A%2F%2Fgithub.com%2Fsidharthpunathil%2Fskillbuilder)
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/new/template?template=https%3A%2F%2Fgithub.com%2Fsidharthpunathil%2Fcirce)
 
-Set **`SKILLBUILDER_PASSWORD`** when prompted, and attach a **volume mounted at `/data`**
+Set **`CIRCE_PASSWORD`** when prompted, and attach a **volume mounted at `/data`**
 so your skills survive redeploys. That's it.
 
 It's cheap to run: the image is ~15 MB, it idles at around 20 MB of RAM and effectively
@@ -55,34 +64,34 @@ costs close to nothing when you aren't using it.
 
 ```bash
 docker run -d -p 8080:8080 \
-  -v skillbuilder-data:/data \
-  -e SKILLBUILDER_PASSWORD=pick-something-good \
-  ghcr.io/sidharthpunathil/skillbuilder:latest
+  -v circe-data:/data \
+  -e CIRCE_PASSWORD=pick-something-good \
+  ghcr.io/sidharthpunathil/circe:latest
 ```
 
 ### From source
 
 ```bash
-git clone https://github.com/sidharthpunathil/skillbuilder
-cd skillbuilder
-make build && ./bin/skillbuilder-server   # http://127.0.0.1:8080
+git clone https://github.com/sidharthpunathil/circe
+cd circe
+make build && ./bin/circe-server   # http://127.0.0.1:8080
 ```
 
 `make build` downloads the Tailwind standalone binary and compiles both binaries. There
 is no Node dependency at build time or runtime, and templates and assets are embedded, so
 the result is a single self-contained binary.
 
-> **Running it anywhere public? Set `SKILLBUILDER_PASSWORD`.** Without it, anyone who can
+> **Running it anywhere public? Set `CIRCE_PASSWORD`.** Without it, anyone who can
 > reach the URL can edit and delete your skills. The server warns loudly on startup if you
 > bind to a non-loopback address without one.
 
 ## Install the CLI
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/sidharthpunathil/skillbuilder/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/sidharthpunathil/circe/main/install.sh | sh
 ```
 
-macOS and Linux, `amd64` and `arm64`. Or `go install github.com/sidharthpunathil/skillbuilder/cmd/skillbuilder@latest`,
+macOS and Linux, `amd64` and `arm64`. Or `go install github.com/sidharthpunathil/circe/cmd/circe@latest`,
 or `make build` from a clone. Full options in [docs/install.md](docs/install.md).
 
 ## Use it
@@ -90,40 +99,41 @@ or `make build` from a clone. Full options in [docs/install.md](docs/install.md)
 Create a folder on the site, tick the skills that belong in it, then in any project:
 
 ```bash
-skillbuilder my-folder        # pick which of its skills to install
-skillbuilder my-folder -y     # install all of them
-skillbuilder add design-taste # install a single skill
+circe my-folder        # pick which of its skills to install
+circe my-folder -y     # install all of them
+circe add design-taste # install a single skill
 ```
 
-Skills land in `.claude/skills/<name>/` and are recorded in `skillbuilder.json`, so
-`skillbuilder pull` restores the same set on any machine. Local edits are never clobbered:
+Skills land in `.claude/skills/<name>/` and are recorded in `circe.json`, so
+`circe pull` restores the same set on any machine. Local edits are never clobbered:
 `pull` holds back anything you've changed unless you pass `--force`.
 
 Point the CLI at your deployment once:
 
 ```bash
-skillbuilder login https://your-app.up.railway.app
+circe login https://your-app.up.railway.app
 ```
 
 It prompts for the passcode, checks it against the registry, and only then saves, so a typo
-fails here rather than somewhere confusing later. `skillbuilder logout` forgets it.
+fails here rather than somewhere confusing later. `circe logout` forgets it.
 
 ### Commands
 
 | Command | What it does |
 | --- | --- |
-| `skillbuilder <folder>` | Choose skills from a folder and install them. `-y` takes all. |
-| `skillbuilder skills <folder>` | The same thing, spelled out. |
-| `skillbuilder rules <folder>` | Merge a rule folder into this project's CLAUDE.md / AGENTS.md. No args lists them. |
-| `skillbuilder add <skill>…` | Install specific skills; no args opens a picker. |
-| `skillbuilder list` | Show installed skills and whether they've drifted. `--remote` lists the registry. |
-| `skillbuilder search <query>` | Search the registry. |
-| `skillbuilder pull` | Re-download everything in the lockfile. |
-| `skillbuilder remove <skill>…` | Delete skills and drop them from the lockfile. |
-| `skillbuilder push <dir>` | Publish one skill, or every skill in a directory. |
-| `skillbuilder import <code>` | Install from someone else's share code: no setup needed. |
-| `skillbuilder login [url]` | Connect to a registry, verifying the token before saving. |
-| `skillbuilder config` | Show the resolved registry, config and install paths. |
+| `circe <folder>` | Choose skills from a folder and install them. `-y` takes all. |
+| `circe skills <folder>` | The same thing, spelled out. |
+| `circe rules <folder>` | Merge a rule folder into this project's CLAUDE.md / AGENTS.md. No args lists them. |
+| `circe mcp <folder>` | Merge a folder of MCP servers into this project's `.mcp.json`. No args lists them. |
+| `circe add <skill>…` | Install specific skills; no args opens a picker. |
+| `circe list` | Show installed skills and whether they've drifted. `--remote` lists the registry. |
+| `circe search <query>` | Search the registry. |
+| `circe pull` | Re-download everything in the lockfile. |
+| `circe remove <skill>…` | Delete skills and drop them from the lockfile. |
+| `circe push <dir>` | Publish one skill, or every skill in a directory. |
+| `circe import <code>` | Install from someone else's share code: no setup needed. |
+| `circe login [url]` | Connect to a registry, verifying the token before saving. |
+| `circe config` | Show the resolved registry, config and install paths. |
 
 Flags: `-d/--dir` (install location, remembered after the first install), `--force`,
 `--dry-run`, `--registry`.
@@ -144,8 +154,8 @@ on: which for a hosted deployment is a container that cannot see your laptop. Pu
 your machine instead:
 
 ```bash
-skillbuilder login https://your-app.up.railway.app
-skillbuilder push ~/.claude/skills          # every skill in there
+circe login https://your-app.up.railway.app
+circe push ~/.claude/skills          # every skill in there
 ```
 
 `push` publishes one skill if the directory has a `SKILL.md`, otherwise every subdirectory
@@ -162,21 +172,55 @@ up in a project's `CLAUDE.md` or `AGENTS.md`.
 Write rules on the **Rules** tab, group them into a folder, then:
 
 ```bash
-skillbuilder rules house-style
+circe rules house-style
 ```
 
 Each rule picks which files it belongs in, so a rule can go to `CLAUDE.md`, `AGENTS.md`, or
 both. They merge into the project's own files inside a marked block, so anything already
 there is untouched and re-running replaces only that block.
 
-The two verbs read symmetrically:
+The three verbs read symmetrically:
 
 ```bash
-skillbuilder skills frontend-kit   # capability
-skillbuilder rules  house-style    # conventions
+circe skills frontend-kit   # what it can do
+circe rules  house-style    # how you work
+circe mcp    essentials     # what it can reach
 ```
 
-`skillbuilder <folder>` is still shorthand for the skills form.
+`circe <folder>` is still shorthand for the skills form.
+
+## MCP servers
+
+A skill teaches the agent a procedure. An MCP server gives it something to reach: a
+database, an API, a browser, your issue tracker.
+
+The **MCP** tab has a catalog of 32 servers that are known to work, with their command
+lines already filled in, covering GitHub, Sentry, Linear, Notion, Slack, Stripe, Supabase,
+Railway, Postgres, Playwright, Figma and more. Tick the ones you want, group them into a
+folder, then:
+
+```bash
+circe mcp essentials
+```
+
+That merges them into the project's `.mcp.json`. Servers the project already has are
+reported and left alone rather than replaced, unless you pass `--force`, and any top level
+keys Circe does not model are carried through untouched. Re-running when nothing has
+changed does not rewrite the file.
+
+**Your keys are not stored here.** Circe records the *name* of each variable a server
+needs, never its value, and the generated config refers to it as `${VAR}` so the value
+comes from your own shell. After installing, the CLI tells you which variables are still
+unset:
+
+```
+2 added in .mcp.json
+set these before the servers will start:
+  DATABASE_URI                  postgres
+  GITHUB_PERSONAL_ACCESS_TOKEN  github · optional
+```
+
+This also means a share code can never leak a token.
 
 ## Sharing
 
@@ -185,7 +229,7 @@ for one folder or skill:
 
 1. Open a folder or skill and hit **Create share code**.
 2. Send someone the `sb_…` code, or the link.
-3. They paste it into **Import → From a code**, or run `skillbuilder import sb_…`.
+3. They paste it into **Import → From a code**, or run `circe import sb_…`.
 
 The content is copied into their registry, so their copy keeps working even if yours goes
 away. Sharing is opt-in per resource and revocable: **Stop sharing** kills the code
@@ -198,12 +242,12 @@ A folder can carry a `CLAUDE.md` and an `AGENTS.md`. Installing it merges them i
 project's own files inside a marked block:
 
 ```markdown
-<!-- skillbuilder:start my-folder -->
-<!-- Managed by skillbuilder. Edits inside this block are replaced on reinstall. -->
+<!-- circe:start my-folder -->
+<!-- Managed by circe. Edits inside this block are replaced on reinstall. -->
 
   …the folder's instructions…
 
-<!-- skillbuilder:end my-folder -->
+<!-- circe:end my-folder -->
 ```
 
 Anything you wrote outside the block is untouched, re-installing replaces only the block,
@@ -226,16 +270,38 @@ Everything is environment variables. Nothing is baked into the binary.
 | Variable | Default | What it does |
 | --- | --- | --- |
 | `PORT` | `8080` | Listen port. Most hosts inject this. |
-| `SKILLBUILDER_ADDR` | `127.0.0.1:8080` | Full listen address, if you'd rather set it directly. |
-| `SKILLBUILDER_DATA` | `./data` | Where skills and folders are stored. |
-| `SKILLBUILDER_PASSWORD` |: | Enables auth. **Set this for any public deployment.** |
-| `SKILLBUILDER_USER` | any | Optional basic-auth username. |
-| `SKILLBUILDER_BASE_URL` |: | Public origin, if behind a proxy or custom domain. |
-| `SKILLBUILDER_SEED_REPO` |: | On first boot, when empty, import every skill from this repo. |
-| `SKILLBUILDER_SEED_FOLDER` |: | Put the seeded skills into a folder with this name. |
-| `GITHUB_TOKEN` |: | Raises the GitHub rate limit (60/hr unauthenticated) and reaches private repos. |
+| `CIRCE_ADDR` | `127.0.0.1:8080` | Full listen address, if you'd rather set it directly. |
+| `CIRCE_DATA` | `./data` | Where skills and folders are stored. |
+| `CIRCE_PASSWORD` | none | Enables auth. **Set this for any public deployment.** |
+| `CIRCE_USER` | any | Optional basic-auth username. |
+| `CIRCE_BASE_URL` | none | Public origin, if behind a proxy or custom domain. |
+| `CIRCE_SEED_REPO` | none | On first boot, when empty, import every skill from this repo. |
+| `CIRCE_SEED_FOLDER` | none | Put the seeded skills into a folder with this name. |
+| `GITHUB_TOKEN` | none | Raises the GitHub rate limit (60/hr unauthenticated) and reaches private repos. |
 
 Seeding only runs when the registry is empty, so redeploys never overwrite your edits.
+
+### Coming from Skillbuilder
+
+This project used to be called Skillbuilder. The rename is handled for you:
+
+- `SKILLBUILDER_*` variables are still read, so an existing deployment keeps running
+  without being reconfigured. Add the `CIRCE_*` names when convenient.
+- A project's `skillbuilder.json` lockfile is read and upgraded to `circe.json` on the
+  next write.
+- `~/.skillbuilder/config.json` is read if `~/.circe/config.json` does not exist yet.
+- Blocks already written into a `CLAUDE.md` with the old marker are still recognised, so
+  reinstalling replaces them rather than adding a second copy.
+- Sessions and share codes are unaffected: the values they are built from were deliberately
+  left alone.
+
+One thing needs a manual step, because the format allows no alias. If you added this
+registry to Claude Code as a plugin marketplace, re-add it:
+
+```
+/plugin marketplace remove skillbuilder
+/plugin marketplace add https://your-app.up.railway.app
+```
 
 ## How data is stored
 

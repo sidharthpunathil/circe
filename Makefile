@@ -27,9 +27,9 @@ all: build
 ## build: compile the server and CLI into ./bin (CSS is embedded, so build it first)
 build: css
 	@mkdir -p bin
-	go build -o bin/skillbuilder-server ./cmd/server
-	go build -o bin/skillbuilder ./cmd/skillbuilder
-	@echo "built bin/skillbuilder-server and bin/skillbuilder"
+	go build -o bin/circe-server ./cmd/server
+	go build -o bin/circe ./cmd/circe
+	@echo "built bin/circe-server and bin/circe"
 
 ## css: compile Tailwind into the embedded stylesheet
 css: $(TAILWIND)

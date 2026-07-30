@@ -7,8 +7,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/sidharthpunathil/skillbuilder/internal/api"
-	"github.com/sidharthpunathil/skillbuilder/internal/installer"
+	"github.com/sidharthpunathil/circe/internal/api"
+	"github.com/sidharthpunathil/circe/internal/installer"
 )
 
 func newInitCmd() *cobra.Command {
@@ -51,7 +51,7 @@ func runInit(cmd *cobra.Command, bundle string, takeAll bool, flags installFlags
 	manifest, err := client.GetBundle(ctx, bundle)
 	if err != nil {
 		if installer.IsNotFound(err) {
-			return fmt.Errorf("no folder named %q at %s. Try `skillbuilder list --remote`: %w", bundle, client.BaseURL, err)
+			return fmt.Errorf("no folder named %q at %s. Try `circe list --remote`: %w", bundle, client.BaseURL, err)
 		}
 		return err
 	}

@@ -7,14 +7,14 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/sidharthpunathil/skillbuilder/internal/installer"
+	"github.com/sidharthpunathil/circe/internal/installer"
 )
 
 func newConfigCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "config",
 		Short: "Show the resolved configuration",
-		Long: "Show where skillbuilder is pointed and which source decided it.\n\n" +
+		Long: "Show where circe is pointed and which source decided it.\n\n" +
 			"Precedence is --registry, then $" + installer.EnvRegistry + ", then the config\n" +
 			"file, then the built-in default.",
 		Args: cobra.NoArgs,

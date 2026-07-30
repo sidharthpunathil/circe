@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sidharthpunathil/skillbuilder/internal/gitsource"
-	"github.com/sidharthpunathil/skillbuilder/internal/store"
+	"github.com/sidharthpunathil/circe/internal/gitsource"
+	"github.com/sidharthpunathil/circe/internal/store"
 )
 
 // SeedOptions describes an optional first-boot import.
@@ -40,7 +40,7 @@ func Seed(ctx context.Context, st *store.Store, sourcesPath string, opts SeedOpt
 		return fmt.Errorf("seed repo %q: %w", opts.Repo, err)
 	}
 
-	log.Printf("skillbuilder: registry is empty, seeding from %s", repo.String())
+	log.Printf("circe: registry is empty, seeding from %s", repo.String())
 	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
 
@@ -57,14 +57,14 @@ func Seed(ctx context.Context, st *store.Store, sourcesPath string, opts SeedOpt
 	var imported []string
 	for _, c := range res.Candidates {
 		if err := st.WriteSkillFiles(c.Name, c.Files, false); err != nil {
-			log.Printf("skillbuilder: seed %s: %v", c.Name, err)
+			log.Printf("circe: seed %s: %v", c.Name, err)
 			continue
 		}
 		sources[c.Name] = gitsource.NewSource(c.Name, repo, res.Meta, c)
 		imported = append(imported, c.Name)
 	}
 	if err := gitsource.SaveSources(sourcesPath, sources); err != nil {
-		log.Printf("skillbuilder: save sources: %v", err)
+		log.Printf("circe: save sources: %v", err)
 	}
 
 	if opts.Folder != "" && len(imported) > 0 {
@@ -74,11 +74,11 @@ func Seed(ctx context.Context, st *store.Store, sourcesPath string, opts SeedOpt
 			Skills: imported,
 		}
 		if err := st.SaveBundle(b); err != nil {
-			log.Printf("skillbuilder: seed folder: %v", err)
+			log.Printf("circe: seed folder: %v", err)
 		}
 	}
 
-	log.Printf("skillbuilder: seeded %d skills from %s", len(imported), repo.String())
+	log.Printf("circe: seeded %d skills from %s", len(imported), repo.String())
 	return nil
 }
 

@@ -78,7 +78,7 @@ type InstalledSkill struct {
 	InstalledAt time.Time `json:"installedAt"`
 }
 
-// Lockfile is written to skillbuilder.json in a project root so that installs
+// Lockfile is written to circe.json in a project root so that installs
 // are reproducible and `pull` knows what to refresh.
 type Lockfile struct {
 	Version  int    `json:"version"`
@@ -101,5 +101,5 @@ func (l *Lockfile) InstallDir() string {
 	return DefaultInstallDir
 }
 
-// LockfileVersion is the current schema version of skillbuilder.json.
+// LockfileVersion is the current schema version of circe.json.
 const LockfileVersion = 1

@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/sidharthpunathil/skillbuilder/internal/store"
+	"github.com/sidharthpunathil/circe/internal/store"
 )
 
 // The marketplace manifest lets stock Claude Code consume this registry with
@@ -46,10 +46,10 @@ func (s *Server) marketplaceJSON(baseURL string, only *store.Bundle) ([]byte, er
 
 	m := marketplace{
 		Schema:      marketplaceSchemaURL,
-		Name:        "skillbuilder",
+		Name:        "circe",
 		Version:     "1.0.0",
-		Description: "A personal registry of Claude agent skills.",
-		Owner:       marketplaceOwner{Name: "skillbuilder"},
+		Description: "Your own registry of Claude agent skills, rules and MCP servers.",
+		Owner:       marketplaceOwner{Name: "circe"},
 		Plugins:     []marketplacePlugin{},
 	}
 

@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sidharthpunathil/skillbuilder/internal/store"
+	"github.com/sidharthpunathil/circe/internal/store"
 )
 
 // A share is the one thing a password-protected registry exposes publicly, and
@@ -254,7 +254,7 @@ func (s *Server) fetchShare(r *http.Request, code string) (*sharePayload, string
 	if err != nil {
 		return nil, origin, err
 	}
-	req.Header.Set("User-Agent", "skillbuilder")
+	req.Header.Set("User-Agent", "circe")
 
 	resp, err := shareClient.Do(req)
 	if err != nil {

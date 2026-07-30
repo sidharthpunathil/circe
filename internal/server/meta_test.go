@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sidharthpunathil/skillbuilder/internal/store"
+	"github.com/sidharthpunathil/circe/internal/store"
 )
 
 // ---------- helpers ----------

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sidharthpunathil/skillbuilder/internal/api"
+	"github.com/sidharthpunathil/circe/internal/api"
 )
 
 func TestLockfileRoundTrip(t *testing.T) {
