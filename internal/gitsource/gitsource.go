@@ -31,8 +31,8 @@ import (
 // skillFileName marks a directory as a skill.
 const skillFileName = "SKILL.md"
 
-// Repo identifies a GitHub repository, optionally pinned to a ref and narrowed
-// to a subdirectory.
+// Repo identifies a repository on any supported host, optionally pinned to a
+// ref and narrowed to a subdirectory.
 type Repo struct {
 	Owner string
 	Name  string
@@ -41,13 +41,35 @@ type Repo struct {
 	// Subpath restricts discovery to one directory of the repository, which is
 	// what a pasted /tree/<ref>/<dir> URL means. Empty means the whole repo.
 	Subpath string
+
+	// Host is where the repository lives, e.g. gitlab.com or a self-hosted
+	// instance. Empty means github.com, so zero values keep working.
+	Host string
+	// ProviderID records which kind of host it is, for provenance.
+	ProviderID string
+}
+
+// Provider returns the host's provider, defaulting to GitHub.
+func (r Repo) Provider() *Provider {
+	if r.Host == "" && r.ProviderID == "" {
+		return ProviderGitHub
+	}
+	for _, p := range []*Provider{ProviderGitHub, ProviderGitLab, ProviderBitbucket, ProviderGitea} {
+		if p.ID == r.ProviderID {
+			return p
+		}
+	}
+	if p := providerForHost(r.Host); p != nil {
+		return p
+	}
+	return ProviderGitHub
 }
 
 // String renders the repository as owner/name.
 func (r Repo) String() string { return r.Owner + "/" + r.Name }
 
 // HTMLURL is the browsable page for the repository.
-func (r Repo) HTMLURL() string { return "https://github.com/" + r.Owner + "/" + r.Name }
+func (r Repo) HTMLURL() string { return r.baseURL() + "/" + r.Owner + "/" + r.Name }
 
 func (r Repo) validate() error {
 	if !nameRe.MatchString(r.Owner) || !nameRe.MatchString(r.Name) {
@@ -323,19 +345,21 @@ func ParseRepoURL(s string) (Repo, error) {
 		m := scpSyntax.FindStringSubmatch(s)
 		host, p = m[1], m[2]
 	default:
-		// A bare string is either github.com/owner/repo or just owner/repo.
-		host, p = "github.com", s
-		for _, prefix := range []string{"github.com/", "www.github.com/"} {
-			if rest, ok := strings.CutPrefix(s, prefix); ok {
-				p = rest
-				break
-			}
+		// A bare string is either host/owner/repo or just owner/repo. A leading
+		// segment containing a dot is a host; otherwise assume GitHub, since
+		// `owner/repo` overwhelmingly means GitHub.
+		host, p = ProviderGitHub.Host, s
+		if first, rest, ok := strings.Cut(s, "/"); ok && strings.Contains(first, ".") {
+			host, p = first, rest
 		}
 	}
 
 	host = strings.ToLower(strings.TrimPrefix(host, "www."))
-	if host != "github.com" {
-		return Repo{}, fmt.Errorf("unsupported host %q — only github.com repositories are supported", host)
+	provider := providerForHost(host)
+	if provider == nil {
+		// An unrecognised host is probably self-hosted GitLab or Gitea; the
+		// archive fetch probes rather than refusing outright.
+		provider = ProviderGitea
 	}
 
 	parts := splitPath(p)
@@ -344,11 +368,33 @@ func ParseRepoURL(s string) (Repo, error) {
 	}
 
 	r := Repo{Owner: parts[0], Name: strings.TrimSuffix(parts[1], ".git")}
+	if host != ProviderGitHub.Host {
+		r.Host = host
+	}
+	r.ProviderID = provider.ID
 	if err := r.validate(); err != nil {
 		return Repo{}, fmt.Errorf("cannot parse %q: %w", s, err)
 	}
 
-	// github.com/owner/repo/<kind>/<ref>/<path...>
+	// GitLab groups nest: gitlab.com/group/subgroup/project. Everything before
+	// the marker segment is the owner path.
+	if provider.ID == "gitlab" && len(parts) > 2 {
+		if i := indexOfAny(parts, "-", "tree", "blob", "commit", "commits"); i > 2 {
+			r.Owner = strings.Join(parts[:i-1], "/")
+			r.Name = strings.TrimSuffix(parts[i-1], ".git")
+			parts = append([]string{r.Owner, r.Name}, parts[i:]...)
+		} else if i < 0 {
+			r.Owner = strings.Join(parts[:len(parts)-1], "/")
+			r.Name = strings.TrimSuffix(parts[len(parts)-1], ".git")
+			parts = []string{r.Owner, r.Name}
+		}
+	}
+	// GitLab puts /-/ before tree/blob; drop it so the shape below matches.
+	if len(parts) > 2 && parts[2] == "-" {
+		parts = append(parts[:2], parts[3:]...)
+	}
+
+	// host/owner/repo/<kind>/<ref>/<path...>
 	if len(parts) >= 4 {
 		rest := parts[3:]
 		switch parts[2] {
@@ -417,4 +463,16 @@ func isHex(s string) bool {
 		}
 	}
 	return s != ""
+}
+
+// indexOfAny returns the index of the first element equal to any of want.
+func indexOfAny(parts []string, want ...string) int {
+	for i, p := range parts {
+		for _, w := range want {
+			if p == w {
+				return i
+			}
+		}
+	}
+	return -1
 }

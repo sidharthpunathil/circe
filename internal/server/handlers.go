@@ -930,14 +930,14 @@ func (s *Server) handleImportRun(w http.ResponseWriter, r *http.Request) {
 
 	if len(names) == 0 {
 		s.setFlash(w, "error", "Select at least one skill to import.")
-		http.Redirect(w, r, "/import?src="+urlQueryEscape(src), http.StatusSeeOther)
+		http.Redirect(w, r, "/import/local?src="+urlQueryEscape(src), http.StatusSeeOther)
 		return
 	}
 
 	res, err := s.store.Import(src, names, overwrite)
 	if err != nil {
 		s.setFlash(w, "error", err.Error())
-		http.Redirect(w, r, "/import?src="+urlQueryEscape(src), http.StatusSeeOther)
+		http.Redirect(w, r, "/import/local?src="+urlQueryEscape(src), http.StatusSeeOther)
 		return
 	}
 

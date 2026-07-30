@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"net/url"
 	"path"
 	"path/filepath"
@@ -65,14 +66,42 @@ type archive struct {
 // contents API would spend a request per directory and hit the 60/hour
 // unauthenticated limit long before finishing.
 func (c *Client) downloadTarball(ctx context.Context, repo Repo, ref string) (*archive, error) {
-	u := fmt.Sprintf("%s/repos/%s/%s/tarball", c.base(), url.PathEscape(repo.Owner), url.PathEscape(repo.Name))
-	if ref != "" {
-		u += "/" + escapeRef(ref)
+	pinned := repo
+	pinned.Ref = ref
+
+	// Try the detected provider first. An unrecognised self-hosted host could
+	// be Gitea or GitLab, so fall back rather than refuse — the archive either
+	// downloads or it does not, which is a better test than guessing from a
+	// hostname.
+	attempts := []*Provider{repo.Provider()}
+	if repo.Host != "" && knownProviders[repo.Host] == nil {
+		for _, alt := range fallbackProviders() {
+			if alt.ID != attempts[0].ID {
+				attempts = append(attempts, alt)
+			}
+		}
 	}
-	resp, err := c.get(ctx, u)
-	if err != nil {
-		return nil, err
+
+	var lastErr error
+	for _, prov := range attempts {
+		u := prov.tarballURL(prov.apiBaseWithOverride(pinned, c.BaseURL), pinned)
+		resp, err := c.get(ctx, prov, u)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		arc, err := c.readArchive(resp, repo, u)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		return arc, nil
 	}
+	return nil, lastErr
+}
+
+// readArchive consumes a tarball response.
+func (c *Client) readArchive(resp *http.Response, repo Repo, u string) (*archive, error) {
 	defer resp.Body.Close()
 
 	arc, err := readTarball(resp.Body, repo.Subpath, defaultLimits)

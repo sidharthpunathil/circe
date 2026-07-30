@@ -44,26 +44,28 @@ type githubView struct {
 	Error      string
 	Searched   bool
 	HasToken   bool
+	Providers  []string
 }
 
 // handleImportGitHub discovers the skills in a repository without importing.
-func (s *Server) handleImportGitHub(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleImportRepo(w http.ResponseWriter, r *http.Request) {
 	raw := strings.TrimSpace(r.URL.Query().Get("repo"))
 	view := githubView{
-		base:     s.base(w, r, "import"),
-		RepoURL:  raw,
-		Folders:  s.folderNames(),
-		HasToken: gitsource.EnvToken() != "",
+		base:      s.base(w, r, "import"),
+		RepoURL:   raw,
+		Folders:   s.folderNames(),
+		HasToken:  gitsource.EnvToken() != "",
+		Providers: gitsource.SupportedProviders(),
 	}
 	if raw == "" {
-		s.tmpl.render(w, r, http.StatusOK, "github", view)
+		s.tmpl.render(w, r, http.StatusOK, "repo", view)
 		return
 	}
 
 	repo, err := gitsource.ParseRepoURL(raw)
 	if err != nil {
 		view.Error = err.Error()
-		s.tmpl.render(w, r, http.StatusOK, "github", view)
+		s.tmpl.render(w, r, http.StatusOK, "repo", view)
 		return
 	}
 
@@ -75,7 +77,7 @@ func (s *Server) handleImportGitHub(w http.ResponseWriter, r *http.Request) {
 	res, err := gitsource.Fetch(ctx, repo)
 	if err != nil {
 		view.Error = err.Error()
-		s.tmpl.render(w, r, http.StatusOK, "github", view)
+		s.tmpl.render(w, r, http.StatusOK, "repo", view)
 		return
 	}
 
@@ -91,19 +93,19 @@ func (s *Server) handleImportGitHub(w http.ResponseWriter, r *http.Request) {
 	sort.Slice(view.Candidates, func(i, j int) bool {
 		return view.Candidates[i].Name < view.Candidates[j].Name
 	})
-	s.tmpl.render(w, r, http.StatusOK, "github", view)
+	s.tmpl.render(w, r, http.StatusOK, "repo", view)
 }
 
 // handleImportGitHubRun copies the selected skills into the registry and
 // records where each one came from.
-func (s *Server) handleImportGitHubRun(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleImportRepoRun(w http.ResponseWriter, r *http.Request) {
 	_ = r.ParseForm()
 	raw := strings.TrimSpace(r.FormValue("repo"))
 	names := r.Form["names"]
 	overwrite := r.FormValue("overwrite") == "1"
 	folder := strings.TrimSpace(r.FormValue("folder"))
 
-	back := "/import/github?repo=" + urlQueryEscape(raw)
+	back := "/import/repo?repo=" + urlQueryEscape(raw)
 	if len(names) == 0 {
 		s.setFlash(w, "error", "Select at least one skill to import.")
 		http.Redirect(w, r, back, http.StatusSeeOther)
@@ -113,7 +115,7 @@ func (s *Server) handleImportGitHubRun(w http.ResponseWriter, r *http.Request) {
 	repo, err := gitsource.ParseRepoURL(raw)
 	if err != nil {
 		s.setFlash(w, "error", err.Error())
-		http.Redirect(w, r, "/import/github", http.StatusSeeOther)
+		http.Redirect(w, r, "/import/repo", http.StatusSeeOther)
 		return
 	}
 

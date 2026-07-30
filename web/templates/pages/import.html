@@ -82,21 +82,21 @@
           Point it at one skill directory or a directory of them — it works out which. Companion
           files come along, and existing skills are left alone unless you add
           <span class="font-mono">--force</span>. Or use
-          <a href="/import/github" class="text-fg-2 underline underline-offset-2">GitHub repo</a>
+          <a href="/import/repo" class="text-fg-2 underline underline-offset-2">Repository</a>
           and <a href="/import/code" class="text-fg-2 underline underline-offset-2">From a code</a>,
           which both work from anywhere.
         </p>
       </div>
     {{ end }}
 
-    <div class="mt-6 flex items-center gap-1 text-[14px]">
-      <a href="/import" class="badge badge-active">Local directory</a>
-      <a href="/import/github" class="badge hover:text-fg transition-colors">GitHub repo</a>
-      <a href="/import/code" class="badge hover:text-fg transition-colors">From a code</a>
+    <div class="mt-6 flex items-center gap-1 text-[14px] flex-wrap">
+      <a href="/import/repo" class="badge hover:text-fg transition-colors">Repository</a>
       <a href="/import/file" class="badge hover:text-fg transition-colors">From a file</a>
+      <a href="/import/code" class="badge hover:text-fg transition-colors">From a code</a>
+      <a href="/import/local" class="badge badge-active">Local directory</a>
     </div>
 
-    <form method="get" action="/import" class="mt-6 flex flex-wrap gap-2 max-w-[860px]">
+    <form method="get" action="/import/local" class="mt-6 flex flex-wrap gap-2 max-w-[860px]">
       <input
         name="src"
         value="{{ .Source }}"
@@ -108,7 +108,7 @@
     </form>
 
     {{ if .Candidates }}
-      <form method="post" action="/import" class="mt-8">
+      <form method="post" action="/import/local" class="mt-8">
         <input type="hidden" name="src" value="{{ .Source }}" />
 
         <div class="flex flex-wrap items-center justify-between gap-3 mb-3">

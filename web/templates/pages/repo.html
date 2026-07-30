@@ -1,18 +1,19 @@
 {{ define "content" }}
   <div class="container-page pt-12 pb-16">
     <p class="eyebrow mb-3">Import</p>
-    <h1 class="text-[32px] md:text-[40px]">From a GitHub repo</h1>
+    <h1 class="text-[32px] md:text-[40px]">From a repository</h1>
     <p class="mt-3 text-[15px] text-fg-3 max-w-[62ch]">
-      Point at any repository and Skillbuilder finds every
+      Point at any repository — GitHub, GitLab, Bitbucket, Codeberg, or a self-hosted Gitea or
+      Forgejo — and Skillbuilder finds every
       <span class="font-mono text-[13px] text-fg-2">SKILL.md</span> in it, at any depth. The content
       is copied into your registry, so it stays yours even if the repo is deleted or goes private.
     </p>
 
-    <div class="mt-6 flex items-center gap-1 text-[14px]">
-      <a href="/import" class="badge hover:text-fg transition-colors">Local directory</a>
-      <a href="/import/github" class="badge badge-active">GitHub repo</a>
-      <a href="/import/code" class="badge hover:text-fg transition-colors">From a code</a>
+    <div class="mt-6 flex items-center gap-1 text-[14px] flex-wrap">
+      <a href="/import/repo" class="badge badge-active">Repository</a>
       <a href="/import/file" class="badge hover:text-fg transition-colors">From a file</a>
+      <a href="/import/code" class="badge hover:text-fg transition-colors">From a code</a>
+      <a href="/import/local" class="badge hover:text-fg transition-colors">Local directory</a>
     </div>
 
     {{ with .Error }}
@@ -28,7 +29,7 @@
       <input
         name="repo"
         value="{{ .RepoURL }}"
-        placeholder="https://github.com/emilkowalski/skills"
+        placeholder="https://github.com/owner/repo  ·  gitlab.com/group/project  ·  owner/repo"
         aria-label="GitHub repository URL"
         class="field field-mono flex-1 min-w-[280px]"
         autofocus
@@ -36,11 +37,13 @@
       <button type="submit" class="btn">Find skills</button>
     </form>
     <p class="hint max-w-[860px]">
-      Accepts a full URL, <span class="font-mono">owner/repo</span>, an SSH URL, or a link to a
-      subdirectory or tag.
+      Accepts a full URL, <span class="font-mono">owner/repo</span> (GitHub), an SSH URL, or a link
+      to a subdirectory, branch or tag. A bare <span class="font-mono">owner/repo</span> means
+      GitHub; anything else needs the host.
       {{ if not .HasToken }}
-        Set <span class="font-mono">GITHUB_TOKEN</span> to reach private repos and raise the rate
-        limit.
+        Set <span class="font-mono">GITHUB_TOKEN</span>,
+        <span class="font-mono">GITLAB_TOKEN</span> or
+        <span class="font-mono">GITEA_TOKEN</span> to reach private repos and raise rate limits.
       {{ end }}
     </p>
 

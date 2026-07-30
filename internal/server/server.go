@@ -107,15 +107,19 @@ func (s *Server) routes() {
 	m.HandleFunc("GET /bundles/{name}/context/{file}", s.handleBundleContextEdit)
 	m.HandleFunc("POST /bundles/{name}/context/{file}", s.handleBundleContextSave)
 
-	m.HandleFunc("GET /import", s.handleImport)
-	m.HandleFunc("POST /import", s.handleImportRun)
+	m.HandleFunc("GET /import", s.handleImportRepo)
+	m.HandleFunc("GET /import/repo", s.handleImportRepo)
+	m.HandleFunc("GET /import/local", s.handleImport)
+	m.HandleFunc("POST /import/local", s.handleImportRun)
 	m.HandleFunc("GET /import/file", s.handleImportFile)
 	m.HandleFunc("POST /import/file", s.handleImportFilePreview)
 	m.HandleFunc("POST /import/file/create", s.handleImportFileCreate)
 	m.HandleFunc("GET /import/code", s.handleImportCode)
 	m.HandleFunc("POST /import/code", s.handleImportCodeRun)
-	m.HandleFunc("GET /import/github", s.handleImportGitHub)
-	m.HandleFunc("POST /import/github", s.handleImportGitHubRun)
+	m.HandleFunc("POST /import/repo", s.handleImportRepoRun)
+	// Kept so older links and bookmarks still work.
+	m.HandleFunc("GET /import/github", s.handleImportRepo)
+	m.HandleFunc("POST /import/github", s.handleImportRepoRun)
 	m.HandleFunc("POST /skills/{name}/resync", s.handleSkillResync)
 
 	// Claude Code native compatibility
