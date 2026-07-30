@@ -37,7 +37,10 @@
   --color-on-accent: #000000;
 
   --color-danger: #ff6b5d;
-  --color-success: #6ee7a8;
+  /* Tuned to sit at the same luminance as the danger red (~0.33) rather than
+     the near-amber 0.63 of Tailwind's emerald. The accent is meant to be the
+     only light source on the page; a mint that bright competed with it. */
+  --color-success: #58ad7e;
   --color-selection: #34332c;
 
   --radius-control: 6px;
@@ -344,6 +347,131 @@
 
   .divider {
     border-top: 1px solid var(--color-line);
+  }
+
+  /* Flash notice.
+
+     It sits on the same neutral card surface as everything else rather than a
+     tinted panel, and it is sized to its text rather than spanning the page,
+     because a full width coloured bar shouts far louder than the message
+     deserves. Colour appears once, in the icon, which is the same discipline
+     the accent follows.
+
+     Presence comes from weight, not from colour or a fill, which is how the
+     rest of the system builds hierarchy. */
+  .flash {
+    display: inline-flex;
+    align-items: flex-start;
+    gap: 9px;
+    max-width: min(100%, 62ch);
+    margin-top: 16px;
+    padding: 9px 12px;
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-button);
+    background: var(--color-card);
+    color: var(--color-fg-2);
+    font-size: 14px;
+    line-height: 1.45;
+    letter-spacing: -0.01em;
+    animation: flash-in 150ms ease-out both;
+  }
+
+  /* The first sentence carries the outcome, so it gets the signature weight and
+     the heading colour. The rest stays body text. */
+  /* The message is focused on load so screen readers announce it. It is not in
+     the tab order and is not a control, so it must not paint a focus ring: an
+     amber outline around a status message would both mislead and break the rule
+     that the accent belongs to primary actions alone. The dismiss button inside
+     keeps its own ring. */
+  .flash:focus,
+  .flash:focus-visible {
+    outline: none;
+  }
+
+  .flash-lead {
+    font-weight: 575;
+    color: var(--color-fg);
+  }
+
+  /* Form errors sit above a form rather than at the top of the page, so they
+     hold a readable measure instead of hugging their text. */
+  .flash-block {
+    display: flex;
+    width: 100%;
+    max-width: 62ch;
+  }
+
+  .flash-icon {
+    flex-shrink: 0;
+    margin-top: 3px;
+    color: var(--color-success);
+  }
+
+  .flash-error {
+    border-color: color-mix(in srgb, var(--color-danger) 45%, var(--color-line));
+  }
+  .flash-error .flash-icon {
+    color: var(--color-danger);
+  }
+
+  .flash-dismiss {
+    flex-shrink: 0;
+    margin: -3px -4px 0 4px;
+    padding: 3px 4px;
+    border-radius: 5px;
+    color: var(--color-fg-4);
+    cursor: pointer;
+    transition: color 0.15s ease;
+  }
+  .flash-dismiss:hover {
+    color: var(--color-fg-2);
+  }
+
+  /* The row collapses as it fades, so the page does not drop 39px in a single
+     frame while someone is still reading. The clip prevents the flash margin
+     collapsing out of the grid row, so the spacing goes with it. */
+  .flash-slot {
+    display: grid;
+    grid-template-rows: 1fr;
+    transition: grid-template-rows 180ms ease;
+  }
+  .flash-clip {
+    overflow: hidden;
+    min-height: 0;
+  }
+  .flash-slot[data-leaving="true"] {
+    grid-template-rows: 0fr;
+  }
+  .flash-slot[data-leaving="true"] .flash {
+    animation: flash-out 180ms ease forwards;
+  }
+
+  @keyframes flash-in {
+    from {
+      opacity: 0;
+      transform: translateY(-3px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes flash-out {
+    to {
+      opacity: 0;
+      transform: translateY(-3px);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .flash,
+    .flash-slot[data-leaving="true"] .flash {
+      animation: none;
+    }
+    .flash-slot {
+      transition: none;
+    }
   }
 }
 

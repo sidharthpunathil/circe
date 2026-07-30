@@ -16,7 +16,7 @@
     </p>
 
     {{ with .Error }}
-      <div class="mt-6 rounded-card border border-danger/25 bg-danger/5 px-4 py-3 text-[13px] text-danger" role="alert">{{ . }}</div>
+      {{ template "formerror" . }}
     {{ end }}
 
     <form method="post" action="{{ if .IsNew }}/mcpsets/new{{ else }}/mcpsets/{{ .Set.Name }}/edit{{ end }}"

@@ -10,12 +10,7 @@
     </p>
 
     {{ with .Error }}
-      <div
-        class="mt-6 rounded-[10px] border border-danger/20 bg-danger/5 px-4 py-3 text-[13px] text-danger max-w-[860px]"
-        role="alert"
-      >
-        {{ . }}
-      </div>
+      {{ template "formerror" . }}
     {{ end }}
 
     {{ if .Remote }}

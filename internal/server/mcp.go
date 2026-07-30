@@ -549,7 +549,7 @@ func (s *Server) handleMCPCatalogAdd(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/mcp/"+added[0], http.StatusSeeOther)
 		return
 	case len(added) == 0:
-		s.setFlash(w, "error", "Nothing added. Those are already in your registry.")
+		s.setFlash(w, "ok", "Nothing to add. Those are already in your registry.")
 	case len(skipped) == 0:
 		s.setFlash(w, "ok", fmt.Sprintf("Added %d %s.", len(added), plural(len(added), "server", "servers")))
 	default:

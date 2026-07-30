@@ -8,7 +8,7 @@
     </p>
 
     {{ with .Error }}
-      <div class="mt-6 rounded-card border border-danger/25 bg-danger/5 px-4 py-3 text-[13px] text-danger max-w-[860px]" role="alert">{{ . }}</div>
+      {{ template "formerror" . }}
     {{ end }}
 
     <form method="post" action="/settings" class="mt-8 max-w-[860px] flex flex-col gap-4">

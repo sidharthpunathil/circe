@@ -76,6 +76,17 @@ var funcs = template.FuncMap{
 		}
 		return m
 	},
+	// The first sentence of a flash carries the outcome ("Saved.", "Imported 3
+	// skills."), so it is rendered in the signature weight and the rest as body
+	// text. Splitting here keeps the templates free of string handling.
+	"leadSentence": func(s string) string {
+		lead, _ := splitFirstSentence(s)
+		return lead
+	},
+	"restSentence": func(s string) string {
+		_, rest := splitFirstSentence(s)
+		return rest
+	},
 	"hasSuffix": strings.HasSuffix,
 	"add":       func(a, b int) int { return a + b },
 	"seq": func(n int) []int {
@@ -208,4 +219,27 @@ func (t *templates) render(w http.ResponseWriter, r *http.Request, status int, p
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(status)
 	buf.WriteTo(w)
+}
+
+// splitFirstSentence divides text after its first sentence-ending punctuation.
+// A single-sentence message returns an empty remainder, which the caller uses to
+// mean "do not emphasise anything", so a long one-sentence error is not set
+// entirely in bold.
+func splitFirstSentence(s string) (lead, rest string) {
+	s = strings.TrimSpace(s)
+	for i, r := range s {
+		if r != '.' && r != '!' && r != '?' {
+			continue
+		}
+		after := s[i+len(string(r)):]
+		if !strings.HasPrefix(after, " ") {
+			continue
+		}
+		trimmed := strings.TrimSpace(after)
+		if trimmed == "" {
+			continue
+		}
+		return s[:i+len(string(r))], trimmed
+	}
+	return s, ""
 }

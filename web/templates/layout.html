@@ -195,37 +195,71 @@
     </header>
     {{ end }}
 
-    {{ with .Flash }}
-      <div
-        class="container-page pt-4"
-        role="status"
-        aria-live="polite"
-      >
-        <div
-          class="flex items-start gap-2.5 rounded-[10px] border px-3.5 py-2.5 text-[13px] {{ if eq .Kind `error` }}border-danger/20 bg-danger/5 text-danger{{ else }}border-success/20 bg-success/5 text-success{{ end }}"
-        >
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2.2"
-            class="mt-0.5 shrink-0"
-            aria-hidden="true"
-          >
-            {{ if eq .Kind "error" }}
-              <circle cx="12" cy="12" r="9" /><path d="M12 7v6M12 16.5v.5" />
-            {{ else }}
-              <path d="M20 6 9 17l-5-5" />
-            {{ end }}
-          </svg>
-          <span>{{ .Message }}</span>
+    <main class="flex-1">
+      {{ with .Flash }}
+        {{/* The message is focused on load rather than relying on aria-live: a
+             live region whose content arrives in the same response has no
+             mutation to announce, so screen readers stay silent. Focusing it
+             announces the message, puts the reading cursor on it, and puts it
+             on the keyboard path. It sits inside main so landmark navigation
+             does not skip straight past it. */}}
+        <div class="container-page">
+          <div class="flash-slot" data-flash-slot>
+            <div class="flash-clip">
+              <div
+                class="flash {{ if eq .Kind `error` }}flash-error{{ end }}"
+                role="status"
+                tabindex="-1"
+                data-flash
+              >
+                <svg
+                  width="15"
+                  height="15"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.4"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  class="flash-icon"
+                  aria-hidden="true"
+                >
+                  {{ if eq .Kind "error" }}
+                    <circle cx="12" cy="12" r="9" /><path d="M12 7.5v5.5M12 16.5v.5" />
+                  {{ else }}
+                    <path d="M19.5 7 10 16.5 4.5 11" />
+                  {{ end }}
+                </svg>
+                {{/* The icon is the only thing separating the two states, and it
+                     is hidden from assistive tech. Say it in words as well. */}}
+                <span class="sr-only">{{ if eq .Kind "error" }}Error:{{ else }}Done:{{ end }} </span>
+                <span class="min-w-0">
+                  {{ $lead := leadSentence .Message }}
+                  {{ $rest := restSentence .Message }}
+                  {{ if $rest }}
+                    <span class="flash-lead">{{ $lead }}</span> {{ $rest }}
+                  {{ else }}
+                    {{ .Message }}
+                  {{ end }}
+                </span>
+                <button
+                  type="button"
+                  class="flash-dismiss"
+                  data-flash-dismiss
+                  aria-label="Dismiss this message"
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-width="2.4" stroke-linecap="round" aria-hidden="true">
+                    <path d="M6 6l12 12M18 6L6 18" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
-    {{ end }}
+      {{ end }}
 
-    <main class="flex-1">{{ block "content" . }}{{ end }}</main>
+{{ block "content" . }}{{ end }}</main>
 
     {{ if not .Bare }}
     <footer class="mt-20 border-t border-line-soft">

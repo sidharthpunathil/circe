@@ -181,4 +181,55 @@
       e.returnValue = "";
     });
   });
+
+  // Flash notices.
+  //
+  // The message is focused rather than left to aria-live. A live region whose
+  // content arrives in the same server response has no mutation for a screen
+  // reader to observe, so it announces nothing; focusing it does announce, and
+  // it also puts the message on the keyboard path where it was invisible before.
+  //
+  // Nothing dismisses itself on a timer. The longest confirmations here report
+  // counts that appear nowhere else on the page, and removing those while
+  // someone is still reading loses information and shifts the layout under
+  // their pointer.
+  var flash = document.querySelector("[data-flash]");
+  if (flash) {
+    // After a redirect focus sits on <body>, so there is no user position to
+    // steal. Preventing scroll keeps the viewport where the browser put it.
+    try {
+      flash.focus({ preventScroll: true });
+    } catch (err) {
+      flash.focus();
+    }
+  }
+
+  document.addEventListener("click", function (e) {
+    if (!e.target.closest("[data-flash-dismiss]")) return;
+    var slot = e.target.closest("[data-flash-slot]");
+    if (!slot) return;
+
+    var done = false;
+    var finish = function () {
+      if (done) return;
+      done = true;
+      slot.remove();
+    };
+
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      finish();
+      return;
+    }
+    slot.setAttribute("data-leaving", "true");
+    slot.addEventListener("transitionend", function (ev) {
+      // transitionend bubbles, so ignore anything from a descendant.
+      if (ev.target !== slot) return;
+      finish();
+    });
+    // Backstop: if the transition never fires (tab backgrounded, motion
+    // preference flipped mid-flight) the row would otherwise be left collapsed
+    // but still present, invisible to sight and not to a screen reader.
+    window.setTimeout(finish, 400);
+  });
+
 })();

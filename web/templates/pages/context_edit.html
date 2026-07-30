@@ -19,12 +19,7 @@
     </p>
 
     {{ with .Error }}
-      <div
-        class="mt-6 rounded-card border border-danger/25 bg-danger/5 px-4 py-3 text-[13px] text-danger max-w-[900px]"
-        role="alert"
-      >
-        {{ . }}
-      </div>
+      {{ template "formerror" . }}
     {{ end }}
 
     <form
