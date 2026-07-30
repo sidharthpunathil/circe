@@ -258,3 +258,123 @@ func (s *Server) folderNames() []*store.Bundle { return s.store.Bundles() }
 func contextWithTimeout(r *http.Request, d time.Duration) (context.Context, context.CancelFunc) {
 	return context.WithTimeout(r.Context(), d)
 }
+
+// folderSource reports the repository a folder's skills came from, when they
+// all came from the same one.
+//
+// This is derived rather than stored: a folder's contents change, and a
+// remembered origin would quietly go stale. Deriving it means the answer is
+// always about the skills actually in there right now.
+func (s *Server) folderSource(b *store.Bundle) (repo string, synced int) {
+	sources := s.loadSources()
+	for _, name := range b.Skills {
+		src, ok := sources[name]
+		if !ok {
+			continue
+		}
+		if repo == "" {
+			repo = src.URL
+		} else if repo != src.URL {
+			return "", 0 // mixed origins: there is no single thing to sync from
+		}
+		synced++
+	}
+	if synced == 0 {
+		return "", 0
+	}
+	return repo, synced
+}
+
+// handleBundleSync re-pulls every skill in a folder from wherever it came from.
+func (s *Server) handleBundleSync(w http.ResponseWriter, r *http.Request) {
+	name := r.PathValue("name")
+	b, err := s.store.Bundle(name)
+	if err != nil {
+		s.notFound(w, r, "folder")
+		return
+	}
+
+	sources := s.loadSources()
+	ctx, cancel := contextWithTimeout(r, 3*time.Minute)
+	defer cancel()
+
+	// Fetch each distinct repository once, however many skills came from it.
+	fetched := map[string]*gitsource.Result{}
+	var updated, unchanged, failed []string
+
+	for _, skillName := range b.Skills {
+		src, ok := sources[skillName]
+		if !ok {
+			continue
+		}
+		res, seen := fetched[src.URL]
+		if !seen {
+			repo, err := gitsource.ParseRepoURL(src.URL)
+			if err != nil {
+				failed = append(failed, skillName+": "+err.Error())
+				continue
+			}
+			res, err = gitsource.Fetch(ctx, repo)
+			if err != nil {
+				failed = append(failed, skillName+": "+err.Error())
+				fetched[src.URL] = nil
+				continue
+			}
+			fetched[src.URL] = res
+		}
+		if res == nil {
+			continue
+		}
+
+		found := false
+		for _, c := range res.Candidates {
+			if c.Name != skillName {
+				continue
+			}
+			found = true
+			before, _ := s.store.Skill(skillName)
+			if err := s.store.WriteSkillFiles(skillName, c.Files, true); err != nil {
+				failed = append(failed, skillName+": "+err.Error())
+				break
+			}
+			after, _ := s.store.Skill(skillName)
+			if before != nil && after != nil && before.Body == after.Body && before.Size == after.Size {
+				unchanged = append(unchanged, skillName)
+			} else {
+				updated = append(updated, skillName)
+			}
+			repo, _ := gitsource.ParseRepoURL(src.URL)
+			sources[skillName] = gitsource.NewSource(skillName, repo, res.Meta, c)
+			break
+		}
+		if !found {
+			failed = append(failed, skillName+" is no longer in the source; your copy is unchanged")
+		}
+	}
+
+	if err := gitsource.SaveSources(s.sourcesPath(), sources); err != nil {
+		logError("save sources", err)
+	}
+
+	var parts []string
+	if n := len(updated); n > 0 {
+		parts = append(parts, fmt.Sprintf("updated %d", n))
+	}
+	if n := len(unchanged); n > 0 {
+		parts = append(parts, fmt.Sprintf("%d already current", n))
+	}
+	if n := len(failed); n > 0 {
+		parts = append(parts, fmt.Sprintf("%d failed", n))
+	}
+	msg, kind := "Nothing in here came from a repository.", "ok"
+	if len(parts) > 0 {
+		msg = strings.Join(parts, ", ")
+		msg = strings.ToUpper(msg[:1]) + msg[1:] + "."
+	}
+	if len(failed) > 0 {
+		kind = "error"
+		msg += " " + strings.Join(failed, "; ")
+	}
+	s.setFlash(w, kind, msg)
+	http.Redirect(w, r, "/bundles/"+name, http.StatusSeeOther)
+}

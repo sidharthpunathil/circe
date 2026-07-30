@@ -131,6 +131,26 @@
         </div>
 
 
+        {{ if .SourceRepo }}
+          <div>
+            <p class="eyebrow mb-2.5">Synced from</p>
+            <a
+              href="{{ .SourceRepo }}"
+              target="_blank"
+              rel="noopener"
+              class="meta text-fg hover:underline underline-offset-4 break-all"
+              >{{ .SourceRepo }}</a
+            >
+            <form action="/bundles/{{ .Bundle.Name }}/sync" method="post" class="mt-2.5">
+              <button type="submit" class="btn btn-sm w-full">Sync now</button>
+            </form>
+            <p class="hint">
+              Pulls the latest for
+              {{ .SourceCount }} {{ pluralize .SourceCount "skill" "skills" }} in here.
+            </p>
+          </div>
+        {{ end }}
+
         <div>
           <p class="eyebrow mb-2.5">Share</p>
           {{ if .ShareCode }}

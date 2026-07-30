@@ -69,10 +69,9 @@ func Seed(ctx context.Context, st *store.Store, sourcesPath string, opts SeedOpt
 
 	if opts.Folder != "" && len(imported) > 0 {
 		b := &store.Bundle{
-			Name:        opts.Folder,
-			Title:       opts.FolderTitle,
-			Description: fmt.Sprintf("Seeded from %s.", repo.String()),
-			Skills:      imported,
+			Name:   opts.Folder,
+			Title:  opts.FolderTitle,
+			Skills: imported,
 		}
 		if err := st.SaveBundle(b); err != nil {
 			log.Printf("skillbuilder: seed folder: %v", err)

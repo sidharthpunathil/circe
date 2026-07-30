@@ -669,6 +669,8 @@ type bundleView struct {
 	ContextNames   []string
 	ShareCode      string
 	ShareURL       string
+	SourceRepo     string
+	SourceCount    int
 }
 
 func (s *Server) handleBundle(w http.ResponseWriter, r *http.Request) {
@@ -682,6 +684,7 @@ func (s *Server) handleBundle(w http.ResponseWriter, r *http.Request) {
 		code = store.EncodeShareCode(s.baseURL(r), sh.ID)
 		shareURL = s.baseURL(r) + "/s/" + sh.ID
 	}
+	sourceRepo, sourceCount := s.folderSource(b)
 	skills := s.store.BundleSkills(b)
 	var size int64
 	for _, sk := range skills {
@@ -697,6 +700,8 @@ func (s *Server) handleBundle(w http.ResponseWriter, r *http.Request) {
 		ContextNames:   store.ContextFileNames(),
 		ShareCode:      code,
 		ShareURL:       shareURL,
+		SourceRepo:     sourceRepo,
+		SourceCount:    sourceCount,
 	})
 }
 

@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync"
 )
 
 // Providers are the git hosts we can pull a repository archive from.
@@ -182,10 +183,43 @@ func providerForHost(host string) *Provider {
 // fallbackProviders are tried in order for an unrecognised host.
 func fallbackProviders() []*Provider { return []*Provider{ProviderGitea, ProviderGitLab} }
 
-// Token returns the first non-empty configured token for the provider.
+// fallbackTokens is consulted when the environment has nothing. It lets tokens
+// entered in the UI take effect immediately, without a restart or redeploy,
+// while an environment variable still wins so deployment config is never
+// silently overridden by something typed into a form.
+var (
+	fallbackMu     sync.RWMutex
+	fallbackTokens = map[string]string{}
+)
+
+// SetFallbackTokens replaces the tokens used when the environment is empty.
+func SetFallbackTokens(m map[string]string) {
+	fallbackMu.Lock()
+	defer fallbackMu.Unlock()
+	fallbackTokens = map[string]string{}
+	for k, v := range m {
+		if v = strings.TrimSpace(v); v != "" {
+			fallbackTokens[k] = v
+		}
+	}
+}
+
+func fallbackToken(name string) string {
+	fallbackMu.RLock()
+	defer fallbackMu.RUnlock()
+	return fallbackTokens[name]
+}
+
+// Token returns the first configured token for the provider: environment
+// first, then anything set through the UI.
 func (p *Provider) Token() string {
 	for _, k := range p.EnvTokens {
 		if v := strings.TrimSpace(os.Getenv(k)); v != "" {
+			return v
+		}
+	}
+	for _, k := range p.EnvTokens {
+		if v := fallbackToken(k); v != "" {
 			return v
 		}
 	}

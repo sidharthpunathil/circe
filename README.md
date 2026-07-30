@@ -210,6 +210,15 @@ Anything you wrote outside the block is untouched, re-installing replaces only t
 and several folders can contribute to one file. Use `--context=skip` to leave the file
 alone, or `--context=overwrite` to replace it wholesale.
 
+## Settings
+
+Access tokens can be set in the UI at **Settings** instead of redeploying. An environment
+variable of the same name always wins, so deployment config is never silently overridden.
+
+Tokens are written to `.credentials.json` inside the data directory, alongside a generated
+`.gitignore` that excludes it, so backing that directory up with git cannot sweep a token
+into a repository.
+
 ## Configure
 
 Everything is environment variables. Nothing is baked into the binary.

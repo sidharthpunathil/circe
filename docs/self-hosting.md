@@ -78,7 +78,10 @@ data/
 ├── skills/<name>/SKILL.md
 ├── bundles/<name>.json
 ├── bundles/<name>/CLAUDE.md
+├── rules/<name>.md   # project conventions
+├── rulesets/<name>.json
 ├── sources.json      # provenance of imported skills
+├── .credentials.json # access tokens (git-ignored, never back this up)
 └── shares.json       # active share codes
 ```
 

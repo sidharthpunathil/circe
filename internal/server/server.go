@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/sidharthpunathil/skillbuilder/internal/api"
+	"github.com/sidharthpunathil/skillbuilder/internal/gitsource"
 	"github.com/sidharthpunathil/skillbuilder/internal/store"
 	"github.com/sidharthpunathil/skillbuilder/web"
 )
@@ -58,6 +59,9 @@ func New(opts Options) (*Server, error) {
 	}
 
 	s := &Server{store: opts.Store, tmpl: tmpl, opts: opts, mux: http.NewServeMux()}
+	// Tokens saved through the UI must work from the first request, not just
+	// after someone re-saves the settings page.
+	gitsource.SetFallbackTokens(opts.Store.Credentials())
 	s.routes()
 	return s, nil
 }
@@ -115,6 +119,7 @@ func (s *Server) routes() {
 	m.HandleFunc("POST /bundles/{name}/edit", s.handleBundleUpdate)
 	m.HandleFunc("POST /bundles/{name}/delete", s.handleBundleDelete)
 	m.HandleFunc("GET /bundles/{name}/download", s.handleBundleDownload)
+	m.HandleFunc("POST /bundles/{name}/sync", s.handleBundleSync)
 	m.HandleFunc("POST /bundles/{name}/share", s.handleShareCreate)
 	m.HandleFunc("POST /bundles/{name}/unshare", s.handleShareRevoke)
 	m.HandleFunc("POST /skills/{name}/share", s.handleShareCreate)
@@ -128,6 +133,9 @@ func (s *Server) routes() {
 
 	m.HandleFunc("GET /bundles/{name}/context/{file}", s.handleBundleContextEdit)
 	m.HandleFunc("POST /bundles/{name}/context/{file}", s.handleBundleContextSave)
+
+	m.HandleFunc("GET /settings", s.handleSettings)
+	m.HandleFunc("POST /settings", s.handleSettingsSave)
 
 	m.HandleFunc("GET /import", s.handleImportRepo)
 	m.HandleFunc("GET /import/repo", s.handleImportRepo)

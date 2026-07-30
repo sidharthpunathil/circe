@@ -58,6 +58,9 @@ func EnvToken() string {
 		if v := strings.TrimSpace(os.Getenv(k)); v != "" {
 			return v
 		}
+		if v := fallbackToken(k); v != "" {
+			return v
+		}
 	}
 	return ""
 }
