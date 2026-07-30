@@ -915,7 +915,7 @@ func (s *Server) handleImport(w http.ResponseWriter, r *http.Request) {
 	candidates, err := s.store.Scan(src)
 	switch {
 	case err != nil && !dirExists(src):
-		// Do not call this an error — the user's laptop is simply not reachable
+		// Do not call this an error. The user's laptop is simply not reachable
 		// from wherever this server runs.
 		view.Remote = true
 	case err != nil:

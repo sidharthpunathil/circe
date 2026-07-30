@@ -16,7 +16,7 @@ import (
 
 // limits caps what a single repository may cost us. Everything is held in
 // memory, and a hostile (or merely enormous) repository must not be able to
-// exhaust it — a few hundred kilobytes of gzip can decompress into gigabytes.
+// exhaust it. A few hundred kilobytes of gzip can decompress into gigabytes.
 type limits struct {
 	file    int64 // largest single file kept
 	total   int64 // total decompressed bytes, counted as we go
@@ -75,7 +75,7 @@ func (c *Client) downloadTarball(ctx context.Context, repo Repo, ref string) (*a
 	pinned.Ref = ref
 
 	// Try the detected provider first. An unrecognised self-hosted host could
-	// be Gitea or GitLab, so fall back rather than refuse — the archive either
+	// be Gitea or GitLab, so fall back rather than refuse. The archive either
 	// downloads or it does not, which is a better test than guessing from a
 	// hostname.
 	attempts := []*Provider{repo.Provider()}
@@ -300,7 +300,7 @@ func excluded(rel string) bool {
 }
 
 // excludedInSkill applies the rules that only make sense once the skill's own
-// root is known — evals/ is dropped from a skill, but a repository directory
+// root is known: evals/ is dropped from a skill, but a repository directory
 // called evals/ that happens to contain skills is not.
 func excludedInSkill(rel string) bool {
 	if i := strings.Index(rel, "/"); i >= 0 {

@@ -90,7 +90,7 @@
   }
 
   /* Hierarchy comes from weight and tracking rather than size or colour.
-     Tracking tightens as size grows. 575 is the signature weight — between
+     Tracking tightens as size grows. 575 is the signature weight, between
      medium and semibold, reachable only because Inter is variable. */
   h1 {
     font-family: var(--font-display);
@@ -425,7 +425,7 @@
   color: var(--color-fg);
 }
 /* chroma inlines its own background on the <pre>, and its near-black is cooler
-   than the sand palette — override it so code blocks sit in the same warm
+   than the sand palette, so override it and let code blocks sit in the same warm
    surface as every other panel. !important is required to beat the inline style. */
 .prose-skill pre {
   background: var(--color-surface) !important;

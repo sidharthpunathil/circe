@@ -7,7 +7,7 @@ import (
 )
 
 // Auth holds optional HTTP basic credentials. When Password is empty the server
-// is open — which is correct for the default localhost bind, and wrong for a
+// is open, which is correct for the default localhost bind and wrong for a
 // public deployment, so New logs a warning in that case.
 type Auth struct {
 	User     string

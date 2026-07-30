@@ -8,7 +8,7 @@
 // finishes discovering anything.
 //
 // Nothing here touches the store. Fetch returns plain data and the caller
-// decides what, if anything, to persist — that keeps this package free of an
+// decides what, if anything, to persist. That keeps this package free of an
 // import cycle and testable without a filesystem.
 package gitsource
 
@@ -157,7 +157,7 @@ func (c *Client) Fetch(ctx context.Context, repo Repo) (*Result, error) {
 	}
 
 	// Skip the per-skill lookups entirely when we already know the token bucket
-	// is empty — N more doomed requests only delay the import.
+	// is empty, and N more doomed requests only delay the import.
 	if !IsRateLimited(metaErr) {
 		c.annotateUpdatedAt(ctx, repo, ref, cands)
 	}
@@ -266,7 +266,7 @@ func discover(files map[string][]byte, rootName string) []Candidate {
 }
 
 // describe pulls the display name and description out of a SKILL.md. A file
-// with broken frontmatter is not dropped — the caller can see and fix it — it
+// with broken frontmatter is not dropped, so the caller can see and fix it. It
 // simply falls back to the directory name.
 func describe(raw []byte) (name, desc string) {
 	f, err := skillfile.Parse(raw)
@@ -406,7 +406,7 @@ func ParseRepoURL(s string) (Repo, error) {
 		case "tree", "blob":
 			// A ref containing a slash (feature/x) is indistinguishable from a
 			// ref plus a subdirectory without asking GitHub, so the first
-			// segment wins — that is what the overwhelming majority of pasted
+			// segment wins, which is what the overwhelming majority of pasted
 			// links mean.
 			r.Ref = rest[0]
 			sub := rest[1:]

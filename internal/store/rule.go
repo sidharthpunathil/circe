@@ -14,7 +14,7 @@ import (
 
 // Rules are project guidance rather than agent capability: the text that ends
 // up in a project's CLAUDE.md or AGENTS.md. They are deliberately a separate
-// type from skills because they install differently — a skill is a directory
+// type from skills because they install differently: a skill is a directory
 // copied into .claude/skills, a rule is prose merged into a file the project
 // already owns.
 //

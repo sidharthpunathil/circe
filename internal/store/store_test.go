@@ -1762,7 +1762,7 @@ func TestBug_MutationOfCallerOwnedState(t *testing.T) {
 		if held.Name != "before" {
 			t.Errorf("BUG: RenameSkill mutates the *Skill it hands out: a value previously returned "+
 				"by Skill() changed name to %q underneath its holder. Under concurrency this is a "+
-				"genuine data race — RenameSkill writes sk.Name without the write lock while readers "+
+				"genuine data race: RenameSkill writes sk.Name without the write lock while readers "+
 				"read the same pointer after releasing the read lock. Fix: rename a copy.", held.Name)
 		}
 	})
@@ -1876,7 +1876,7 @@ func TestConcurrentSaveAndRead(t *testing.T) {
 	if got := s.SkillCount(); got != skills+1 {
 		t.Errorf("SkillCount = %d, want %d", got, skills+1)
 	}
-	// Every SKILL.md must still be parseable — atomic writes must never leave a
+	// Every SKILL.md must still be parseable, since atomic writes must never leave a
 	// truncated file or a stray temp file in the index.
 	s2, err := Open(s.Root())
 	if err != nil {

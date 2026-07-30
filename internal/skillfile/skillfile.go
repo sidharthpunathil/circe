@@ -1,4 +1,4 @@
-// Package skillfile parses and serializes SKILL.md files — a YAML frontmatter
+// Package skillfile parses and serializes SKILL.md files: a YAML frontmatter
 // block followed by a markdown body. Round-trips are lossless: frontmatter keys
 // this package does not model are preserved in Extra and written back out.
 package skillfile

@@ -1,4 +1,4 @@
-# Keep the build context small — it is uploaded on every deploy.
+# Keep the build context small. It is uploaded on every deploy.
 .git
 .github
 bin/

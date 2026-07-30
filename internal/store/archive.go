@@ -14,7 +14,7 @@ import (
 )
 
 // Exclusion rules mirroring Anthropic's package_skill.py, plus .venv which that
-// script omits — a single virtualenv can add thousands of files to a bundle.
+// script omits. A single virtualenv can add thousands of files to a bundle.
 var (
 	excludeDirsAnyDepth = map[string]bool{
 		"__pycache__": true, "node_modules": true, ".venv": true,

@@ -9,7 +9,7 @@ import (
 )
 
 // The marketplace manifest lets stock Claude Code consume this registry with
-// `/plugin marketplace add <url>` — no custom client needed. Each bundle becomes
+// `/plugin marketplace add <url>`, with no custom client needed. Each bundle becomes
 // a plugin entry using strict:false plus an explicit skills list, which is the
 // documented way to expose bare SKILL.md directories without a plugin.json.
 type marketplace struct {

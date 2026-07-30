@@ -40,7 +40,7 @@ type Share struct {
 func (s *Store) sharesPath() string { return filepath.Join(s.root, "shares.json") }
 
 // newShareID returns an unguessable, URL-safe id. Ten base32 characters is
-// 50 bits — far beyond brute-forcing a personal registry, and still short
+// 50 bits, far beyond brute-forcing a personal registry, and still short
 // enough to paste.
 func newShareID() (string, error) {
 	buf := make([]byte, 7)

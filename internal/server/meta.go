@@ -533,7 +533,7 @@ func (s *Server) handleSitemap(w http.ResponseWriter, r *http.Request) {
 	set := sitemapURLSet{XMLNS: "http://www.sitemaps.org/schemas/sitemap/0.9"}
 
 	if s.opts.Auth.Enabled() {
-		// Still valid XML, just empty — a 404 here reads as a misconfiguration.
+		// Still valid XML, just empty. A 404 here reads as a misconfiguration.
 		writeSitemap(w, set)
 		return
 	}

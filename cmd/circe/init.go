@@ -108,7 +108,7 @@ func chooseBundleSkills(manifest *api.BundleManifest, takeAll bool) ([]string, e
 }
 
 // installSelection downloads through the bundle archive when the whole bundle
-// was chosen — one request the server can cache — and falls back to the
+// was chosen, since that is one request the server can cache, and falls back to the
 // per-skill download endpoint for a subset.
 func installSelection(ctx context.Context, client *installer.Client, bundle string, names []string, whole bool, opts installer.Options) ([]installer.Result, error) {
 	if whole {

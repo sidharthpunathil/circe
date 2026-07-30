@@ -34,8 +34,8 @@ func main() {
 	}
 }
 
-// report prints an error the way a CLI should — one line, no stack, plus a hint
-// when there is an obvious next move — and returns the exit code.
+// report prints an error the way a CLI should: one line, no stack, plus a hint
+// when there is an obvious next move. It returns the exit code.
 func report(err error) int {
 	if errors.Is(err, errCancelled) || errors.Is(err, context.Canceled) {
 		fmt.Fprintln(os.Stderr, dimStyle.Render("cancelled"))

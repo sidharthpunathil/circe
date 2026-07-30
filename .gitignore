@@ -1,7 +1,7 @@
 # Build output
 /bin/
 
-# Tailwind standalone binary — fetched by `make css`
+# Tailwind standalone binary, fetched by `make css`
 /tailwindcss
 
 # Note: data/ is intentionally NOT ignored. The whole point of this tool is that

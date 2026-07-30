@@ -130,7 +130,7 @@ func (s *Server) routes() {
 	m.HandleFunc("POST /skills/{name}/share", s.handleShareCreate)
 	m.HandleFunc("POST /skills/{name}/unshare", s.handleShareRevoke)
 
-	// Public, read-only, and reachable without the registry password — but only
+	// Public, read-only, and reachable without the registry password, but only
 	// for resources the owner explicitly shared.
 	m.HandleFunc("GET /s/{id}", s.handleSharePage)
 	m.HandleFunc("GET /api/v1/share/{id}", s.apiShare)

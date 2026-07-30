@@ -117,7 +117,7 @@ func TestRecordSkillKeepsBundle(t *testing.T) {
 
 	got := lf.Skills["a"]
 	if got.Bundle != "core" {
-		t.Errorf("bundle = %q, want %q — re-adding a skill should not forget where it came from", got.Bundle, "core")
+		t.Errorf("bundle = %q, want %q. Re-adding a skill should not forget where it came from", got.Bundle, "core")
 	}
 	if got.Checksum != "2" {
 		t.Errorf("checksum = %q, want %q", got.Checksum, "2")

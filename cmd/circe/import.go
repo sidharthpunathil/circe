@@ -15,8 +15,8 @@ import (
 	"github.com/sidharthpunathil/circe/internal/store"
 )
 
-// import installs from a share code without needing a registry of your own —
-// the code carries the origin, so trying someone else's folder takes one command.
+// import installs from a share code without needing a registry of your own.
+// The code carries the origin, so trying someone else's folder takes one command.
 func newImportCmd() *cobra.Command {
 	var (
 		flags       installFlags

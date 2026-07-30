@@ -1,6 +1,6 @@
 // Package store persists skills and bundles on the filesystem. The directory
-// layout is deliberately plain — data/skills/<name>/SKILL.md alongside any
-// bundled files, and data/bundles/<name>.json — so the data directory is itself
+// layout is deliberately plain: data/skills/<name>/SKILL.md alongside any
+// bundled files, and data/bundles/<name>.json, so the data directory is itself
 // a usable backup that can be committed to git or copied into ~/.claude/skills.
 package store
 
@@ -553,7 +553,7 @@ func (s *Store) safeJoin(skill, rel string) (string, error) {
 
 	// Guard against symlinks pointing outside the skill directory. The target
 	// itself often does not exist yet (a file being created), and EvalSymlinks
-	// fails on missing paths — so resolve the nearest ancestor that does exist.
+	// fails on missing paths, so resolve the nearest ancestor that does exist.
 	// Checking only `full` would skip this guard entirely for new files and let
 	// a symlinked directory redirect a write anywhere on the filesystem.
 	probe := full

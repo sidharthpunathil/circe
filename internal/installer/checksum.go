@@ -36,7 +36,7 @@ var (
 // digest unambiguous: without it, moving a byte from the end of one file to the
 // start of the next would produce the same hash.
 //
-// Timestamps, ownership and permissions are deliberately excluded — they differ
+// Timestamps, ownership and permissions are deliberately excluded, because they differ
 // between a fresh download and an installed copy without the content differing.
 func Checksum(dir string) (string, error) {
 	paths, err := skillFiles(dir)

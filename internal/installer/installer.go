@@ -229,7 +229,7 @@ func Counts(results []Result) map[Status]int {
 // InstallFromURL installs skills from a publicly reachable archive.
 //
 // Share archives are served without authentication by the origin registry, so
-// there is no client or token to thread through — the URL is the whole contract.
+// there is no client or token to thread through: the URL is the whole contract.
 func InstallFromURL(ctx context.Context, url string, names []string, opts Options) ([]Result, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {

@@ -20,7 +20,7 @@ const (
 	userAgent      = "circe-cli"
 	requestTimeout = 60 * time.Second
 	// maxErrorBody caps how much of a non-2xx body is read before giving up on
-	// finding an api.Error in it — a misrouted request can return a whole HTML
+	// finding an api.Error in it. A misrouted request can return a whole HTML
 	// page and none of it belongs in a CLI error message.
 	maxErrorBody = 64 << 10
 )

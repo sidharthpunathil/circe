@@ -37,7 +37,7 @@ import (
 //
 // Why the Go fonts and not Inter: the site self-hosts Inter and IBM Plex Mono as
 // woff2 only. woff2 is Brotli-compressed with a transformed glyf table, and Go
-// has no stdlib Brotli — decoding it would mean a second dependency plus a font
+// has no stdlib Brotli, so decoding it would mean a second dependency plus a font
 // transform implementation. golang.org/x/image already ships the Go typefaces as
 // plain Go source, so they cost no new binary asset and no build step. Go Medium
 // is a humanist sans with a large x-height, which reads close enough to Inter at

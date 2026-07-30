@@ -26,7 +26,7 @@ const (
 	// detection or stall the import behind dozens of sockets.
 	maxCommitLookups = 5
 	// maxErrorBody caps how much of a non-2xx body is read looking for GitHub's
-	// own message — an error page is not worth megabytes.
+	// own message. An error page is not worth megabytes.
 	maxErrorBody = 32 << 10
 )
 
@@ -218,7 +218,7 @@ type repoJSON struct {
 
 // repoMetadata reads the repository's description, default branch, push time
 // and star count. The returned Metadata is usable even when the error is
-// non-nil — it is then simply empty.
+// non-nil, and is then simply empty.
 func (c *Client) repoMetadata(ctx context.Context, repo Repo) (Metadata, error) {
 	p := repo.Provider()
 	if p.metadataURL == nil {

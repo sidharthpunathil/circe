@@ -37,7 +37,7 @@ func TestContextCreatesFile(t *testing.T) {
 	}
 }
 
-// The user's own content must survive a merge untouched — this is the whole
+// The user's own content must survive a merge untouched. That is the whole
 // reason for the marker approach.
 func TestContextPreservesUserContent(t *testing.T) {
 	root := t.TempDir()

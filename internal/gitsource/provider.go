@@ -11,7 +11,7 @@ import (
 // Providers are the git hosts we can pull a repository archive from.
 //
 // Every one of them exposes a plain HTTPS tarball endpoint, which is why this
-// works without a git binary — the deployed image is `scratch` and has none.
+// works without a git binary, because the deployed image is `scratch` and has none.
 // Adding a host means describing its URLs here, not writing new fetch logic.
 type Provider struct {
 	// ID is the stable identifier stored in provenance.
