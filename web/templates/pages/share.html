@@ -1,0 +1,73 @@
+{{ define "content" }}
+  <div class="container-page pt-16 pb-16">
+    {{ if .Missing }}
+      <div class="container-read text-center">
+        <p class="font-mono text-[48px] leading-none text-fg-3/25">404</p>
+        <h1 class="mt-6 text-[28px] md:text-[32px]">This share is no longer available</h1>
+        <p class="mt-3 text-[15px] text-fg-3">
+          The code may be wrong, or whoever shared it has since stopped sharing.
+        </p>
+      </div>
+    {{ else }}
+      <div class="container-read">
+        <p class="eyebrow mb-3">Shared {{ .Share.Kind }}</p>
+        <h1 class="text-[36px] md:text-[48px] break-words">{{ .Title }}</h1>
+        {{ with .Desc }}
+          <p class="mt-4 text-[17px] leading-[1.6] text-fg-2">{{ . }}</p>
+        {{ end }}
+
+        <div class="mt-8">
+          <p class="eyebrow mb-2.5">Import it</p>
+          <div
+            class="flex items-center gap-2 rounded-card border border-line bg-surface px-3.5 py-2.5"
+          >
+            <code
+              class="font-mono text-[12px] text-fg overflow-x-auto whitespace-nowrap flex-1 scrollbar-none"
+              >{{ .Code }}</code
+            >
+            <button type="button" class="btn btn-sm shrink-0" data-copy="{{ .Code }}">Copy</button>
+          </div>
+          <p class="hint">
+            Paste this into <span class="font-mono">Import → From a code</span> on your own
+            Skillbuilder, or run
+            <span class="font-mono text-fg-2">skillbuilder import {{ .Code }}</span> in a project.
+          </p>
+        </div>
+
+        {{ if .Context }}
+          <div class="mt-6 rounded-card border border-line bg-card p-4">
+            <p class="eyebrow mb-2">Also ships</p>
+            <p class="text-[13px] text-fg-2">
+              {{ range $i, $f := .Context }}{{ if $i }}, {{ end }}<span class="font-mono">{{ $f }}</span>{{ end }}
+              — project instructions merged into your
+              <span class="font-mono text-[12px]">CLAUDE.md</span> on install.
+            </p>
+          </div>
+        {{ end }}
+
+        <div class="mt-10">
+          <h2 class="text-[20px] mb-4">
+            {{ len .Skills }} {{ pluralize (len .Skills) "skill" "skills" }}
+          </h2>
+          <div class="flex flex-col divide-y divide-line border-y border-line">
+            {{ range .Skills }}
+              <div class="py-3">
+                <p class="text-[14px] font-medium text-fg">{{ .Name }}</p>
+                <p class="text-[13px] text-fg-3 leading-snug mt-1">{{ truncate 200 .Description }}</p>
+                <p class="meta mt-1.5">
+                  {{ if .Files }}{{ len .Files }} {{ pluralize (len .Files) "file" "files" }} ·
+                  {{ end }}{{ bytes .Size }}
+                </p>
+              </div>
+            {{ end }}
+          </div>
+        </div>
+
+        <p class="hint mt-8">
+          Importing copies these into your own registry, so your copy keeps working even if this
+          one goes away.
+        </p>
+      </div>
+    {{ end }}
+  </div>
+{{ end }}

@@ -198,6 +198,36 @@
           </div>
         {{ end }}
 
+
+        <div>
+          <p class="eyebrow mb-2.5">Share</p>
+          {{ if .ShareCode }}
+            <div class="rounded-card border border-line bg-surface p-2.5">
+              <code class="font-mono text-[11px] text-fg-2 leading-relaxed block break-all"
+                >{{ .ShareCode }}</code
+              >
+            </div>
+            <div class="flex gap-2 mt-2">
+              <button type="button" class="btn btn-sm flex-1" data-copy="{{ .ShareCode }}">
+                Copy code
+              </button>
+              <button type="button" class="btn btn-sm flex-1" data-copy="{{ .ShareURL }}">
+                Copy link
+              </button>
+            </div>
+            <form action="/skills/{{ .Skill.Name }}/unshare" method="post" class="mt-2"
+              data-confirm="Stop sharing? The code stops working immediately.">
+              <button type="submit" class="btn btn-sm w-full">Stop sharing</button>
+            </form>
+            <p class="hint">Anyone with the code can import a copy.</p>
+          {{ else }}
+            <form action="/skills/{{ .Skill.Name }}/share" method="post">
+              <button type="submit" class="btn btn-sm w-full">Create share code</button>
+            </form>
+            <p class="hint">Lets someone else import this into their own registry.</p>
+          {{ end }}
+        </div>
+
         <div class="pt-2 border-t border-line-soft">
           <form
             action="/skills/{{ .Skill.Name }}/delete"

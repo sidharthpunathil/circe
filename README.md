@@ -90,9 +90,11 @@ Skills land in `.claude/skills/<name>/` and are recorded in `skillbuilder.json`,
 Point the CLI at your deployment once:
 
 ```bash
-skillbuilder config set registry https://your-app.up.railway.app
-skillbuilder config set token   your-password
+skillbuilder login https://your-app.up.railway.app
 ```
+
+It prompts for the passcode, checks it against the registry, and only then saves —
+so a typo fails here rather than somewhere confusing later. `skillbuilder logout` forgets it.
 
 ### Commands
 
@@ -105,7 +107,9 @@ skillbuilder config set token   your-password
 | `skillbuilder pull` | Re-download everything in the lockfile. |
 | `skillbuilder remove <skill>…` | Delete skills and drop them from the lockfile. |
 | `skillbuilder push <dir>` | Publish a local skill directory, companion files included. |
-| `skillbuilder config` | Show or set the registry URL and token. |
+| `skillbuilder import <code>` | Install from someone else's share code — no setup needed. |
+| `skillbuilder login [url]` | Connect to a registry, verifying the token before saving. |
+| `skillbuilder config` | Show the resolved registry, config and install paths. |
 
 Flags: `-d/--dir` (install location, remembered after the first install), `--force`,
 `--dry-run`, `--registry`.
@@ -118,6 +122,38 @@ so folders install with stock Claude Code and no extra tooling:
 ```
 /plugin marketplace add https://your-app.up.railway.app
 ```
+
+## Sharing
+
+Everyone self-hosts, so there is no central index — a share is a code your registry mints
+for one folder or skill:
+
+1. Open a folder or skill and hit **Create share code**.
+2. Send someone the `sb_…` code, or the link.
+3. They paste it into **Import → From a code**, or run `skillbuilder import sb_…`.
+
+The content is copied into their registry, so their copy keeps working even if yours goes
+away. Sharing is opt-in per resource and revocable — **Stop sharing** kills the code
+immediately. A password-protected registry stays private: the only public endpoints are
+the ones serving resources you explicitly shared.
+
+## Project instructions
+
+A folder can carry a `CLAUDE.md` and an `AGENTS.md`. Installing it merges them into the
+project's own files inside a marked block:
+
+```markdown
+<!-- skillbuilder:start my-folder -->
+<!-- Managed by skillbuilder. Edits inside this block are replaced on reinstall. -->
+
+  …the folder's instructions…
+
+<!-- skillbuilder:end my-folder -->
+```
+
+Anything you wrote outside the block is untouched, re-installing replaces only the block,
+and several folders can contribute to one file. Use `--context=skip` to leave the file
+alone, or `--context=overwrite` to replace it wholesale.
 
 ## Configure
 

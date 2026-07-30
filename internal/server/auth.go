@@ -17,6 +17,14 @@ type Auth struct {
 // Enabled reports whether credentials were configured.
 func (a Auth) Enabled() bool { return a.Password != "" }
 
+// checkPassword compares just the passcode, in constant time.
+func (a Auth) checkPassword(pass string) bool {
+	if !a.Enabled() {
+		return true
+	}
+	return subtle.ConstantTimeCompare([]byte(pass), []byte(a.Password)) == 1
+}
+
 // check verifies a request's credentials in constant time.
 func (a Auth) check(r *http.Request) bool {
 	if !a.Enabled() {
@@ -42,19 +50,24 @@ func (a Auth) check(r *http.Request) bool {
 	return userOK == 1 && passOK == 1
 }
 
-// requireAuth challenges unauthenticated requests. Health checks are exempt so
-// the platform can probe the service without credentials.
+// requireAuth challenges unauthenticated requests. A small, explicit set of
+// paths is exempt: the health check so the platform can probe the service, and
+// the share endpoints, which serve only resources the owner opted to share.
 func (s *Server) requireAuth(w http.ResponseWriter, r *http.Request) bool {
-	if !s.opts.Auth.Enabled() || r.URL.Path == "/api/v1/health" {
+	if !s.opts.Auth.Enabled() || isPublicPath(r.URL.Path) {
 		return true
 	}
-	if s.opts.Auth.check(r) {
+	// A signed cookie from the sign-in page, or a token from the CLI.
+	if s.hasSession(r) || s.opts.Auth.check(r) {
 		return true
 	}
-	w.Header().Set("WWW-Authenticate", `Basic realm="skillbuilder", charset="UTF-8"`)
+	if wantsHTML(r) {
+		loginRedirect(w, r)
+		return false
+	}
 	if strings.HasPrefix(r.URL.Path, "/api/") {
 		writeJSONError(w, http.StatusUnauthorized, "unauthorized",
-			"provide credentials via basic auth or an Authorization: Bearer header")
+			"provide a token via Authorization: Bearer, or sign in at /login")
 		return false
 	}
 	http.Error(w, "Unauthorized", http.StatusUnauthorized)

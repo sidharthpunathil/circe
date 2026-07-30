@@ -169,3 +169,11 @@ func applyContext(out io.Writer, root, folder string, files map[string]string, m
 	}
 	return nil
 }
+
+// pluralWord picks a singular or plural noun.
+func pluralWord(n int, one, many string) string {
+	if n == 1 {
+		return one
+	}
+	return many
+}

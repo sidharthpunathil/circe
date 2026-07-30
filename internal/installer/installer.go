@@ -10,6 +10,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
@@ -223,4 +224,26 @@ func Counts(results []Result) map[Status]int {
 		out[r.Status]++
 	}
 	return out
+}
+
+// InstallFromURL installs skills from a publicly reachable archive.
+//
+// Share archives are served without authentication by the origin registry, so
+// there is no client or token to thread through — the URL is the whole contract.
+func InstallFromURL(ctx context.Context, url string, names []string, opts Options) ([]Result, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("User-Agent", userAgent)
+
+	resp, err := (&http.Client{Timeout: requestTimeout}).Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("download %s: %w", url, err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("download %s: server returned %d", url, resp.StatusCode)
+	}
+	return InstallArchive(resp.Body, opts)
 }

@@ -12,6 +12,21 @@
     />
   </head>
   <body class="min-h-screen flex flex-col">
+    {{ if .Bare }}
+      <header class="border-b border-line-soft">
+        <div class="container-page h-14 flex items-center">
+          <a href="/" class="flex items-center gap-2.5" aria-label="Skillbuilder">
+            <span class="grid grid-cols-2 gap-[2px] w-[14px]" aria-hidden="true">
+              <span class="w-[6px] h-[6px] bg-fg"></span>
+              <span class="w-[6px] h-[6px] bg-fg"></span>
+              <span class="w-[6px] h-[6px] bg-fg"></span>
+              <span class="w-[6px] h-[6px] bg-fg/20"></span>
+            </span>
+            <span class="text-[15px] font-medium text-fg tracking-[-0.02em]">Skillbuilder</span>
+          </a>
+        </div>
+      </header>
+    {{ else }}
     <header class="sticky top-0 z-40 bg-bg/85 backdrop-blur-md border-b border-line-soft">
       <div class="container-page flex items-center gap-6 h-14">
         <a href="/" class="flex items-center gap-2.5 shrink-0" aria-label="Skillbuilder home">
@@ -69,6 +84,17 @@
         </form>
 
         <a href="/skills/new" class="btn btn-primary btn-sm">New skill</a>
+        {{ if .SignedIn }}
+          <form method="post" action="/logout">
+            <button
+              type="submit"
+              class="text-[13px] text-fg-3 hover:text-fg transition-colors"
+              title="Sign out"
+            >
+              Sign out
+            </button>
+          </form>
+        {{ end }}
       </div>
 
       {{/* Below sm the primary nav and search move to their own row, so small
@@ -118,6 +144,7 @@
         </div>
       </div>
     </header>
+    {{ end }}
 
     {{ with .Flash }}
       <div
@@ -151,6 +178,7 @@
 
     <main class="flex-1">{{ block "content" . }}{{ end }}</main>
 
+    {{ if not .Bare }}
     <footer class="mt-20 border-t border-line-soft">
       <div
         class="container-page py-7 flex flex-col sm:flex-row gap-3 sm:items-center justify-between meta"
@@ -167,6 +195,7 @@
         </span>
       </div>
     </footer>
+    {{ end }}
 
     <script src="/static/js/app.js?v={{ .Build }}" defer></script>
   </body>

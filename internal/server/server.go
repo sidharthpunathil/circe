@@ -67,6 +67,9 @@ func (s *Server) routes() {
 
 	// Pages
 	m.HandleFunc("GET /{$}", s.handleHome)
+	m.HandleFunc("GET /login", s.handleLoginPage)
+	m.HandleFunc("POST /login", s.handleLoginSubmit)
+	m.HandleFunc("POST /logout", s.handleLogout)
 
 	m.HandleFunc("GET /skills", s.handleSkills)
 	m.HandleFunc("POST /skills/bulk", s.handleSkillsBulk)
@@ -90,11 +93,24 @@ func (s *Server) routes() {
 	m.HandleFunc("POST /bundles/{name}/edit", s.handleBundleUpdate)
 	m.HandleFunc("POST /bundles/{name}/delete", s.handleBundleDelete)
 	m.HandleFunc("GET /bundles/{name}/download", s.handleBundleDownload)
+	m.HandleFunc("POST /bundles/{name}/share", s.handleShareCreate)
+	m.HandleFunc("POST /bundles/{name}/unshare", s.handleShareRevoke)
+	m.HandleFunc("POST /skills/{name}/share", s.handleShareCreate)
+	m.HandleFunc("POST /skills/{name}/unshare", s.handleShareRevoke)
+
+	// Public, read-only, and reachable without the registry password — but only
+	// for resources the owner explicitly shared.
+	m.HandleFunc("GET /s/{id}", s.handleSharePage)
+	m.HandleFunc("GET /api/v1/share/{id}", s.apiShare)
+	m.HandleFunc("GET /api/v1/share/{id}/archive.tar.gz", s.apiShareArchive)
+
 	m.HandleFunc("GET /bundles/{name}/context/{file}", s.handleBundleContextEdit)
 	m.HandleFunc("POST /bundles/{name}/context/{file}", s.handleBundleContextSave)
 
 	m.HandleFunc("GET /import", s.handleImport)
 	m.HandleFunc("POST /import", s.handleImportRun)
+	m.HandleFunc("GET /import/code", s.handleImportCode)
+	m.HandleFunc("POST /import/code", s.handleImportCodeRun)
 	m.HandleFunc("GET /import/github", s.handleImportGitHub)
 	m.HandleFunc("POST /import/github", s.handleImportGitHubRun)
 	m.HandleFunc("POST /skills/{name}/resync", s.handleSkillResync)
@@ -239,13 +255,20 @@ func (s *Server) takeFlash(w http.ResponseWriter, r *http.Request) *flash {
 
 // base is embedded in every page's view model.
 type base struct {
-	Nav     string
-	Query   string
-	Build   string
-	Stats   stats
-	DataDir string
-	Flash   *flash
-	SEO     PageMeta
+	// Bare drops the app chrome. Used by the sign-in page, and by public share
+	// pages, where the nav links are unusable and the footer would otherwise
+	// disclose the server's data directory to an anonymous visitor.
+	Bare bool
+	// SignedIn is true when a browser session is active, so the header can
+	// offer a way out. Token-authenticated API calls never render chrome.
+	SignedIn bool
+	Nav      string
+	Query    string
+	Build    string
+	Stats    stats
+	DataDir  string
+	Flash    *flash
+	SEO      PageMeta
 }
 
 func (s *Server) base(w http.ResponseWriter, r *http.Request, nav string) base {
@@ -255,12 +278,13 @@ func (s *Server) base(w http.ResponseWriter, r *http.Request, nav string) base {
 		size += sk.Size
 	}
 	return base{
-		Nav:     nav,
-		Query:   r.URL.Query().Get("q"),
-		Build:   s.opts.Build,
-		DataDir: s.store.Root(),
-		Flash:   s.takeFlash(w, r),
-		SEO:     s.pageMeta(r),
+		SignedIn: s.opts.Auth.Enabled() && s.hasSession(r),
+		Nav:      nav,
+		Query:    r.URL.Query().Get("q"),
+		Build:    s.opts.Build,
+		DataDir:  s.store.Root(),
+		Flash:    s.takeFlash(w, r),
+		SEO:      s.pageMeta(r),
 		Stats: stats{
 			Skills:  len(skills),
 			Bundles: s.store.BundleCount(),

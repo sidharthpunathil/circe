@@ -144,10 +144,12 @@ func (s *Server) handleSkillsBulk(w http.ResponseWriter, r *http.Request) {
 
 type skillView struct {
 	base
-	Skill    *store.Skill
-	Bundles  []*store.Bundle
-	Problems []skillfile.Problem
-	Source   *gitsource.Source
+	Skill     *store.Skill
+	Bundles   []*store.Bundle
+	Problems  []skillfile.Problem
+	Source    *gitsource.Source
+	ShareCode string
+	ShareURL  string
 }
 
 func (s *Server) handleSkill(w http.ResponseWriter, r *http.Request) {
@@ -166,6 +168,10 @@ func (s *Server) handleSkill(w http.ResponseWriter, r *http.Request) {
 	}
 	if src, ok := s.loadSources()[name]; ok {
 		view.Source = &src
+	}
+	if sh, ok := s.store.ShareFor(store.ShareKindSkill, name); ok {
+		view.ShareCode = store.EncodeShareCode(s.baseURL(r), sh.ID)
+		view.ShareURL = s.baseURL(r) + "/s/" + sh.ID
 	}
 	s.tmpl.render(w, r, http.StatusOK, "skill", view)
 }
@@ -659,6 +665,8 @@ type bundleView struct {
 	MarketplaceURL string
 	Context        map[string]string
 	ContextNames   []string
+	ShareCode      string
+	ShareURL       string
 }
 
 func (s *Server) handleBundle(w http.ResponseWriter, r *http.Request) {
@@ -666,6 +674,11 @@ func (s *Server) handleBundle(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		s.notFound(w, r, "bundle")
 		return
+	}
+	var code, shareURL string
+	if sh, ok := s.store.ShareFor(store.ShareKindFolder, b.Name); ok {
+		code = store.EncodeShareCode(s.baseURL(r), sh.ID)
+		shareURL = s.baseURL(r) + "/s/" + sh.ID
 	}
 	skills := s.store.BundleSkills(b)
 	var size int64
@@ -680,6 +693,8 @@ func (s *Server) handleBundle(w http.ResponseWriter, r *http.Request) {
 		MarketplaceURL: s.baseURL(r),
 		Context:        s.store.BundleContexts(b.Name),
 		ContextNames:   store.ContextFileNames(),
+		ShareCode:      code,
+		ShareURL:       shareURL,
 	})
 }
 

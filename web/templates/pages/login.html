@@ -1,0 +1,66 @@
+{{ define "content" }}
+  <div class="min-h-[70vh] flex items-center justify-center px-6 py-16">
+    <div class="w-full max-w-[340px]">
+      <div class="flex items-center gap-3 mb-8">
+        <span
+          class="grid grid-cols-2 gap-[3px] w-[34px] h-[34px] p-[7px] rounded-[9px] bg-surface-2 border border-line shrink-0"
+          aria-hidden="true"
+        >
+          <span class="w-[7px] h-[7px] rounded-[1px] bg-accent"></span>
+          <span class="w-[7px] h-[7px] rounded-[1px] bg-accent"></span>
+          <span class="w-[7px] h-[7px] rounded-[1px] bg-accent"></span>
+          <span class="w-[7px] h-[7px] rounded-[1px] bg-accent/25"></span>
+        </span>
+        <span class="min-w-0">
+          <span class="block text-[15px] font-medium text-fg leading-tight">Skillbuilder</span>
+          <span class="block text-[13px] text-fg-3 leading-tight">This registry is private</span>
+        </span>
+      </div>
+
+      <form method="post" action="/login" class="flex flex-col gap-3">
+        <input type="hidden" name="next" value="{{ .Next }}" />
+
+        <div>
+          <label class="label" for="passcode">Passcode</label>
+          <div class="relative">
+            <svg
+              class="absolute left-3 top-1/2 -translate-y-1/2 text-fg-4 pointer-events-none"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              aria-hidden="true"
+            >
+              <circle cx="8" cy="15" r="4" />
+              <path d="M10.85 12.15 19 4M18 5l2 2M15 8l2 2" />
+            </svg>
+            <input
+              id="passcode"
+              name="passcode"
+              type="password"
+              required
+              autofocus
+              autocomplete="current-password"
+              placeholder="Enter passcode"
+              class="field pl-9 h-10"
+              aria-describedby="{{ if .Error }}passcode-error{{ end }}"
+            />
+          </div>
+        </div>
+
+        {{ with .Error }}
+          <p id="passcode-error" class="text-[13px] text-danger" role="alert">{{ . }}</p>
+        {{ end }}
+
+        <button type="submit" class="btn btn-primary h-10 w-full mt-1">Continue</button>
+      </form>
+
+      <p class="hint mt-6 leading-relaxed">
+        Set by <span class="font-mono">SKILLBUILDER_PASSWORD</span> on the server. The command
+        line uses the same value — <span class="font-mono text-fg-3">skillbuilder login</span>.
+      </p>
+    </div>
+  </div>
+{{ end }}
