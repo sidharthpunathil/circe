@@ -82,12 +82,12 @@
               <span data-selected-count>{{ len .Form.Skills }}</span> selected
             </p>
           </div>
-          <div class="flex items-center gap-2">
+          <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto">
             <input
               type="search"
               placeholder="Filter skills"
               aria-label="Filter skills"
-              class="field h-8 w-[200px] text-[13px]"
+              class="field h-8 w-full sm:w-[200px] min-w-0 text-[13px]"
               data-filter="#skill-picker"
             />
             <button type="button" class="btn btn-sm" data-select-all="#skill-picker">All</button>

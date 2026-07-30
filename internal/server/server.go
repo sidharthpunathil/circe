@@ -111,6 +111,11 @@ func (s *Server) routes() {
 	m.HandleFunc("GET /api/v1/rulesets", s.apiRuleSets)
 	m.HandleFunc("GET /api/v1/rulesets/{name}", s.apiRuleSet)
 
+	// MCP servers: live connections a project's .mcp.json points at. Their
+	// folders live under /mcpsets/ for the same reason rule folders do, so no
+	// pattern is ambiguous with /mcp/{name}.
+	s.routesMCP(m)
+
 	m.HandleFunc("GET /bundles", s.handleBundles)
 	m.HandleFunc("GET /bundles/new", s.handleBundleNew)
 	m.HandleFunc("POST /bundles/new", s.handleBundleCreate)
@@ -250,6 +255,8 @@ type stats struct {
 	Bundles  int
 	Rules    int
 	RuleSets int
+	MCPs     int
+	MCPSets  int
 	Tags     int
 	Size     int64
 }
@@ -329,6 +336,8 @@ func (s *Server) base(w http.ResponseWriter, r *http.Request, nav string) base {
 			Bundles:  s.store.BundleCount(),
 			Rules:    s.store.RuleCount(),
 			RuleSets: s.store.RuleSetCount(),
+			MCPs:     s.store.MCPCount(),
+			MCPSets:  s.store.MCPSetCount(),
 			Tags:     len(s.store.Tags()),
 			Size:     size,
 		},

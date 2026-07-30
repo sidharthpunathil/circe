@@ -144,6 +144,31 @@
     count();
   })();
 
+  // MCP server form: a stdio server needs a command, an http or sse one needs a
+  // URL, and showing both at once makes the form read as twice the work. With
+  // this file absent every field is visible and the form still saves correctly,
+  // because the server drops whatever the chosen transport does not use.
+  document.querySelectorAll("[data-transport-form]").forEach(function (form) {
+    var groups = form.querySelectorAll("[data-when-transport], [data-unless-transport]");
+    if (!groups.length) return;
+    var apply = function () {
+      var picked = form.querySelector('input[name="transport"]:checked');
+      var value = picked ? picked.value : "stdio";
+      groups.forEach(function (group) {
+        // Named either way round, so a group can say which transports it belongs
+        // to or which single one it does not, and a new transport keeps working.
+        var only = group.getAttribute("data-when-transport");
+        var except = group.getAttribute("data-unless-transport");
+        if (only !== null) group.hidden = only.split(" ").indexOf(value) === -1;
+        if (except !== null) group.hidden = except.split(" ").indexOf(value) !== -1;
+      });
+    };
+    form.addEventListener("change", function (e) {
+      if (e.target && e.target.name === "transport") apply();
+    });
+    apply();
+  });
+
   // Warn before navigating away from an edited form with unsaved changes.
   document.querySelectorAll("form[method='post']").forEach(function (form) {
     if (form.hasAttribute("data-confirm") || form.classList.contains("hidden")) return;

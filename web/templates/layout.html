@@ -39,7 +39,7 @@
           <span class="text-[15px] font-medium text-fg tracking-[-0.02em]">Skillbuilder</span>
         </a>
 
-        <nav class="hidden sm:flex items-center gap-5 text-[14px]" aria-label="Main">
+        <nav class="hidden md:flex items-center gap-5 text-[14px]" aria-label="Main">
           <a
             href="/skills"
             class="{{ if eq .Nav `skills` }}text-fg{{ else }}text-fg-3 hover:text-fg{{ end }} transition-colors font-medium"
@@ -49,6 +49,11 @@
             href="/rules"
             class="{{ if eq .Nav `rules` }}text-fg{{ else }}text-fg-3 hover:text-fg{{ end }} transition-colors font-medium"
             >Rules</a
+          >
+          <a
+            href="/mcp"
+            class="{{ if eq .Nav `mcp` }}text-fg{{ else }}text-fg-3 hover:text-fg{{ end }} transition-colors font-medium"
+            >MCP</a
           >
           <a
             href="/bundles"
@@ -64,7 +69,7 @@
 
         <div class="flex-1"></div>
 
-        <form action="/skills" method="get" class="hidden md:block relative" role="search">
+        <form action="/skills" method="get" class="hidden lg:block relative" role="search">
           <svg
             class="absolute left-3 top-1/2 -translate-y-1/2 text-fg-3 pointer-events-none"
             width="13"
@@ -88,9 +93,26 @@
           />
         </form>
 
-        <a href="/skills/new" class="btn btn-primary btn-sm">New skill</a>
+        <a
+          href="/settings"
+          class="{{ if eq .Nav `settings` }}text-fg{{ else }}text-fg-3 hover:text-fg{{ end }} transition-colors shrink-0 p-1.5 -m-1.5"
+          aria-label="Settings"
+          title="Settings"
+        >
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="3" />
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+          </svg>
+        </a>
+
+        {{/* The label shortens on the narrowest screens so the row still fits
+             alongside the gear and the sign out control. */}}
+        <a href="/skills/new" class="btn btn-primary btn-sm shrink-0">
+          <span class="sm:hidden">New</span><span class="hidden sm:inline">New skill</span>
+        </a>
         {{ if .SignedIn }}
-          <form method="post" action="/logout">
+          <form method="post" action="/logout" class="hidden sm:block shrink-0">
             <button
               type="submit"
               class="text-[13px] text-fg-3 hover:text-fg transition-colors"
@@ -102,33 +124,44 @@
         {{ end }}
       </div>
 
-      {{/* Below sm the primary nav and search move to their own row, so small
-           screens are not left without any way to navigate. */}}
-      <div class="sm:hidden border-t border-line-soft">
+      {{/* Below md the primary nav and search move to their own row, so small
+           screens are not left without any way to navigate. The nav scrolls
+           sideways rather than wrapping, so five items still fit at 320px. */}}
+      <div class="md:hidden border-t border-line-soft">
         <div class="container-page flex items-center gap-3 h-12">
-          <nav class="flex items-center gap-4 text-[14px]" aria-label="Main">
+          <nav
+            class="flex items-center gap-4 text-[14px] overflow-x-auto scrollbar-none flex-1 min-w-0 -mx-1 px-1"
+            aria-label="Main"
+          >
             <a
               href="/skills"
-              class="{{ if eq .Nav `skills` }}text-fg{{ else }}text-fg-3{{ end }} font-medium"
+              class="{{ if eq .Nav `skills` }}text-fg{{ else }}text-fg-3{{ end }} font-medium shrink-0"
               >Skills</a
             >
             <a
               href="/rules"
-              class="{{ if eq .Nav `rules` }}text-fg{{ else }}text-fg-3{{ end }} font-medium"
+              class="{{ if eq .Nav `rules` }}text-fg{{ else }}text-fg-3{{ end }} font-medium shrink-0"
               >Rules</a
             >
             <a
+              href="/mcp"
+              class="{{ if eq .Nav `mcp` }}text-fg{{ else }}text-fg-3{{ end }} font-medium shrink-0"
+              >MCP</a
+            >
+            <a
               href="/bundles"
-              class="{{ if eq .Nav `bundles` }}text-fg{{ else }}text-fg-3{{ end }} font-medium"
+              class="{{ if eq .Nav `bundles` }}text-fg{{ else }}text-fg-3{{ end }} font-medium shrink-0"
               >Folders</a
             >
             <a
               href="/import/repo"
-              class="{{ if eq .Nav `import` }}text-fg{{ else }}text-fg-3{{ end }} font-medium"
+              class="{{ if eq .Nav `import` }}text-fg{{ else }}text-fg-3{{ end }} font-medium shrink-0"
               >Import</a
             >
           </nav>
-          <form action="/skills" method="get" class="relative flex-1 min-w-0" role="search">
+          {{/* Below sm the nav alone needs the width, so search waits until
+               there is room for it rather than squeezing both. */}}
+          <form action="/skills" method="get" class="relative hidden sm:block w-[180px] shrink-0" role="search">
             <svg
               class="absolute left-2.5 top-1/2 -translate-y-1/2 text-fg-3 pointer-events-none"
               width="13"
@@ -197,10 +230,12 @@
           >{{ .Stats.Skills }} {{ pluralize .Stats.Skills "skill" "skills" }} · {{ .Stats.Bundles }} {{ pluralize .Stats.Bundles "folder" "folders" }} · stored in
           <span class="break-all">{{ .DataDir }}</span></span
         >
-        <span class="flex items-center gap-4 shrink-0">
-          <a href="/settings" class="hover:text-fg transition-colors">Settings</a>
-          <a href="/api/v1/skills" class="hover:text-fg transition-colors">API</a>
-          <a href="/.claude-plugin/marketplace.json" class="hover:text-fg transition-colors"
+        {{/* The vertical padding is there to make these comfortable to tap on a
+             phone; the negative margin keeps the footer the same height. */}}
+        <span class="flex flex-wrap items-center gap-x-4 shrink-0 -my-1.5">
+          <a href="/settings" class="hover:text-fg transition-colors py-1.5">Settings</a>
+          <a href="/api/v1/skills" class="hover:text-fg transition-colors py-1.5">API</a>
+          <a href="/.claude-plugin/marketplace.json" class="hover:text-fg transition-colors py-1.5"
             >marketplace.json</a
           >
         </span>
