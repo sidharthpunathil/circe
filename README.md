@@ -113,6 +113,8 @@ fails here rather than somewhere confusing later. `skillbuilder logout` forgets 
 | Command | What it does |
 | --- | --- |
 | `skillbuilder <folder>` | Choose skills from a folder and install them. `-y` takes all. |
+| `skillbuilder skills <folder>` | The same thing, spelled out. |
+| `skillbuilder rules <folder>` | Merge a rule folder into this project's CLAUDE.md / AGENTS.md. No args lists them. |
 | `skillbuilder add <skill>…` | Install specific skills; no args opens a picker. |
 | `skillbuilder list` | Show installed skills and whether they've drifted. `--remote` lists the registry. |
 | `skillbuilder search <query>` | Search the registry. |
@@ -151,6 +153,30 @@ that does. Companion files come along; existing skills are left alone unless you
 `--force`. Directories that aren't part of a skill: `.venv`, `node_modules`,
 `__pycache__`, `.git`: are excluded, which matters because a skill that vendors a
 virtualenv can be hundreds of megabytes.
+
+## Rules
+
+Skills teach Claude *how to do something*. Rules tell it *how you work*: the text that ends
+up in a project's `CLAUDE.md` or `AGENTS.md`.
+
+Write rules on the **Rules** tab, group them into a folder, then:
+
+```bash
+skillbuilder rules house-style
+```
+
+Each rule picks which files it belongs in, so a rule can go to `CLAUDE.md`, `AGENTS.md`, or
+both. They merge into the project's own files inside a marked block, so anything already
+there is untouched and re-running replaces only that block.
+
+The two verbs read symmetrically:
+
+```bash
+skillbuilder skills frontend-kit   # capability
+skillbuilder rules  house-style    # conventions
+```
+
+`skillbuilder <folder>` is still shorthand for the skills form.
 
 ## Sharing
 

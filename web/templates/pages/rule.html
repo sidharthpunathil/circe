@@ -1,0 +1,76 @@
+{{ define "content" }}
+  <div class="container-page pt-8 pb-16">
+    <nav class="meta flex items-center gap-1.5 mb-6" aria-label="Breadcrumb">
+      <a href="/rules" class="hover:text-fg transition-colors">rules</a>
+      <span aria-hidden="true">/</span>
+      <span class="text-fg">{{ .Rule.Name }}</span>
+    </nav>
+
+    <div class="grid lg:grid-cols-[minmax(0,1fr)_280px] gap-10 lg:gap-12 items-start">
+      <div class="min-w-0">
+        <h1 class="text-[32px] md:text-[40px] break-words">{{ .Rule.Name }}</h1>
+        <p class="mt-4 text-[16px] md:text-[17px] leading-[1.55] text-fg-2 max-w-[68ch]">
+          {{ .Rule.Description }}
+        </p>
+
+        <div class="mt-4 flex flex-wrap gap-1.5">
+          {{ range .Rule.TargetsOrDefault }}<span class="badge">{{ . }}</span>{{ end }}
+          {{ range .Rule.Tags }}<span class="badge">{{ . }}</span>{{ end }}
+        </div>
+
+        <div class="mt-6 flex flex-wrap gap-2 lg:hidden">
+          <a href="/rules/{{ .Rule.Name }}/edit" class="btn">Edit</a>
+        </div>
+
+        <article class="prose-skill mt-10">{{ markdown .Rule.Body }}</article>
+      </div>
+
+      <aside class="lg:sticky lg:top-20 flex flex-col gap-6 min-w-0">
+        <div class="hidden lg:flex flex-wrap gap-2">
+          <a href="/rules/{{ .Rule.Name }}/edit" class="btn flex-1">Edit</a>
+        </div>
+
+        <div>
+          <p class="eyebrow mb-2.5">Details</p>
+          <dl class="flex flex-col gap-2 meta">
+            <div class="flex justify-between gap-3">
+              <dt>Goes into</dt>
+              <dd class="text-fg">{{ join .Rule.TargetsOrDefault ", " }}</dd>
+            </div>
+            <div class="flex justify-between gap-3">
+              <dt>Updated</dt>
+              <dd class="text-fg">{{ ago .Rule.UpdatedAt }}</dd>
+            </div>
+            <div class="flex justify-between gap-3">
+              <dt>Size</dt>
+              <dd class="text-fg">{{ bytes .Rule.Size }}</dd>
+            </div>
+          </dl>
+        </div>
+
+        {{ if .Sets }}
+          <div>
+            <p class="eyebrow mb-2.5">Part of</p>
+            <ul class="flex flex-col gap-1.5">
+              {{ range .Sets }}
+                <li>
+                  <a href="/rulesets/{{ .Name }}" class="meta hover:text-fg transition-colors flex items-center gap-2">
+                    <span class="text-fg-3/50" aria-hidden="true">›</span>
+                    <span class="truncate">{{ .DisplayTitle }}</span>
+                  </a>
+                </li>
+              {{ end }}
+            </ul>
+          </div>
+        {{ end }}
+
+        <div class="pt-2 border-t border-line-soft">
+          <form action="/rules/{{ .Rule.Name }}/delete" method="post"
+            data-confirm="Delete “{{ .Rule.Name }}”? This cannot be undone.">
+            <button type="submit" class="btn btn-danger btn-sm w-full">Delete rule</button>
+          </form>
+        </div>
+      </aside>
+    </div>
+  </div>
+{{ end }}

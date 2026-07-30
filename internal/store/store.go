@@ -38,9 +38,11 @@ var skipDirs = map[string]bool{
 type Store struct {
 	root string
 
-	mu      sync.RWMutex
-	skills  map[string]*Skill
-	bundles map[string]*Bundle
+	mu       sync.RWMutex
+	skills   map[string]*Skill
+	bundles  map[string]*Bundle
+	rules    map[string]*Rule
+	ruleSets map[string]*RuleSet
 }
 
 // Open loads (creating if needed) a store rooted at dir.
@@ -50,7 +52,7 @@ func Open(dir string) (*Store, error) {
 		return nil, err
 	}
 	s := &Store{root: abs}
-	for _, sub := range []string{"skills", "bundles"} {
+	for _, sub := range []string{"skills", "bundles", "rules", "rulesets"} {
 		if err := os.MkdirAll(filepath.Join(abs, sub), 0o755); err != nil {
 			return nil, err
 		}
@@ -127,7 +129,8 @@ func (s *Store) Reload() error {
 	s.mu.Lock()
 	s.skills, s.bundles = skills, bundles
 	s.mu.Unlock()
-	return nil
+
+	return s.reloadRules()
 }
 
 // loadSkill reads one skill directory from disk.

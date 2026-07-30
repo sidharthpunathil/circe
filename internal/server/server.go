@@ -85,6 +85,28 @@ func (s *Server) routes() {
 	m.HandleFunc("GET /skills/{name}/files/{path...}", s.handleFileEdit)
 	m.HandleFunc("POST /skills/{name}/files/{path...}", s.handleFileSave)
 
+	// Rules: project guidance, grouped into their own folders.
+	m.HandleFunc("GET /rules", s.handleRules)
+	m.HandleFunc("GET /rules/new", s.handleRuleNew)
+	m.HandleFunc("POST /rules/new", s.handleRuleCreate)
+	// Rule folders live under their own prefix: /rules/sets/{name} and
+	// /rules/{name}/edit are ambiguous to the router, since neither pattern is
+	// more specific than the other.
+	m.HandleFunc("GET /rulesets/new", s.handleRuleSetNew)
+	m.HandleFunc("POST /rulesets/new", s.handleRuleSetCreate)
+	m.HandleFunc("GET /rulesets/{name}", s.handleRuleSet)
+	m.HandleFunc("GET /rulesets/{name}/edit", s.handleRuleSetEdit)
+	m.HandleFunc("POST /rulesets/{name}/edit", s.handleRuleSetUpdate)
+	m.HandleFunc("POST /rulesets/{name}/delete", s.handleRuleSetDelete)
+	m.HandleFunc("GET /rules/{name}", s.handleRule)
+	m.HandleFunc("GET /rules/{name}/edit", s.handleRuleEdit)
+	m.HandleFunc("POST /rules/{name}/edit", s.handleRuleUpdate)
+	m.HandleFunc("POST /rules/{name}/delete", s.handleRuleDelete)
+	m.HandleFunc("GET /api/v1/rules", s.apiRules)
+	m.HandleFunc("GET /api/v1/rules/{name}", s.apiRule)
+	m.HandleFunc("GET /api/v1/rulesets", s.apiRuleSets)
+	m.HandleFunc("GET /api/v1/rulesets/{name}", s.apiRuleSet)
+
 	m.HandleFunc("GET /bundles", s.handleBundles)
 	m.HandleFunc("GET /bundles/new", s.handleBundleNew)
 	m.HandleFunc("POST /bundles/new", s.handleBundleCreate)
@@ -216,10 +238,12 @@ func (s *Server) staticHandler() http.Handler {
 
 // stats summarizes the registry for the footer and home page.
 type stats struct {
-	Skills  int
-	Bundles int
-	Tags    int
-	Size    int64
+	Skills   int
+	Bundles  int
+	Rules    int
+	RuleSets int
+	Tags     int
+	Size     int64
 }
 
 // flash is a one-shot message shown after a redirect.
@@ -293,10 +317,12 @@ func (s *Server) base(w http.ResponseWriter, r *http.Request, nav string) base {
 		Flash:    s.takeFlash(w, r),
 		SEO:      s.pageMeta(r),
 		Stats: stats{
-			Skills:  len(skills),
-			Bundles: s.store.BundleCount(),
-			Tags:    len(s.store.Tags()),
-			Size:    size,
+			Skills:   len(skills),
+			Bundles:  s.store.BundleCount(),
+			Rules:    s.store.RuleCount(),
+			RuleSets: s.store.RuleSetCount(),
+			Tags:     len(s.store.Tags()),
+			Size:     size,
 		},
 	}
 }
