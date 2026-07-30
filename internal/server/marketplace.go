@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/sidharthp/skillbuilder/internal/store"
+	"github.com/sidharthpunathil/skillbuilder/internal/store"
 )
 
 // The marketplace manifest lets stock Claude Code consume this registry with

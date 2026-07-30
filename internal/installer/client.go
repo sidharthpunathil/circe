@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sidharthp/skillbuilder/internal/api"
+	"github.com/sidharthpunathil/skillbuilder/internal/api"
 )
 
 const (

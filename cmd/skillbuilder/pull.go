@@ -6,8 +6,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/sidharthp/skillbuilder/internal/api"
-	"github.com/sidharthp/skillbuilder/internal/installer"
+	"github.com/sidharthpunathil/skillbuilder/internal/api"
+	"github.com/sidharthpunathil/skillbuilder/internal/installer"
 )
 
 func newPullCmd() *cobra.Command {

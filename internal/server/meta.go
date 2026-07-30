@@ -12,7 +12,7 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/sidharthp/skillbuilder/internal/store"
+	"github.com/sidharthpunathil/skillbuilder/internal/store"
 )
 
 // Per-page SEO metadata.

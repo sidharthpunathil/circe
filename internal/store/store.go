@@ -16,7 +16,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sidharthp/skillbuilder/internal/skillfile"
+	"github.com/sidharthpunathil/skillbuilder/internal/skillfile"
 )
 
 // ErrNotFound is returned when a skill or bundle does not exist.

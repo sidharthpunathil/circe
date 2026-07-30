@@ -24,8 +24,8 @@ import (
 	"golang.org/x/image/math/fixed"
 	"golang.org/x/image/vector"
 
-	"github.com/sidharthp/skillbuilder/internal/store"
-	"github.com/sidharthp/skillbuilder/web"
+	"github.com/sidharthpunathil/skillbuilder/internal/store"
+	"github.com/sidharthpunathil/skillbuilder/web"
 )
 
 // Open Graph card rendering.

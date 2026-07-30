@@ -10,7 +10,7 @@ import (
 	"github.com/charmbracelet/huh"
 	"github.com/spf13/cobra"
 
-	"github.com/sidharthp/skillbuilder/internal/installer"
+	"github.com/sidharthpunathil/skillbuilder/internal/installer"
 )
 
 // login exists so connecting to a hosted registry is one command instead of

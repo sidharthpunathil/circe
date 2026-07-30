@@ -9,7 +9,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/sidharthp/skillbuilder/internal/skillfile"
+	"github.com/sidharthpunathil/skillbuilder/internal/skillfile"
 )
 
 // ImportCandidate is a skill discovered in an external directory.

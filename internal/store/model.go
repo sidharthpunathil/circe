@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sidharthp/skillbuilder/internal/skillfile"
+	"github.com/sidharthpunathil/skillbuilder/internal/skillfile"
 )
 
 // nameRe constrains skill and bundle names to a safe, filesystem-friendly slug.

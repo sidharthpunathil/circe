@@ -13,9 +13,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sidharthp/skillbuilder/internal/api"
-	"github.com/sidharthp/skillbuilder/internal/store"
-	"github.com/sidharthp/skillbuilder/web"
+	"github.com/sidharthpunathil/skillbuilder/internal/api"
+	"github.com/sidharthpunathil/skillbuilder/internal/store"
+	"github.com/sidharthpunathil/skillbuilder/web"
 )
 
 // Options configures a Server.

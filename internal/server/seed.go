@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sidharthp/skillbuilder/internal/gitsource"
-	"github.com/sidharthp/skillbuilder/internal/store"
+	"github.com/sidharthpunathil/skillbuilder/internal/gitsource"
+	"github.com/sidharthpunathil/skillbuilder/internal/store"
 )
 
 // SeedOptions describes an optional first-boot import.

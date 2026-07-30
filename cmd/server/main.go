@@ -12,8 +12,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/sidharthp/skillbuilder/internal/server"
-	"github.com/sidharthp/skillbuilder/internal/store"
+	"github.com/sidharthpunathil/skillbuilder/internal/server"
+	"github.com/sidharthpunathil/skillbuilder/internal/store"
 )
 
 func main() {

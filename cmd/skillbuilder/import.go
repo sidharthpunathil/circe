@@ -11,8 +11,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/sidharthp/skillbuilder/internal/installer"
-	"github.com/sidharthp/skillbuilder/internal/store"
+	"github.com/sidharthpunathil/skillbuilder/internal/installer"
+	"github.com/sidharthpunathil/skillbuilder/internal/store"
 )
 
 // import installs from a share code without needing a registry of your own —

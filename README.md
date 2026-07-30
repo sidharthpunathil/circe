@@ -75,6 +75,15 @@ the result is a single self-contained binary.
 > reach the URL can edit and delete your skills. The server warns loudly on startup if you
 > bind to a non-loopback address without one.
 
+## Install the CLI
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/sidharthpunathil/skillbuilder/main/install.sh | sh
+```
+
+macOS and Linux, `amd64` and `arm64`. Or `go install github.com/sidharthpunathil/skillbuilder/cmd/skillbuilder@latest`,
+or `make build` from a clone. Full options in [docs/install.md](docs/install.md).
+
 ## Use it
 
 Create a folder on the site, tick the skills that belong in it, then in any project:
@@ -250,6 +259,13 @@ rendered with raw HTML escaped so an imported third-party skill can't inject scr
 your registry.
 
 Found something? Open an issue.
+
+## Documentation
+
+- [Installing the CLI](docs/install.md)
+- [Self-hosting a registry](docs/self-hosting.md)
+- [CLI reference](docs/cli.md)
+- [HTTP API](docs/api.md)
 
 ## Credits
 

@@ -9,8 +9,8 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/sidharthp/skillbuilder/internal/api"
-	"github.com/sidharthp/skillbuilder/internal/store"
+	"github.com/sidharthpunathil/skillbuilder/internal/api"
+	"github.com/sidharthpunathil/skillbuilder/internal/store"
 )
 
 func logError(what string, err error) {

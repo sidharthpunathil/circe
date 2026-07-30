@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sidharthp/skillbuilder/web"
+	"github.com/sidharthpunathil/skillbuilder/web"
 
 	chromahtml "github.com/alecthomas/chroma/v2/formatters/html"
 	"github.com/yuin/goldmark"

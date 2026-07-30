@@ -10,9 +10,9 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/sidharthp/skillbuilder/internal/gitsource"
-	"github.com/sidharthp/skillbuilder/internal/skillfile"
-	"github.com/sidharthp/skillbuilder/internal/store"
+	"github.com/sidharthpunathil/skillbuilder/internal/gitsource"
+	"github.com/sidharthpunathil/skillbuilder/internal/skillfile"
+	"github.com/sidharthpunathil/skillbuilder/internal/store"
 )
 
 // bundleCard is a bundle plus a short preview of its skills, for list pages.

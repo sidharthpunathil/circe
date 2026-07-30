@@ -11,7 +11,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/sidharthp/skillbuilder/internal/api"
+	"github.com/sidharthpunathil/skillbuilder/internal/api"
 )
 
 // LockfileName is the file skillbuilder writes in a project root.

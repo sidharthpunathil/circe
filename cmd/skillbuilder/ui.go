@@ -12,8 +12,8 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/term"
 
-	"github.com/sidharthp/skillbuilder/internal/api"
-	"github.com/sidharthp/skillbuilder/internal/installer"
+	"github.com/sidharthpunathil/skillbuilder/internal/api"
+	"github.com/sidharthpunathil/skillbuilder/internal/installer"
 )
 
 // Colours are adaptive so the output stays legible on light terminals, and

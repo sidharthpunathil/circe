@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sidharthp/skillbuilder/internal/store"
+	"github.com/sidharthpunathil/skillbuilder/internal/store"
 )
 
 // A share is the one thing a password-protected registry exposes publicly, and

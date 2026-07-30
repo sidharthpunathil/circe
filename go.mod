@@ -1,4 +1,4 @@
-module github.com/sidharthp/skillbuilder
+module github.com/sidharthpunathil/skillbuilder
 
 go 1.25.0
 
