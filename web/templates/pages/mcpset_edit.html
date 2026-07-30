@@ -1,0 +1,96 @@
+{{ define "content" }}
+  <div class="container-page pt-8 pb-16">
+    <nav class="meta flex items-center gap-1.5 mb-6" aria-label="Breadcrumb">
+      <a href="/mcp" class="hover:text-fg transition-colors">mcp</a>
+      <span aria-hidden="true">/</span>
+      {{ if .IsNew }}<span class="text-fg">new folder</span>{{ else }}
+        <a href="/mcpsets/{{ .Set.Name }}" class="hover:text-fg transition-colors">{{ .Set.Name }}</a>
+        <span aria-hidden="true">/</span><span class="text-fg">edit</span>
+      {{ end }}
+    </nav>
+
+    <h1 class="text-[32px] md:text-[40px]">{{ if .IsNew }}New server folder{{ else }}Edit folder{{ end }}</h1>
+    <p class="mt-3 text-[15px] text-fg-3 max-w-[60ch]">
+      Tick the servers a project should be able to reach. That is what gets written into its
+      <span class="font-mono text-[13px] text-fg-2">.mcp.json</span>.
+    </p>
+
+    {{ with .Error }}
+      <div class="mt-6 rounded-card border border-danger/25 bg-danger/5 px-4 py-3 text-[13px] text-danger" role="alert">{{ . }}</div>
+    {{ end }}
+
+    <form method="post" action="{{ if .IsNew }}/mcpsets/new{{ else }}/mcpsets/{{ .Set.Name }}/edit{{ end }}"
+      class="mt-8 flex flex-col gap-6">
+      <div class="grid sm:grid-cols-2 gap-5 max-w-[860px]">
+        <div>
+          <label class="label" for="name">Name</label>
+          <input id="name" name="name" value="{{ .Form.Name }}" required maxlength="64"
+            pattern="[a-z0-9]+(-[a-z0-9]+)*" placeholder="web-app" class="field field-mono" />
+          <p class="hint">This becomes the install command.</p>
+        </div>
+        <div>
+          <label class="label" for="title">Title</label>
+          <input id="title" name="title" value="{{ .Form.Title }}" placeholder="Web App" class="field" />
+          <p class="hint">Optional. A friendlier name to show.</p>
+        </div>
+      </div>
+
+      <div class="max-w-[860px]">
+        <label class="label" for="description">Description</label>
+        <textarea id="description" name="description" rows="2" placeholder="Which kind of project this is for."
+          class="field resize-y leading-relaxed">{{ .Form.Description }}</textarea>
+      </div>
+
+      <div>
+        <div class="flex flex-wrap items-end justify-between gap-3 mb-3">
+          <div>
+            <span class="label mb-0">Servers</span>
+            <p class="hint mt-1"><span data-selected-count>{{ len .Form.Servers }}</span> selected</p>
+          </div>
+          <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+            <input type="search" placeholder="Filter servers" aria-label="Filter servers"
+              class="field h-8 w-full sm:w-[200px] min-w-0 text-[13px]" data-filter="#skill-picker" />
+            <button type="button" class="btn btn-sm" data-select-all="#skill-picker">All</button>
+            <button type="button" class="btn btn-sm" data-select-none="#skill-picker">None</button>
+          </div>
+        </div>
+
+        {{ if .AllServers }}
+          <div id="skill-picker"
+            class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 max-h-[520px] overflow-y-auto rounded-card border border-line-soft bg-surface/40 p-2">
+            {{ $selected := .Selected }}
+            {{ range .AllServers }}
+              <label class="card !p-3 cursor-pointer flex gap-2.5 items-start has-[:checked]:border-fg/25 has-[:checked]:bg-surface transition-colors"
+                data-filter-item="{{ .Name }} {{ lower .Description }} {{ lower .CommandLine }}">
+                <input type="checkbox" name="servers" value="{{ .Name }}"
+                  {{ if index $selected .Name }}checked{{ end }} class="mt-0.5 accent-accent shrink-0" />
+                <span class="min-w-0 flex-1">
+                  <span class="flex items-center gap-2 flex-wrap">
+                    <span class="text-[13.5px] font-medium text-fg truncate">{{ .Name }}</span>
+                    <span class="badge">{{ .TransportOrDefault }}</span>
+                  </span>
+                  <span class="block text-[12px] text-fg-3 leading-snug line-clamp-2 mt-0.5">{{ truncate 90 .Description }}</span>
+                </span>
+              </label>
+            {{ end }}
+          </div>
+          <p class="hint mt-2" data-filter-empty hidden>No server matches that filter.</p>
+        {{ else }}
+          {{ template "empty"
+            (dict
+              "Title" "No servers yet"
+              "Body" "Add a couple from the catalog first, then come back and group them."
+              "Action" "/mcp/catalog"
+              "ActionLabel" "Browse the catalog"
+            )
+          }}
+        {{ end }}
+      </div>
+
+      <div class="flex flex-wrap items-center gap-2.5 pt-1">
+        <button type="submit" class="btn btn-primary">{{ if .IsNew }}Create folder{{ else }}Save changes{{ end }}</button>
+        <a href="{{ if .IsNew }}/mcp{{ else }}/mcpsets/{{ .Set.Name }}{{ end }}" class="btn">Cancel</a>
+      </div>
+    </form>
+  </div>
+{{ end }}

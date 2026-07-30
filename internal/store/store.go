@@ -43,6 +43,8 @@ type Store struct {
 	bundles  map[string]*Bundle
 	rules    map[string]*Rule
 	ruleSets map[string]*RuleSet
+	mcps     map[string]*MCPServer
+	mcpSets  map[string]*MCPSet
 }
 
 // Open loads (creating if needed) a store rooted at dir.
@@ -52,7 +54,7 @@ func Open(dir string) (*Store, error) {
 		return nil, err
 	}
 	s := &Store{root: abs}
-	for _, sub := range []string{"skills", "bundles", "rules", "rulesets"} {
+	for _, sub := range []string{"skills", "bundles", "rules", "rulesets", "mcps", "mcpsets"} {
 		if err := os.MkdirAll(filepath.Join(abs, sub), 0o755); err != nil {
 			return nil, err
 		}
@@ -130,7 +132,10 @@ func (s *Store) Reload() error {
 	s.skills, s.bundles = skills, bundles
 	s.mu.Unlock()
 
-	return s.reloadRules()
+	if err := s.reloadRules(); err != nil {
+		return err
+	}
+	return s.reloadMCPs()
 }
 
 // loadSkill reads one skill directory from disk.

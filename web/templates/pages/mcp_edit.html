@@ -1,0 +1,189 @@
+{{ define "content" }}
+  <div class="container-page pt-8 pb-16">
+    <nav class="meta flex items-center gap-1.5 mb-6" aria-label="Breadcrumb">
+      <a href="/mcp" class="hover:text-fg transition-colors">mcp</a>
+      <span aria-hidden="true">/</span>
+      {{ if .IsNew }}
+        <span class="text-fg">new</span>
+      {{ else }}
+        <a href="/mcp/{{ .Server.Name }}" class="hover:text-fg transition-colors">{{ .Server.Name }}</a>
+        <span aria-hidden="true">/</span>
+        <span class="text-fg">edit</span>
+      {{ end }}
+    </nav>
+
+    <h1 class="text-[32px] md:text-[40px]">{{ if .IsNew }}New MCP server{{ else }}Edit MCP server{{ end }}</h1>
+    <p class="mt-3 text-[15px] text-fg-3 max-w-[62ch]">
+      One connection to something outside the repo. Describe it once here, put it in a folder, and
+      it becomes an entry in the <span class="font-mono text-[13px] text-fg-2">.mcp.json</span> of
+      every project you install that folder into.
+      {{ if .IsNew }}
+        Already have a server running somewhere? Point at its URL instead of a command.
+      {{ end }}
+    </p>
+
+    {{ with .Error }}
+      <div class="mt-6 rounded-card border border-danger/25 bg-danger/5 px-4 py-3 text-[13px] text-danger max-w-[860px]" role="alert">
+        {{ . }}
+      </div>
+    {{ end }}
+
+    <form method="post" action="{{ if .IsNew }}/mcp/new{{ else }}/mcp/{{ .Server.Name }}/edit{{ end }}"
+      class="mt-8 max-w-[860px] flex flex-col gap-6" data-transport-form>
+      <div class="grid sm:grid-cols-2 gap-5">
+        <div>
+          <label class="label" for="name">Name</label>
+          <input id="name" name="name" value="{{ .Form.Name }}" required maxlength="64"
+            pattern="[a-z0-9]+(-[a-z0-9]+)*" placeholder="postgres" class="field field-mono" />
+          <p class="hint">Lowercase, hyphens between words. This is the key in the config.</p>
+        </div>
+        <div>
+          <label class="label" for="title">Title</label>
+          <input id="title" name="title" value="{{ .Form.Title }}" placeholder="Postgres" class="field" />
+          <p class="hint">Optional. A friendlier name to show.</p>
+        </div>
+      </div>
+
+      <div>
+        <label class="label" for="description">Description</label>
+        <input id="description" name="description" value="{{ .Form.Description }}" required maxlength="1024"
+          placeholder="What this connects the agent to, and when you would want it." class="field" />
+      </div>
+
+      <div class="grid sm:grid-cols-2 gap-5">
+        <div>
+          <label class="label" for="category">Category</label>
+          <select id="category" name="category" class="field">
+            <option value="">Uncategorised</option>
+            {{ $picked := .Form.Category }}
+            {{ range .Categories }}
+              <option value="{{ . }}" {{ if eq $picked . }}selected{{ end }}>{{ . }}</option>
+            {{ end }}
+          </select>
+          <p class="hint">Only used for grouping on the catalog page.</p>
+        </div>
+        <div>
+          <label class="label" for="tags">Tags</label>
+          <input id="tags" name="tags" value="{{ .Form.Tags }}" placeholder="database, local" class="field" />
+          <p class="hint">Comma separated. Makes things easier to find later.</p>
+        </div>
+      </div>
+
+      <div>
+        <span class="label mb-0">How it is reached</span>
+        <p class="hint mt-1 mb-2.5">
+          Pick <span class="font-mono">stdio</span> if Claude Code should launch it as a local
+          process, or one of the others if it is already running behind a URL.
+        </p>
+        <div class="flex flex-wrap gap-2">
+          {{ $t := .Form.Transport }}
+          {{ range .Transports }}
+            <label class="badge cursor-pointer has-[:checked]:badge-active transition-colors select-none">
+              <input type="radio" name="transport" value="{{ . }}"
+                {{ if eq $t . }}checked{{ end }} class="accent-accent w-3 h-3" />
+              {{ . }}
+            </label>
+          {{ end }}
+        </div>
+      </div>
+
+      <div data-when-transport="stdio" class="flex flex-col gap-5">
+        <div class="grid sm:grid-cols-[200px_minmax(0,1fr)] gap-5">
+          <div>
+            <label class="label" for="command">Command</label>
+            <input id="command" name="command" value="{{ .Form.Command }}" placeholder="npx"
+              class="field field-mono" />
+            <p class="hint">The program to run.</p>
+          </div>
+          <div>
+            <label class="label" for="args">Arguments</label>
+            <input id="args" name="args" value="{{ .Form.Args }}"
+              placeholder="-y @modelcontextprotocol/server-filesystem ." class="field field-mono" />
+            <p class="hint">Separated by spaces, in the order they are passed.</p>
+          </div>
+        </div>
+      </div>
+
+      <div data-unless-transport="stdio" class="flex flex-col gap-5">
+        <div>
+          <label class="label" for="url">URL</label>
+          <input id="url" name="url" value="{{ .Form.URL }}" placeholder="https://mcp.example.com/v1"
+            class="field field-mono" />
+          <p class="hint">Where the server answers. Has to start with http:// or https://.</p>
+        </div>
+
+        <div>
+          <span class="label mb-0">Headers</span>
+          <p class="hint mt-1 mb-2.5">
+            Sent with every request. For a token, write
+            <span class="font-mono">${TOKEN_NAME}</span> here and add the variable below, so the
+            secret stays in your shell.
+          </p>
+          <div class="flex flex-col gap-2">
+            {{ range $i, $row := .Form.Headers }}
+              <div class="grid sm:grid-cols-[220px_minmax(0,1fr)] gap-2">
+                <input type="text" name="header_name" value="{{ $row.Name }}"
+                  placeholder="Authorization" aria-label="Header name" class="field field-mono" />
+                <input type="text" name="header_value" value="{{ $row.Value }}"
+                  placeholder="Bearer ${API_TOKEN}" aria-label="Header value" class="field field-mono" />
+              </div>
+            {{ end }}
+          </div>
+          <p class="hint">Leave a row blank to skip it.</p>
+        </div>
+      </div>
+
+      <div>
+        <span class="label mb-0">Environment variables</span>
+        <p class="hint mt-1 mb-2.5">
+          The names this server needs, never the values. The generated config refers to each one as
+          <span class="font-mono">${NAME}</span>, so it is read from the shell you start Claude Code
+          in. Do not paste a token into this page.
+        </p>
+        <div class="flex flex-col gap-2">
+          {{ range $i, $row := .Form.Env }}
+            <div class="grid sm:grid-cols-[220px_minmax(0,1fr)_auto] gap-2 items-center">
+              <input type="text" name="env_name" value="{{ $row.Name }}"
+                placeholder="DATABASE_URL" aria-label="Variable name" class="field field-mono" />
+              <input type="text" name="env_help" value="{{ $row.Help }}"
+                placeholder="Where to find it, or what it should contain." aria-label="Variable note"
+                class="field" />
+              <label class="badge cursor-pointer has-[:checked]:badge-active transition-colors select-none justify-self-start">
+                <input type="checkbox" name="env_required" value="{{ $i }}"
+                  {{ if $row.Required }}checked{{ end }} class="accent-accent w-3 h-3" />
+                required
+              </label>
+            </div>
+          {{ end }}
+        </div>
+        <p class="hint">Leave a row blank to skip it.</p>
+      </div>
+
+      {{ if .AllSets }}
+        <div>
+          <span class="label mb-0">Folders</span>
+          <p class="hint mt-1 mb-2.5">
+            Folders are what you install:
+            <span class="font-mono">skillbuilder mcp &lt;folder&gt;</span>.
+          </p>
+          <div class="flex flex-wrap gap-2">
+            {{ $inS := .InSet }}
+            {{ range .AllSets }}
+              <label class="badge cursor-pointer has-[:checked]:badge-active transition-colors select-none">
+                <input type="checkbox" name="sets" value="{{ .Name }}"
+                  {{ if index $inS .Name }}checked{{ end }} class="accent-accent w-3 h-3" />
+                {{ .DisplayTitle }}
+              </label>
+            {{ end }}
+            <a href="/mcpsets/new" class="badge hover:text-fg transition-colors">+ New folder</a>
+          </div>
+        </div>
+      {{ end }}
+
+      <div class="flex flex-wrap items-center gap-2.5 pt-1">
+        <button type="submit" class="btn btn-primary">{{ if .IsNew }}Add server{{ else }}Save changes{{ end }}</button>
+        <a href="{{ if .IsNew }}/mcp{{ else }}/mcp/{{ .Server.Name }}{{ end }}" class="btn">Cancel</a>
+      </div>
+    </form>
+  </div>
+{{ end }}

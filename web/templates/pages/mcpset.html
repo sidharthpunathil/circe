@@ -1,0 +1,151 @@
+{{ define "content" }}
+  <div class="container-page pt-8 pb-16">
+    <nav class="meta flex items-center gap-1.5 mb-6" aria-label="Breadcrumb">
+      <a href="/mcp" class="hover:text-fg transition-colors">mcp</a>
+      <span aria-hidden="true">/</span>
+      <span class="text-fg">{{ .Set.Name }}</span>
+    </nav>
+
+    <div class="grid lg:grid-cols-[minmax(0,1fr)_280px] gap-10 lg:gap-12 items-start">
+      <div class="min-w-0">
+        <h1 class="text-[32px] md:text-[40px] break-words">{{ .Set.DisplayTitle }}</h1>
+        {{ with .Set.Description }}
+          <p class="mt-4 text-[16px] md:text-[17px] leading-[1.55] text-fg-2 max-w-[68ch]">{{ . }}</p>
+        {{ end }}
+
+        <div class="mt-6 flex flex-wrap gap-2 lg:hidden">
+          <a href="/mcpsets/{{ .Set.Name }}/edit" class="btn">Edit</a>
+          <a href="/mcpsets/{{ .Set.Name }}/config" class="btn">Download</a>
+        </div>
+
+        <div class="mt-8">
+          <p class="eyebrow mb-2.5">Drop into a project</p>
+          <div class="flex items-center gap-2 rounded-card border border-line-soft bg-surface px-3.5 py-2.5">
+            <code class="font-mono text-[12.5px] text-fg overflow-x-auto whitespace-nowrap flex-1 scrollbar-none"
+              >skillbuilder mcp {{ .Set.Name }}</code>
+            <button type="button" class="btn btn-sm shrink-0" data-copy="skillbuilder mcp {{ .Set.Name }}">Copy</button>
+          </div>
+          <p class="hint">
+            Merges these into the project’s <span class="font-mono">.mcp.json</span>, leaving any
+            server already in there alone.
+          </p>
+        </div>
+
+        <div class="mt-10">
+          <div class="flex items-baseline justify-between mb-4">
+            <h2 class="text-[20px]">{{ len .Servers }} {{ pluralize (len .Servers) "server" "servers" }}</h2>
+            <div class="flex items-center gap-3">
+              <a href="/mcp/catalog" class="text-[14px] text-fg-3 hover:text-fg transition-colors">Catalog</a>
+              <a href="/mcpsets/{{ .Set.Name }}/edit" class="text-[14px] text-fg-3 hover:text-fg transition-colors">Manage</a>
+            </div>
+          </div>
+
+          {{ if .Servers }}
+            <div class="flex flex-col divide-y divide-line border-y border-line">
+              {{ range .Servers }}
+                <a href="/mcp/{{ .Name }}" class="py-3 flex items-start gap-3 group">
+                  <span class="text-fg-3/50 mt-0.5" aria-hidden="true">›</span>
+                  <span class="min-w-0 flex-1">
+                    <span class="flex items-center gap-2 flex-wrap">
+                      <span class="text-[14px] font-medium text-fg">{{ .Name }}</span>
+                      <span class="badge">{{ .TransportOrDefault }}</span>
+                      {{ range .EnvNames }}<span class="badge">{{ . }}</span>{{ end }}
+                    </span>
+                    <span class="block text-[13px] text-fg-3 leading-snug mt-1 line-clamp-2">{{ truncate 180 .Description }}</span>
+                  </span>
+                </a>
+              {{ end }}
+            </div>
+          {{ else }}
+            {{ template "empty"
+              (dict
+                "Title" "Nothing in here yet"
+                "Body" "Add a few servers and this folder becomes installable."
+                "Action" (printf "/mcpsets/%s/edit" .Set.Name)
+                "ActionLabel" "Add servers"
+              )
+            }}
+          {{ end }}
+        </div>
+
+        {{ if .Env }}
+          <div class="mt-10">
+            <p class="eyebrow mb-2.5">Set these first</p>
+            <div class="flex flex-col divide-y divide-line border-y border-line">
+              {{ range .Env }}
+                <div class="py-3">
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <span class="font-mono text-[12.5px] text-fg break-all">{{ .Name }}</span>
+                    <span class="badge">{{ if .Required }}required{{ else }}optional{{ end }}</span>
+                  </div>
+                  {{ with .Help }}
+                    <p class="text-[13px] text-fg-3 leading-snug mt-1.5 max-w-[62ch]">{{ . }}</p>
+                  {{ end }}
+                </div>
+              {{ end }}
+            </div>
+            <p class="hint">
+              These live in your shell, not in this registry. The file below only refers to them by
+              name, which is what makes it safe to commit.
+            </p>
+          </div>
+        {{ end }}
+
+        {{ if .Config }}
+          <div class="mt-10">
+            <div class="flex items-baseline justify-between mb-2.5">
+              <p class="eyebrow">What lands in .mcp.json</p>
+              <button type="button" class="btn btn-sm" data-copy="{{ .Config }}">Copy</button>
+            </div>
+            <pre class="font-mono text-[12px] leading-relaxed text-fg-2 bg-surface border border-line rounded-card p-4 overflow-x-auto"><code>{{ .Config }}</code></pre>
+          </div>
+        {{ end }}
+      </div>
+
+      <aside class="lg:sticky lg:top-20 flex flex-col gap-6 min-w-0">
+        <div class="hidden lg:flex flex-wrap gap-2">
+          <a href="/mcpsets/{{ .Set.Name }}/edit" class="btn flex-1">Edit</a>
+          <a href="/mcpsets/{{ .Set.Name }}/config" class="btn">Download</a>
+        </div>
+
+        <div>
+          <p class="eyebrow mb-2.5">Details</p>
+          <dl class="flex flex-col gap-2 meta">
+            <div class="flex justify-between gap-3"><dt>Name</dt><dd class="text-fg">{{ .Set.Name }}</dd></div>
+            <div class="flex justify-between gap-3"><dt>Servers</dt><dd class="text-fg">{{ len .Servers }}</dd></div>
+            <div class="flex justify-between gap-3"><dt>Variables</dt><dd class="text-fg">{{ len .Env }}</dd></div>
+            <div class="flex justify-between gap-3"><dt>Updated</dt><dd class="text-fg">{{ ago .Set.UpdatedAt }}</dd></div>
+          </dl>
+        </div>
+
+        <div>
+          <p class="eyebrow mb-2.5">Without the CLI</p>
+          <a href="/mcpsets/{{ .Set.Name }}/config" class="btn btn-sm w-full">Download .mcp.json</a>
+          <p class="hint">
+            Save it as <span class="font-mono">.mcp.json</span> in the project root. It carries
+            variable names only, so nothing secret goes into the repository.
+          </p>
+        </div>
+
+        <div>
+          <p class="eyebrow mb-2.5">Share</p>
+          <div class="rounded-card border border-line bg-surface p-2.5">
+            <code class="font-mono text-[11px] text-fg-2 leading-relaxed block break-all">{{ .ConfigURL }}</code>
+          </div>
+          <div class="flex gap-2 mt-2">
+            <button type="button" class="btn btn-sm flex-1" data-copy="{{ .ConfigURL }}">Copy link</button>
+            <button type="button" class="btn btn-sm flex-1" data-copy="skillbuilder mcp {{ .Set.Name }}">Copy command</button>
+          </div>
+          <p class="hint">Anyone who can reach this registry can pull the same set up.</p>
+        </div>
+
+        <div class="pt-2 border-t border-line-soft">
+          <form action="/mcpsets/{{ .Set.Name }}/delete" method="post"
+            data-confirm="Delete the folder “{{ .Set.Name }}”? The servers themselves are kept.">
+            <button type="submit" class="btn btn-danger btn-sm w-full">Delete folder</button>
+          </form>
+        </div>
+      </aside>
+    </div>
+  </div>
+{{ end }}

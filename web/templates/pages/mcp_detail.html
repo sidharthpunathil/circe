@@ -1,0 +1,176 @@
+{{ define "content" }}
+  <div class="container-page pt-8 pb-16">
+    <nav class="meta flex items-center gap-1.5 mb-6" aria-label="Breadcrumb">
+      <a href="/mcp" class="hover:text-fg transition-colors">mcp</a>
+      <span aria-hidden="true">/</span>
+      <span class="text-fg">{{ .Server.Name }}</span>
+    </nav>
+
+    <div class="grid lg:grid-cols-[minmax(0,1fr)_280px] gap-10 lg:gap-12 items-start">
+      <div class="min-w-0">
+        <h1 class="text-[32px] md:text-[40px] break-words">{{ .Server.DisplayTitle }}</h1>
+        <p class="mt-4 text-[16px] md:text-[17px] leading-[1.55] text-fg-2 max-w-[68ch]">
+          {{ .Server.Description }}
+        </p>
+
+        <div class="mt-4 flex flex-wrap gap-1.5">
+          <span class="badge badge-active">{{ .Server.TransportOrDefault }}</span>
+          {{ with .Server.Category }}<span class="badge">{{ . }}</span>{{ end }}
+          {{ if .Server.Official }}<span class="badge">official</span>{{ end }}
+          {{ range .Server.Tags }}<span class="badge">{{ . }}</span>{{ end }}
+        </div>
+
+        <div class="mt-6 flex flex-wrap gap-2 lg:hidden">
+          <a href="/mcp/{{ .Server.Name }}/edit" class="btn">Edit</a>
+        </div>
+
+        <div class="mt-8">
+          <p class="eyebrow mb-2.5">
+            {{ if .Server.IsRemote }}Where it lives{{ else }}How it starts{{ end }}
+          </p>
+          <div class="flex items-center gap-2 rounded-card border border-line-soft bg-surface px-3.5 py-2.5">
+            <code class="font-mono text-[12.5px] text-fg overflow-x-auto whitespace-nowrap flex-1 scrollbar-none"
+              >{{ .Server.CommandLine }}</code>
+            <button type="button" class="btn btn-sm shrink-0" data-copy="{{ .Server.CommandLine }}">Copy</button>
+          </div>
+          <p class="hint">
+            {{ if .Server.IsRemote }}
+              The agent calls this endpoint over {{ .Server.TransportOrDefault }}. Nothing runs on your machine.
+            {{ else }}
+              Claude Code launches this as a local process and talks to it over stdio.
+            {{ end }}
+          </p>
+        </div>
+
+        {{ if .Server.Headers }}
+          <div class="mt-8">
+            <p class="eyebrow mb-2.5">Sent with every request</p>
+            <div class="flex flex-col divide-y divide-line border-y border-line">
+              {{ range $name, $value := .Server.Headers }}
+                <div class="py-2.5 flex items-baseline gap-3">
+                  <span class="font-mono text-[12.5px] text-fg shrink-0">{{ $name }}</span>
+                  <span class="font-mono text-[12px] text-fg-3 min-w-0 break-all">{{ $value }}</span>
+                </div>
+              {{ end }}
+            </div>
+          </div>
+        {{ end }}
+
+        <div class="mt-10">
+          <p class="eyebrow mb-2.5">Before it will run</p>
+          {{ if .Server.Env }}
+            <div class="flex flex-col divide-y divide-line border-y border-line">
+              {{ range .Server.Env }}
+                <div class="py-3">
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <span class="font-mono text-[12.5px] text-fg break-all">{{ .Name }}</span>
+                    <span class="badge">{{ if .Required }}required{{ else }}optional{{ end }}</span>
+                  </div>
+                  {{ with .Help }}
+                    <p class="text-[13px] text-fg-3 leading-snug mt-1.5 max-w-[62ch]">{{ . }}</p>
+                  {{ end }}
+                </div>
+              {{ end }}
+            </div>
+            <p class="hint">
+              Set these in your own shell before you start Claude Code. This registry keeps the
+              names only: the config below refers to each one as
+              <span class="font-mono">${NAME}</span>, so the value never leaves your machine and
+              never lands in a file you commit.
+            </p>
+          {{ else }}
+            <p class="text-[14px] text-fg-3">
+              Nothing to set up. This one runs with no environment variables.
+            </p>
+          {{ end }}
+        </div>
+
+        {{ if .Config }}
+          <div class="mt-10">
+            <div class="flex items-baseline justify-between mb-2.5">
+              <p class="eyebrow">What lands in .mcp.json</p>
+              <button type="button" class="btn btn-sm" data-copy="{{ .Config }}">Copy</button>
+            </div>
+            <pre class="font-mono text-[12px] leading-relaxed text-fg-2 bg-surface border border-line rounded-card p-4 overflow-x-auto"><code>{{ .Config }}</code></pre>
+            <p class="hint">
+              Installing a folder merges blocks like this into the project’s file, leaving whatever
+              is already in there alone.
+            </p>
+          </div>
+        {{ end }}
+      </div>
+
+      <aside class="lg:sticky lg:top-20 flex flex-col gap-6 min-w-0">
+        <div class="hidden lg:flex flex-wrap gap-2">
+          <a href="/mcp/{{ .Server.Name }}/edit" class="btn flex-1">Edit</a>
+        </div>
+
+        <div>
+          <p class="eyebrow mb-2.5">Details</p>
+          <dl class="flex flex-col gap-2 meta">
+            <div class="flex justify-between gap-3">
+              <dt>Name</dt>
+              <dd class="text-fg break-all">{{ .Server.Name }}</dd>
+            </div>
+            <div class="flex justify-between gap-3">
+              <dt>Reached over</dt>
+              <dd class="text-fg">{{ .Server.TransportOrDefault }}</dd>
+            </div>
+            {{ with .Server.Category }}
+              <div class="flex justify-between gap-3">
+                <dt>Category</dt>
+                <dd class="text-fg">{{ . }}</dd>
+              </div>
+            {{ end }}
+            <div class="flex justify-between gap-3">
+              <dt>Variables</dt>
+              <dd class="text-fg">{{ len .Server.Env }}</dd>
+            </div>
+            <div class="flex justify-between gap-3">
+              <dt>Updated</dt>
+              <dd class="text-fg">{{ ago .Server.UpdatedAt }}</dd>
+            </div>
+          </dl>
+        </div>
+
+        {{ with .Server.Homepage }}
+          <div>
+            <p class="eyebrow mb-2.5">Read more</p>
+            <a href="{{ . }}" target="_blank" rel="noopener"
+              class="meta text-fg hover:underline underline-offset-4 break-all">{{ . }}</a>
+          </div>
+        {{ end }}
+
+        {{ if .Sets }}
+          <div>
+            <p class="eyebrow mb-2.5">Part of</p>
+            <ul class="flex flex-col gap-1.5">
+              {{ range .Sets }}
+                <li>
+                  <a href="/mcpsets/{{ .Name }}" class="meta hover:text-fg transition-colors flex items-center gap-2">
+                    <span class="text-fg-3/50" aria-hidden="true">›</span>
+                    <span class="truncate">{{ .DisplayTitle }}</span>
+                  </a>
+                </li>
+              {{ end }}
+            </ul>
+          </div>
+        {{ else }}
+          <div>
+            <p class="eyebrow mb-2.5">Part of</p>
+            <p class="meta">In no folder yet.</p>
+            <p class="hint">A folder is what you install, so put this in one to use it.</p>
+            <a href="/mcpsets/new" class="btn btn-sm w-full mt-2.5">New folder</a>
+          </div>
+        {{ end }}
+
+        <div class="pt-2 border-t border-line-soft">
+          <form action="/mcp/{{ .Server.Name }}/delete" method="post"
+            data-confirm="Delete “{{ .Server.Name }}”? It is removed from every folder too.">
+            <button type="submit" class="btn btn-danger btn-sm w-full">Delete server</button>
+          </form>
+        </div>
+      </aside>
+    </div>
+  </div>
+{{ end }}

@@ -141,6 +141,8 @@ func TestCreateSkillRoundTripsThroughDisk(t *testing.T) {
 		".",
 		"data",
 		"data/bundles",
+		"data/mcps",
+		"data/mcpsets",
 		"data/rules",
 		"data/rulesets",
 		"data/skills",

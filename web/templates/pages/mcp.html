@@ -1,0 +1,124 @@
+{{ define "content" }}
+  <section class="container-page pt-12 pb-8">
+    <p class="eyebrow mb-3">Your MCP servers</p>
+    <div class="flex flex-wrap items-end justify-between gap-4">
+      <div>
+        <h1 class="text-[32px] md:text-[40px]">MCP servers</h1>
+        <p class="mt-3 text-[15px] text-fg-3 max-w-[62ch]">
+          A live connection to something outside the repo: a database, an API, your file system.
+          A skill teaches an agent a procedure and a rule shapes how it works; a server gives it
+          something to reach. Group them into a folder, then run
+          <span class="font-mono text-[13px] text-fg-2">skillbuilder mcp &lt;folder&gt;</span> and
+          they land in that project’s
+          <span class="font-mono text-[13px] text-fg-2">.mcp.json</span>.
+        </p>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <a href="/mcp/catalog" class="btn">Catalog</a>
+        <a href="/mcpsets/new" class="btn">New folder</a>
+        <a href="/mcp/new" class="btn btn-primary">New server</a>
+      </div>
+    </div>
+  </section>
+
+  {{ if .Sets }}
+    <section class="container-page pb-12">
+      <h2 class="text-[20px] mb-4">Folders</h2>
+      <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {{ range .Sets }}
+          <a href="/mcpsets/{{ .Set.Name }}" class="card group flex flex-col gap-3">
+            <div class="flex items-start gap-3">
+              <h3 class="text-[15px] font-medium text-fg leading-snug flex-1 min-w-0 break-words">
+                {{ .Set.DisplayTitle }}
+              </h3>
+              <span class="badge shrink-0"
+                >{{ len .Set.Servers }} {{ pluralize (len .Set.Servers) "server" "servers" }}</span
+              >
+            </div>
+            {{ with .Set.Description }}
+              <p class="text-[13px] leading-[1.55] text-fg-3 line-clamp-2 flex-1">{{ truncate 130 . }}</p>
+            {{ end }}
+            <div class="flex flex-wrap gap-x-2 gap-y-1">
+              {{ range .Preview }}<span class="meta">{{ .Name }}</span>{{ end }}
+              {{ if .More }}<span class="meta text-fg-3/60">+{{ .More }} more</span>{{ end }}
+            </div>
+          </a>
+        {{ end }}
+      </div>
+    </section>
+  {{ end }}
+
+  <section class="container-page pb-16">
+    <div class="flex items-baseline justify-between mb-4">
+      <h2 class="text-[20px]">
+        {{ .Total }} {{ pluralize .Total "server" "servers" }}
+      </h2>
+      <form action="/mcp" method="get" role="search">
+        <input
+          type="search"
+          name="q"
+          value="{{ .Query }}"
+          placeholder="Search servers"
+          aria-label="Search MCP servers"
+          class="field h-8 w-[220px] text-[13px]"
+        />
+      </form>
+    </div>
+
+    {{ if .Servers }}
+      <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {{ range .Servers }}
+          <a href="/mcp/{{ .Name }}" class="card group flex flex-col gap-3">
+            <div class="flex items-start gap-3">
+              <h3 class="text-[15px] font-medium text-fg leading-snug flex-1 min-w-0 break-words">
+                {{ .DisplayTitle }}
+              </h3>
+              <span class="badge shrink-0">{{ .TransportOrDefault }}</span>
+            </div>
+            <p class="text-[13px] leading-[1.55] text-fg-3 line-clamp-3 flex-1">
+              {{ truncate 165 .Description }}
+            </p>
+            <p class="meta truncate" title="{{ .CommandLine }}">{{ .CommandLine }}</p>
+            <div class="flex items-center gap-3 meta pt-0.5">
+              {{ if .Env }}
+                <span>{{ len .Env }} {{ pluralize (len .Env) "variable" "variables" }}</span>
+                <span class="text-fg-3/40" aria-hidden="true">·</span>
+              {{ end }}
+              {{ with .Category }}
+                <span>{{ . }}</span>
+                <span class="text-fg-3/40" aria-hidden="true">·</span>
+              {{ end }}
+              <span>{{ ago .UpdatedAt }}</span>
+            </div>
+          </a>
+        {{ end }}
+      </div>
+    {{ else if .Query }}
+      {{ template "empty"
+        (dict
+          "Title" "Nothing matched"
+          "Body" "No server here goes by that. Try a shorter search, or add a new one."
+          "Action" "/mcp/catalog"
+          "ActionLabel" "Browse the catalog"
+        )
+      }}
+    {{ else }}
+      {{ template "empty"
+        (dict
+          "Title" "No servers yet"
+          "Body" "Start from the catalog of known ones, or describe your own. Either way, only the names of the variables are stored here, never their values."
+          "Action" "/mcp/catalog"
+          "ActionLabel" "Browse the catalog"
+        )
+      }}
+    {{ end }}
+
+    {{ if .Catalog }}
+      <p class="hint mt-4">
+        {{ .Catalog }} known {{ pluralize .Catalog "server" "servers" }} in the
+        <a href="/mcp/catalog" class="text-fg-2 hover:text-fg transition-colors underline underline-offset-4 decoration-line-inset">catalog</a>,
+        ready to add without typing a command line.
+      </p>
+    {{ end }}
+  </section>
+{{ end }}

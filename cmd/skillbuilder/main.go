@@ -68,6 +68,7 @@ func newRootCmd() *cobra.Command {
 		newInitCmd(),
 		newSkillsCmd(),
 		newRulesCmd(),
+		newMCPCmd(),
 		newAddCmd(),
 		newListCmd(),
 		newSearchCmd(),
