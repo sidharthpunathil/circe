@@ -5,7 +5,6 @@
 **Your own registry for Claude agent skills.**
 Write them in the browser, group them into folders, install them into any project with one command.
 
-[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/new/template?template=https%3A%2F%2Fgithub.com%2Fsidharthpunathil%2Fskillbuilder)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Go](https://img.shields.io/badge/go-1.26-00ADD8.svg)](go.mod)
 
