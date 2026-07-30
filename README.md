@@ -29,7 +29,8 @@ Skillbuilder is a small self-hosted app that fixes that:
 - **Group them into folders.** A folder is the unit you install.
 - **Install with one command** — `skillbuilder my-folder` drops every skill in it into
   `./.claude/skills/`.
-- **Import from anywhere** — your local `~/.claude/skills`, any public GitHub repo, or a
+- **Import from anywhere** — a repo on any git host (GitHub, GitLab, Bitbucket, Codeberg,
+  self-hosted Gitea/Forgejo), a pasted `SKILL.md`, your local `~/.claude/skills`, or a
   share code from someone else's registry. Content is copied in, so it stays yours even if
   the source disappears.
 - **No database.** Everything is plain files on disk, so the storage directory *is* your
