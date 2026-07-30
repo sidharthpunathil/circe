@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/sidharthpunathil/circe/web"
 
@@ -221,16 +222,23 @@ func (t *templates) render(w http.ResponseWriter, r *http.Request, status int, p
 	buf.WriteTo(w)
 }
 
-// splitFirstSentence divides text after its first sentence-ending punctuation.
-// A single-sentence message returns an empty remainder, which the caller uses to
-// mean "do not emphasise anything", so a long one-sentence error is not set
-// entirely in bold.
+// splitFirstSentence divides text after its first sentence-ending punctuation,
+// so a flash can set its opening clause in the signature weight.
+//
+// It is deliberately conservative. Getting this wrong emphasises a fragment,
+// which looks worse than not emphasising at all, and the messages here contain
+// user supplied names: a folder called `a. b` turns "There is no folder called
+// "a. b"." into a bolded "There is no folder called "a." otherwise. So a break
+// only counts when the next sentence starts the way a sentence actually starts,
+// the opening clause is long enough to be a clause, and it does not end in a
+// common abbreviation.
 func splitFirstSentence(s string) (lead, rest string) {
 	s = strings.TrimSpace(s)
 	for i, r := range s {
 		if r != '.' && r != '!' && r != '?' {
 			continue
 		}
+		candidate := s[:i+len(string(r))]
 		after := s[i+len(string(r)):]
 		if !strings.HasPrefix(after, " ") {
 			continue
@@ -239,7 +247,37 @@ func splitFirstSentence(s string) (lead, rest string) {
 		if trimmed == "" {
 			continue
 		}
-		return s[:i+len(string(r))], trimmed
+		// "Vol. 2", "e.g. this", "U.S. registry": a real sentence break is
+		// followed by a capital letter, not a digit or a lower-case word.
+		next := []rune(trimmed)[0]
+		if !unicode.IsUpper(next) {
+			continue
+		}
+		if len([]rune(candidate)) < 4 || endsWithAbbreviation(candidate) {
+			continue
+		}
+		return candidate, trimmed
 	}
 	return s, ""
+}
+
+// abbreviations that end in a period and routinely appear mid-sentence.
+var abbreviations = []string{
+	"e.g.", "i.e.", "etc.", "vs.", "no.", "vol.", "fig.", "approx.", "cf.",
+}
+
+func endsWithAbbreviation(s string) bool {
+	lower := strings.ToLower(s)
+	for _, a := range abbreviations {
+		if strings.HasSuffix(lower, a) {
+			return true
+		}
+	}
+	// A single capital followed by a period is an initial, as in "U.S." or a
+	// person's name, never the end of a sentence.
+	r := []rune(strings.TrimSuffix(s, "."))
+	if len(r) >= 2 && r[len(r)-1] == '.' {
+		return true
+	}
+	return false
 }

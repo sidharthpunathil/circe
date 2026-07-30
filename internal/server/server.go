@@ -296,8 +296,24 @@ func (s *Server) takeFlash(w http.ResponseWriter, r *http.Request) *flash {
 	if !ok {
 		return nil
 	}
+	// An empty message would render an empty bordered box containing an icon
+	// and a dismiss button and nothing else.
+	if strings.TrimSpace(msg) == "" {
+		return nil
+	}
+	// Anything that is not explicitly an error renders as a confirmation, so
+	// normalise rather than letting a typo silently turn a failure green.
+	if kind != flashError {
+		kind = flashOK
+	}
 	return &flash{Kind: kind, Message: msg}
 }
+
+// Flash kinds. Only these two exist; anything else is treated as a confirmation.
+const (
+	flashOK    = "ok"
+	flashError = "error"
+)
 
 // base is embedded in every page's view model.
 type base struct {

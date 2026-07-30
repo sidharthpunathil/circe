@@ -82,6 +82,9 @@ func (s *Server) handleImportRepo(w http.ResponseWriter, r *http.Request) {
 	repo, err := gitsource.ParseRepoURL(raw)
 	if err != nil {
 		view.Error = err.Error()
+		// The redirect that landed here may have left a flash saying the same
+		// thing. One statement of a problem is enough.
+		view.Flash = nil
 		s.tmpl.render(w, r, http.StatusOK, "repo", view)
 		return
 	}
@@ -94,6 +97,7 @@ func (s *Server) handleImportRepo(w http.ResponseWriter, r *http.Request) {
 	res, err := gitsource.Fetch(ctx, repo)
 	if err != nil {
 		view.Error = err.Error()
+		view.Flash = nil
 		s.tmpl.render(w, r, http.StatusOK, "repo", view)
 		return
 	}

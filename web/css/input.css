@@ -366,7 +366,7 @@
     max-width: min(100%, 62ch);
     margin-top: 16px;
     padding: 9px 12px;
-    border: 1px solid var(--color-line);
+    border: 1px solid var(--color-line-strong);
     border-radius: var(--radius-button);
     background: var(--color-card);
     color: var(--color-fg-2);
@@ -376,8 +376,6 @@
     animation: flash-in 150ms ease-out both;
   }
 
-  /* The first sentence carries the outcome, so it gets the signature weight and
-     the heading colour. The rest stays body text. */
   /* The message is focused on load so screen readers announce it. It is not in
      the tab order and is not a control, so it must not paint a focus ring: an
      amber outline around a status message would both mislead and break the rule
@@ -388,17 +386,22 @@
     outline: none;
   }
 
+  /* The first sentence carries the outcome, so it gets the signature weight and
+     the heading colour. The rest stays body text. */
   .flash-lead {
     font-weight: 575;
     color: var(--color-fg);
   }
 
-  /* Form errors sit above a form rather than at the top of the page, so they
-     hold a readable measure instead of hugging their text. */
-  .flash-block {
-    display: flex;
-    width: 100%;
-    max-width: 62ch;
+  /* A form error is the same component; it just needs more air above it,
+     because it follows a paragraph rather than the header rule. */
+  .flash-form {
+    margin-top: 24px;
+  }
+
+  /* Sits directly under the field it describes, so it supplies its own spacing. */
+  .flash-tight {
+    margin-top: 0;
   }
 
   .flash-icon {
@@ -407,19 +410,17 @@
     color: var(--color-success);
   }
 
-  .flash-error {
-    border-color: color-mix(in srgb, var(--color-danger) 45%, var(--color-line));
-  }
   .flash-error .flash-icon {
     color: var(--color-danger);
   }
 
   .flash-dismiss {
     flex-shrink: 0;
-    margin: -3px -4px 0 4px;
-    padding: 3px 4px;
-    border-radius: 5px;
-    color: var(--color-fg-4);
+    align-self: center;
+    margin: -6px -6px -6px 2px;
+    padding: 6px;
+    border-radius: 6px;
+    color: var(--color-fg-3);
     cursor: pointer;
     transition: color 0.15s ease;
   }

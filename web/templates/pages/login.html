@@ -51,7 +51,24 @@
         </div>
 
         {{ with .Error }}
-          <p id="passcode-error" class="text-[13px] text-danger" role="alert">{{ . }}</p>
+          <div id="passcode-error" class="flash flash-error flash-tight" role="alert">
+            <svg
+              width="15"
+              height="15"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.4"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              class="flash-icon"
+              aria-hidden="true"
+            >
+              <circle cx="12" cy="12" r="9" /><path d="M12 7.5v5.5M12 16.5v.5" />
+            </svg>
+            <span class="sr-only">Error: </span>
+            <span class="min-w-0 break-words">{{ . }}</span>
+          </div>
         {{ end }}
 
         <button type="submit" class="btn btn-primary h-10 w-full mt-1">Continue</button>

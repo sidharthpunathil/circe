@@ -233,7 +233,7 @@
                 {{/* The icon is the only thing separating the two states, and it
                      is hidden from assistive tech. Say it in words as well. */}}
                 <span class="sr-only">{{ if eq .Kind "error" }}Error:{{ else }}Done:{{ end }} </span>
-                <span class="min-w-0">
+                <span class="min-w-0 break-words">
                   {{ $lead := leadSentence .Message }}
                   {{ $rest := restSentence .Message }}
                   {{ if $rest }}

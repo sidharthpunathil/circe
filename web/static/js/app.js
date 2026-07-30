@@ -197,11 +197,7 @@
   if (flash) {
     // After a redirect focus sits on <body>, so there is no user position to
     // steal. Preventing scroll keeps the viewport where the browser put it.
-    try {
-      flash.focus({ preventScroll: true });
-    } catch (err) {
-      flash.focus();
-    }
+    flash.focus({ preventScroll: true });
   }
 
   document.addEventListener("click", function (e) {
@@ -213,6 +209,16 @@
     var finish = function () {
       if (done) return;
       done = true;
+      // Focus is on the dismiss button inside the thing being removed, and a
+      // removed element drops focus to <body>, which would throw a keyboard
+      // user back through the whole header. Hand it to the page heading first.
+      if (slot.contains(document.activeElement)) {
+        var heading = document.querySelector("main h1");
+        if (heading) {
+          heading.setAttribute("tabindex", "-1");
+          heading.focus({ preventScroll: true });
+        }
+      }
       slot.remove();
     };
 
