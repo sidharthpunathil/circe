@@ -6,25 +6,26 @@
     <title>{{ .SEO.Title }}</title>
     {{ template "head" . }}
     <link rel="stylesheet" href="/static/css/app.css?v={{ .Build }}" />
-    <link
-      rel="icon"
-      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23111110'/><g transform='translate(11.6 11.6) scale(3.2)' fill='none'><g stroke='%23ffffff' stroke-width='3.3'><path d='M19.99 13.84A8.2 8.2 0 0 1 13.84 19.99'/><path d='M10.16 19.99A8.2 8.2 0 0 1 4.01 13.84'/><path d='M4.01 10.16A8.2 8.2 0 0 1 10.16 4.01'/><path d='M13.84 4.01A8.2 8.2 0 0 1 19.99 10.16'/></g><rect x='9.5' y='9.5' width='5' height='5' fill='%23FAD657' transform='rotate(45 12 12)'/></g></svg>"
-    />
+    {{/* George Romney's Lady Hamilton as Circe, 1782. The painting is the mark,
+         but an oil portrait turns to mud at 16px, so the geometric ring covers
+         the tab icon at that one size and the painting takes everything above
+         it. Browsers pick by the sizes attribute. */}}
+    <link rel="icon" type="image/png" sizes="16x16" href="/static/img/ring-16.png?v={{ .Build }}" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/img/mark-32.png?v={{ .Build }}" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/static/img/mark-180.png?v={{ .Build }}" />
   </head>
   <body class="min-h-screen flex flex-col">
     {{ if .Bare }}
       <header class="border-b border-line-soft">
         <div class="container-page h-14 flex items-center">
           <a href="/" class="flex items-center gap-2.5" aria-label="Circe">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" class="shrink-0" aria-hidden="true">
-            <g stroke="currentColor" stroke-width="3.3">
-              <path d="M19.99 13.84A8.2 8.2 0 0 1 13.84 19.99" />
-              <path d="M10.16 19.99A8.2 8.2 0 0 1 4.01 13.84" />
-              <path d="M4.01 10.16A8.2 8.2 0 0 1 10.16 4.01" />
-              <path d="M13.84 4.01A8.2 8.2 0 0 1 19.99 10.16" />
-            </g>
-            <rect x="9.5" y="9.5" width="5" height="5" fill="currentColor" transform="rotate(45 12 12)" />
-          </svg>
+            <img
+            src="/static/img/mark.jpg?v={{ .Build }}"
+            alt=""
+            width="24"
+            height="24"
+            class="w-6 h-6 rounded-[7px] shrink-0 object-cover ring-1 ring-line-strong"
+          />
             <span class="text-[15px] font-medium text-fg tracking-[-0.02em]">Circe</span>
           </a>
         </div>
@@ -33,15 +34,13 @@
     <header class="sticky top-0 z-40 bg-bg/85 backdrop-blur-md border-b border-line-soft">
       <div class="container-page flex items-center gap-6 h-14">
         <a href="/" class="flex items-center gap-2.5 shrink-0" aria-label="Circe home">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" class="shrink-0" aria-hidden="true">
-            <g stroke="currentColor" stroke-width="3.3">
-              <path d="M19.99 13.84A8.2 8.2 0 0 1 13.84 19.99" />
-              <path d="M10.16 19.99A8.2 8.2 0 0 1 4.01 13.84" />
-              <path d="M4.01 10.16A8.2 8.2 0 0 1 10.16 4.01" />
-              <path d="M13.84 4.01A8.2 8.2 0 0 1 19.99 10.16" />
-            </g>
-            <rect x="9.5" y="9.5" width="5" height="5" fill="currentColor" transform="rotate(45 12 12)" />
-          </svg>
+          <img
+            src="/static/img/mark.jpg?v={{ .Build }}"
+            alt=""
+            width="24"
+            height="24"
+            class="w-6 h-6 rounded-[7px] shrink-0 object-cover ring-1 ring-line-strong"
+          />
           <span class="text-[15px] font-medium text-fg tracking-[-0.02em]">Circe</span>
         </a>
 

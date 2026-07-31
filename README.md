@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/logo.svg" alt="" width="76" height="76">
+<img src="docs/logo.jpg" alt="" width="84" height="84" style="border-radius:20px">
 
 # Circe
 
@@ -368,6 +368,21 @@ Found something? Open an issue.
 - [Self-hosting a registry](docs/self-hosting.md)
 - [CLI reference](docs/cli.md)
 - [HTTP API](docs/api.md)
+
+## The name and the mark
+
+Circe is the enchantress in the Odyssey who transforms what passes through her
+hands, which is roughly what a registry does to a project.
+
+The mark is a detail from **George Romney's _Lady Hamilton as Circe_, c. 1782**,
+in the [Tate](https://www.tate.org.uk/) collection. Romney died in 1802, so the
+painting is in the public domain; the file here comes from
+[Wikimedia Commons](https://commons.wikimedia.org/wiki/File:George_Romney_-_Lady_Hamilton_as_Circe.jpg).
+
+An oil portrait turns to mud at 16px, so a geometric fallback mark covers the
+browser tab at that one size: a ring of four arcs with the fifth part taken out
+and set at the centre, which reads as the name, as a registry of parts, and as
+one thing transformed. It lives at [`web/static/img/ring.svg`](web/static/img/ring.svg).
 
 ## Credits
 

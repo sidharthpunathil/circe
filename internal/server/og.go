@@ -8,6 +8,7 @@ import (
 	"image"
 	"image/color"
 	"image/draw"
+	"image/jpeg"
 	"image/png"
 	"io/fs"
 	"math"
@@ -293,17 +294,21 @@ func renderOGCard(staticDir string, card ogCard) ([]byte, error) {
 		bottom     = ogHeight - 104
 	)
 
-	// --- wordmark: the same ring mark as the favicon ---
-	const markSize = 27
-	markY := contentTop
-	drawCirceMark(img, padX, markY, markSize, ogFG, ogAccent)
+	// --- wordmark: the painting, at a size where it actually reads ---
+	const markSize = 34
+	markY := contentTop - 4
+	if !drawPaintingMark(img, padX, markY, markSize) {
+		// If the asset is missing for any reason, the geometric mark still
+		// renders a valid card rather than leaving a hole in it.
+		drawCirceMark(img, padX, markY+4, 27, ogFG, ogAccent)
+	}
 
 	wordFace, err := ogFace(fonts.display, 25)
 	if err != nil {
 		return nil, err
 	}
 	defer wordFace.Close()
-	drawText(img, wordFace, ogFG, padX+markSize+13, markY+markSize-4, card.Site)
+	drawText(img, wordFace, ogFG, padX+markSize+14, markY+markSize-8, card.Site)
 
 	// --- accent rule: the one place colour appears as colour ---
 	draw.Draw(img, image.Rect(padX, 190, padX+52, 194), image.NewUniform(ogAccent), image.Point{}, draw.Src)
@@ -623,4 +628,73 @@ func blendPixel(img *image.RGBA, x, y int, c color.RGBA, alpha float64) {
 	img.SetRGBA(x, y, color.RGBA{
 		R: mix(dst.R, c.R), G: mix(dst.G, c.G), B: mix(dst.B, c.B), A: 0xff,
 	})
+}
+
+// The logo is read from the same embedded asset the pages serve, so there is
+// one copy of it in the binary and one file to change.
+var ogMarkOnce = sync.OnceValue(func() image.Image {
+	raw, err := fs.ReadFile(web.Static, "static/img/mark.jpg")
+	if err != nil {
+		logError("og mark", err)
+		return nil
+	}
+	m, err := jpeg.Decode(bytes.NewReader(raw))
+	if err != nil {
+		logError("og mark decode", err)
+		return nil
+	}
+	return m
+})
+
+// drawPaintingMark paints the logo into a rounded square. Reports whether it
+// drew anything, so the caller can fall back to the geometric mark.
+func drawPaintingMark(dst *image.RGBA, x, y, size int) bool {
+	src := ogMarkOnce()
+	if src == nil {
+		return false
+	}
+	b := src.Bounds()
+	radius := float64(size) * 0.29
+
+	for py := 0; py < size; py++ {
+		for px := 0; px < size; px++ {
+			a := roundedCoverage(float64(px)+0.5, float64(py)+0.5, float64(size), radius)
+			if a <= 0 {
+				continue
+			}
+			// Nearest sample is enough: the source is an order of magnitude
+			// larger than the destination.
+			sx := b.Min.X + px*b.Dx()/size
+			sy := b.Min.Y + py*b.Dy()/size
+			r, g, bl, _ := src.At(sx, sy).RGBA()
+			blendPixel(dst, x+px, y+py, color.RGBA{uint8(r >> 8), uint8(g >> 8), uint8(bl >> 8), 0xff}, a)
+		}
+	}
+	return true
+}
+
+// roundedCoverage returns how much of a pixel falls inside a rounded square,
+// which is what keeps the corners from stair-stepping.
+func roundedCoverage(px, py, size, radius float64) float64 {
+	const samples = 3
+	hits := 0
+	for sy := 0; sy < samples; sy++ {
+		for sx := 0; sx < samples; sx++ {
+			ux := px + (float64(sx)+0.5)/samples - 0.5
+			uy := py + (float64(sy)+0.5)/samples - 0.5
+			if insideRounded(ux, uy, size, radius) {
+				hits++
+			}
+		}
+	}
+	return float64(hits) / float64(samples*samples)
+}
+
+func insideRounded(x, y, size, r float64) bool {
+	if x < 0 || y < 0 || x > size || y > size {
+		return false
+	}
+	cx := math.Min(math.Max(x, r), size-r)
+	cy := math.Min(math.Max(y, r), size-r)
+	return math.Hypot(x-cx, y-cy) <= r
 }
