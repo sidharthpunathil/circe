@@ -24,20 +24,45 @@
         value="{{ .RepoURL }}"
         placeholder="https://github.com/owner/repo  ·  gitlab.com/group/project  ·  owner/repo"
         aria-label="Repository URL"
+        aria-describedby="repo-hint"
         class="field field-mono flex-1 min-w-[240px]"
         autofocus
       />
       <button type="submit" class="btn">Look inside</button>
     </form>
-    <p class="hint max-w-[860px]">
-      We look for SKILL.md, CLAUDE.md, AGENTS.md, markdown in a rules folder, and .mcp.json. Works
-      with GitHub, GitLab, Bitbucket, Codeberg and self-hosted Gitea or Forgejo. Paste a link to the
-      whole repo, or to one folder, branch or tag inside it.
-      {{ if not .HasToken }}
-        For private repos, set a token: <span class="font-mono">GITHUB_TOKEN</span>,
-        <span class="font-mono">GITLAB_TOKEN</span> or
-        <span class="font-mono">GITEA_TOKEN</span>.
-      {{ end }}
+    {{/* The detail matters when you need it and is noise when you do not, so it
+         sits behind a hover. The field points at it with aria-describedby, so a
+         screen reader reads it on focus without depending on the icon. */}}
+    <p class="hint">
+      <span class="info">
+        <button
+          type="button"
+          class="info-trigger"
+          aria-label="What Circe looks for in a repository"
+          aria-describedby="repo-hint"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="9" /><path d="M12 16v-4.5M12 8.2v.3" />
+          </svg>
+          What we look for
+        </button>
+        <span class="info-panel" role="tooltip" id="repo-hint">
+          We look for <span class="font-mono">SKILL.md</span>,
+          <span class="font-mono">CLAUDE.md</span>,
+          <span class="font-mono">AGENTS.md</span>, markdown in a
+          <span class="font-mono">rules</span> folder, and
+          <span class="font-mono">.mcp.json</span>. Works with GitHub, GitLab, Bitbucket,
+          Codeberg and self-hosted Gitea or Forgejo. Paste a link to the whole repo, or to
+          one folder, branch or tag inside it.
+          {{ if not .HasToken }}
+            For private repos, set a token:
+            <span class="font-mono">GITHUB_TOKEN</span>,
+            <span class="font-mono">GITLAB_TOKEN</span> or
+            <span class="font-mono">GITEA_TOKEN</span>.
+          {{ end }}
+        </span>
+      </span>
     </p>
 
     {{ if .Meta }}

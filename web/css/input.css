@@ -349,6 +349,75 @@
     border-top: 1px solid var(--color-line);
   }
 
+  /* An explanation worth having, but not worth three lines of the page.
+     Revealed on hover for a pointer and on focus for a keyboard or a tap, so it
+     is reachable by every input method with no JavaScript.
+
+     The panel is hidden with opacity rather than visibility or display on
+     purpose: those two remove it from the accessibility tree, and the text is
+     wired to the field it describes with aria-describedby, so a screen reader
+     should hear it on focus without anyone having to find the icon first. */
+  .info {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .info-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 6px;
+    margin: -4px -6px;
+    border-radius: 6px;
+    color: var(--color-fg-3);
+    font-size: 12px;
+    letter-spacing: -0.01em;
+    cursor: help;
+    transition: color 0.15s ease;
+  }
+  .info-trigger:hover {
+    color: var(--color-fg-2);
+  }
+
+  .info-panel {
+    position: absolute;
+    top: calc(100% + 9px);
+    left: -8px;
+    z-index: 30;
+    width: max-content;
+    max-width: min(48ch, calc(100vw - 48px));
+    padding: 11px 13px;
+    border: 1px solid var(--color-line-strong);
+    border-radius: var(--radius-button);
+    background: var(--color-card);
+    color: var(--color-fg-2);
+    font-size: 13px;
+    line-height: 1.55;
+    letter-spacing: -0.01em;
+    text-align: left;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-3px);
+    transition:
+      opacity 0.12s ease,
+      transform 0.12s ease;
+  }
+
+  .info:hover .info-panel,
+  .info:focus-within .info-panel {
+    opacity: 1;
+    pointer-events: auto;
+    transform: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .info-panel {
+      transition: none;
+      transform: none;
+    }
+  }
+
   /* Flash notice.
 
      It sits on the same neutral card surface as everything else rather than a
