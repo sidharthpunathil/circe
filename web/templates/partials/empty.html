@@ -2,12 +2,15 @@
   <div
     class="rounded-[10px] border border-dashed border-line px-6 py-14 text-center flex flex-col items-center gap-3"
   >
-    <div class="grid grid-cols-2 gap-[3px] w-[22px] opacity-25" aria-hidden="true">
-      <span class="w-[9px] h-[9px] bg-fg"></span>
-      <span class="w-[9px] h-[9px] bg-fg"></span>
-      <span class="w-[9px] h-[9px] bg-fg"></span>
-      <span class="w-[9px] h-[9px] bg-fg/30"></span>
-    </div>
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" class="opacity-25" aria-hidden="true">
+      <g stroke="currentColor" stroke-width="3.3">
+        <path d="M19.99 13.84A8.2 8.2 0 0 1 13.84 19.99" />
+        <path d="M10.16 19.99A8.2 8.2 0 0 1 4.01 13.84" />
+        <path d="M4.01 10.16A8.2 8.2 0 0 1 10.16 4.01" />
+        <path d="M13.84 4.01A8.2 8.2 0 0 1 19.99 10.16" />
+      </g>
+      <rect x="9.5" y="9.5" width="5" height="5" fill="currentColor" transform="rotate(45 12 12)" />
+    </svg>
     <p class="text-[15px] font-medium text-fg">{{ .Title }}</p>
     <p class="text-[13px] text-fg-3 max-w-[360px] leading-relaxed">{{ .Body }}</p>
     {{ if .Action }}

@@ -404,6 +404,16 @@
     margin-top: 0;
   }
 
+  /* Inside a card or a list row, where a second bordered panel would read as a
+     box in a box. Keeps the icon, the wording and the hidden state prefix, and
+     drops only the container. */
+  .flash-bare {
+    border-color: transparent;
+    background: transparent;
+    padding: 0;
+    margin-top: 0;
+  }
+
   .flash-icon {
     flex-shrink: 0;
     margin-top: 3px;

@@ -26,12 +26,17 @@
             <p class="eyebrow mb-2.5">Worth fixing</p>
             <ul class="flex flex-col gap-2">
               {{ range .Problems }}
+                {{/* The dot carries the severity, so the text does not also need
+                     to be red. Brightness separates the two levels, the way the
+                     rest of the type does. The dot is decorative, so the
+                     distinction is stated in words for anyone not seeing it. */}}
                 <li class="flex items-start gap-2 text-[13px] leading-relaxed">
                   <span
                     class="mt-[5px] w-[5px] h-[5px] rounded-full shrink-0 {{ if .Fatal }}bg-danger{{ else }}bg-fg-3{{ end }}"
                     aria-hidden="true"
                   ></span>
-                  <span class="{{ if .Fatal }}text-danger{{ else }}text-fg-3{{ end }}">
+                  <span class="{{ if .Fatal }}text-fg-2{{ else }}text-fg-3{{ end }}">
+                    <span class="sr-only">{{ if .Fatal }}Must fix:{{ else }}Suggestion:{{ end }} </span>
                     <span class="font-mono text-[12px]">{{ .Field }}</span>: {{ .Message }}
                   </span>
                 </li>

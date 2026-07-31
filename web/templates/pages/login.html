@@ -2,14 +2,21 @@
   <div class="min-h-[70vh] flex items-center justify-center px-6 py-16">
     <div class="w-full max-w-[340px]">
       <div class="flex items-center gap-3 mb-8">
+        {{/* The mark, at the one size it is allowed to carry the accent: the
+             sign-in page has no primary action to compete with it. */}}
         <span
-          class="grid grid-cols-2 gap-[3px] w-[34px] h-[34px] p-[7px] rounded-[9px] bg-surface-2 border border-line shrink-0"
+          class="flex items-center justify-center w-[34px] h-[34px] rounded-[9px] bg-surface-2 border border-line shrink-0"
           aria-hidden="true"
         >
-          <span class="w-[7px] h-[7px] rounded-[1px] bg-accent"></span>
-          <span class="w-[7px] h-[7px] rounded-[1px] bg-accent"></span>
-          <span class="w-[7px] h-[7px] rounded-[1px] bg-accent"></span>
-          <span class="w-[7px] h-[7px] rounded-[1px] bg-accent/25"></span>
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none">
+            <g stroke="currentColor" stroke-width="3.3" class="text-fg">
+              <path d="M19.99 13.84A8.2 8.2 0 0 1 13.84 19.99" />
+              <path d="M10.16 19.99A8.2 8.2 0 0 1 4.01 13.84" />
+              <path d="M4.01 10.16A8.2 8.2 0 0 1 10.16 4.01" />
+              <path d="M13.84 4.01A8.2 8.2 0 0 1 19.99 10.16" />
+            </g>
+            <rect x="9.5" y="9.5" width="5" height="5" fill="#FAD657" transform="rotate(45 12 12)" />
+          </svg>
         </span>
         <span class="min-w-0">
           <span class="block text-[15px] font-medium text-fg leading-tight">Circe</span>
