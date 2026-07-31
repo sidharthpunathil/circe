@@ -38,13 +38,11 @@ var skipDirs = map[string]bool{
 type Store struct {
 	root string
 
-	mu       sync.RWMutex
-	skills   map[string]*Skill
-	bundles  map[string]*Bundle
-	rules    map[string]*Rule
-	ruleSets map[string]*RuleSet
-	mcps     map[string]*MCPServer
-	mcpSets  map[string]*MCPSet
+	mu      sync.RWMutex
+	skills  map[string]*Skill
+	bundles map[string]*Bundle
+	rules   map[string]*Rule
+	mcps    map[string]*MCPServer
 }
 
 // Open loads (creating if needed) a store rooted at dir.
@@ -54,10 +52,14 @@ func Open(dir string) (*Store, error) {
 		return nil, err
 	}
 	s := &Store{root: abs}
-	for _, sub := range []string{"skills", "bundles", "rules", "rulesets", "mcps", "mcpsets"} {
+	for _, sub := range []string{"skills", "bundles", "rules", "mcps"} {
 		if err := os.MkdirAll(filepath.Join(abs, sub), 0o755); err != nil {
 			return nil, err
 		}
+	}
+	// Fold the old per-kind folders into bundles before anything reads them.
+	if err := s.migrateLegacyFolders(); err != nil {
+		return nil, err
 	}
 	if err := s.Reload(); err != nil {
 		return nil, err
@@ -686,24 +688,28 @@ func (s *Store) BundleCount() int {
 	return len(s.bundles)
 }
 
-// SaveBundle writes a bundle, dropping references to skills that no longer exist.
+// SaveBundle writes a folder, dropping duplicates and references to anything
+// that no longer exists, so a folder can never promise to install something
+// that is not there.
 func (s *Store) SaveBundle(b *Bundle) error {
 	if err := ValidateName(b.Name); err != nil {
 		return err
 	}
-	kept := make([]string, 0, len(b.Skills))
-	seen := map[string]bool{}
-	for _, name := range b.Skills {
-		if seen[name] {
-			continue
+	prune := func(names []string, exists func(string) bool) []string {
+		kept := make([]string, 0, len(names))
+		seen := map[string]bool{}
+		for _, name := range names {
+			if seen[name] || !exists(name) {
+				continue
+			}
+			seen[name] = true
+			kept = append(kept, name)
 		}
-		if _, err := s.Skill(name); err != nil {
-			continue
-		}
-		seen[name] = true
-		kept = append(kept, name)
+		return kept
 	}
-	b.Skills = kept
+	b.Skills = prune(b.Skills, func(n string) bool { _, err := s.Skill(n); return err == nil })
+	b.Rules = prune(b.Rules, func(n string) bool { _, err := s.Rule(n); return err == nil })
+	b.Servers = prune(b.Servers, func(n string) bool { _, err := s.MCPServer(n); return err == nil })
 	b.UpdatedAt = time.Now()
 
 	raw, err := json.MarshalIndent(b, "", "  ")

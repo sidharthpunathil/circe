@@ -14,34 +14,7 @@ import (
 type rulesView struct {
 	base
 	Rules []*store.Rule
-	Sets  []ruleSetCard
 	Total int
-}
-
-type ruleSetCard struct {
-	Set     *store.RuleSet
-	Preview []*store.Rule
-	More    int
-}
-
-func (s *Server) ruleSetCards(limit int) []ruleSetCard {
-	sets := s.store.RuleSets()
-	if limit > 0 && len(sets) > limit {
-		sets = sets[:limit]
-	}
-	out := make([]ruleSetCard, 0, len(sets))
-	for _, set := range sets {
-		rules := s.store.RuleSetRules(set)
-		card := ruleSetCard{Set: set}
-		const previewN = 4
-		if len(rules) > previewN {
-			card.Preview, card.More = rules[:previewN], len(rules)-previewN
-		} else {
-			card.Preview = rules
-		}
-		out = append(out, card)
-	}
-	return out
 }
 
 func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
@@ -49,15 +22,14 @@ func (s *Server) handleRules(w http.ResponseWriter, r *http.Request) {
 	s.tmpl.render(w, r, http.StatusOK, "rules", rulesView{
 		base:  s.base(w, r, "rules"),
 		Rules: s.store.SearchRules(q),
-		Sets:  s.ruleSetCards(0),
 		Total: s.store.RuleCount(),
 	})
 }
 
 type ruleView struct {
 	base
-	Rule *store.Rule
-	Sets []*store.RuleSet
+	Rule    *store.Rule
+	Folders []*store.Bundle
 }
 
 func (s *Server) handleRule(w http.ResponseWriter, r *http.Request) {
@@ -68,9 +40,9 @@ func (s *Server) handleRule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.tmpl.render(w, r, http.StatusOK, "rule", ruleView{
-		base: s.base(w, r, "rules"),
-		Rule: rule,
-		Sets: s.store.RuleSetsContaining(name),
+		base:    s.base(w, r, "rules"),
+		Rule:    rule,
+		Folders: s.store.BundlesContainingRule(name),
 	})
 }
 
@@ -80,37 +52,37 @@ type ruleForm struct {
 	Body        string
 	Tags        string
 	Targets     []string
-	Sets        []string
+	Folders     []string
 }
 
 type ruleEditView struct {
 	base
-	IsNew    bool
-	Rule     *store.Rule
-	Form     ruleForm
-	Error    string
-	Targets  []string
-	InTarget map[string]bool
-	AllSets  []*store.RuleSet
-	InSet    map[string]bool
+	IsNew      bool
+	Rule       *store.Rule
+	Form       ruleForm
+	Error      string
+	Targets    []string
+	InTarget   map[string]bool
+	AllFolders []*store.Bundle
+	InFolder   map[string]bool
 }
 
 func (s *Server) handleRuleNew(w http.ResponseWriter, r *http.Request) {
 	selected := map[string]bool{}
-	for _, n := range r.URL.Query()["set"] {
-		if _, err := s.store.RuleSet(n); err == nil {
+	for _, n := range r.URL.Query()["folder"] {
+		if _, err := s.store.Bundle(n); err == nil {
 			selected[n] = true
 		}
 	}
 	s.tmpl.render(w, r, http.StatusOK, "rule_edit", ruleEditView{
-		base:     s.base(w, r, "rules"),
-		IsNew:    true,
-		Rule:     &store.Rule{},
-		Form:     ruleForm{Targets: []string{store.TargetClaude}, Sets: keysOf(selected)},
-		Targets:  store.RuleTargets(),
-		InTarget: map[string]bool{store.TargetClaude: true},
-		AllSets:  s.store.RuleSets(),
-		InSet:    selected,
+		base:       s.base(w, r, "rules"),
+		IsNew:      true,
+		Rule:       &store.Rule{},
+		Form:       ruleForm{Targets: []string{store.TargetClaude}, Folders: keysOf(selected)},
+		Targets:    store.RuleTargets(),
+		InTarget:   map[string]bool{store.TargetClaude: true},
+		AllFolders: s.store.Bundles(),
+		InFolder:   selected,
 	})
 }
 
@@ -124,20 +96,27 @@ func (s *Server) handleRuleEdit(w http.ResponseWriter, r *http.Request) {
 	for _, t := range rule.TargetsOrDefault() {
 		inTarget[t] = true
 	}
-	inSet := map[string]bool{}
+	inFolder := map[string]bool{}
 	var current []string
-	for _, set := range s.store.RuleSetsContaining(rule.Name) {
-		inSet[set.Name] = true
-		current = append(current, set.Name)
+	for _, b := range s.store.BundlesContainingRule(rule.Name) {
+		inFolder[b.Name] = true
+		current = append(current, b.Name)
 	}
 	s.tmpl.render(w, r, http.StatusOK, "rule_edit", ruleEditView{
-		base:     s.base(w, r, "rules"),
-		Rule:     rule,
-		Form:     ruleForm{Name: rule.Name, Description: rule.Description, Body: rule.Body, Tags: rule.TagsCSV(), Targets: rule.TargetsOrDefault(), Sets: current},
-		Targets:  store.RuleTargets(),
-		InTarget: inTarget,
-		AllSets:  s.store.RuleSets(),
-		InSet:    inSet,
+		base: s.base(w, r, "rules"),
+		Rule: rule,
+		Form: ruleForm{
+			Name:        rule.Name,
+			Description: rule.Description,
+			Body:        rule.Body,
+			Tags:        rule.TagsCSV(),
+			Targets:     rule.TargetsOrDefault(),
+			Folders:     current,
+		},
+		Targets:    store.RuleTargets(),
+		InTarget:   inTarget,
+		AllFolders: s.store.Bundles(),
+		InFolder:   inFolder,
 	})
 }
 
@@ -149,7 +128,7 @@ func readRuleForm(r *http.Request) ruleForm {
 		Body:        normalizeNewlines(r.FormValue("body")),
 		Tags:        r.FormValue("tags"),
 		Targets:     r.Form["targets"],
-		Sets:        r.Form["sets"],
+		Folders:     r.Form["folders"],
 	}
 }
 
@@ -159,30 +138,27 @@ func (s *Server) ruleEditViewFrom(w http.ResponseWriter, r *http.Request, f rule
 		inTarget[t] = true
 	}
 	return ruleEditView{
-		base:     s.base(w, r, "rules"),
-		IsNew:    isNew,
-		Rule:     rule,
-		Form:     f,
-		Targets:  store.RuleTargets(),
-		InTarget: inTarget,
-		AllSets:  s.store.RuleSets(),
-		InSet:    selectedSet(f.Sets),
+		base:       s.base(w, r, "rules"),
+		IsNew:      isNew,
+		Rule:       rule,
+		Form:       f,
+		Targets:    store.RuleTargets(),
+		InTarget:   inTarget,
+		AllFolders: s.store.Bundles(),
+		InFolder:   selectedSet(f.Folders),
 	}
 }
 
-// syncRuleSetMembership makes the rule's folder memberships exactly `want`.
-func (s *Server) syncRuleSetMembership(rule string, want []string) error {
-	wanted := map[string]bool{}
-	for _, n := range want {
-		wanted[n] = true
-	}
-	for _, set := range s.store.RuleSets() {
-		has, should := set.Has(rule), wanted[set.Name]
+// syncRuleFolders makes the rule's folder memberships exactly `want`.
+func (s *Server) syncRuleFolders(rule string, want []string) error {
+	wanted := selectedSet(want)
+	for _, b := range s.store.Bundles() {
+		has, should := b.HasRule(rule), wanted[b.Name]
 		if has == should {
 			continue
 		}
-		updated := *set
-		updated.Rules = append([]string(nil), set.Rules...)
+		updated := *b
+		updated.Rules = append([]string(nil), b.Rules...)
 		if should {
 			updated.Rules = append(updated.Rules, rule)
 		} else {
@@ -194,8 +170,8 @@ func (s *Server) syncRuleSetMembership(rule string, want []string) error {
 			}
 			updated.Rules = kept
 		}
-		if err := s.store.SaveRuleSet(&updated); err != nil {
-			return err
+		if err := s.store.SaveBundle(&updated); err != nil {
+			return fmt.Errorf("update folder %q: %w", b.Name, err)
 		}
 	}
 	return nil
@@ -231,12 +207,13 @@ func (s *Server) handleRuleCreate(w http.ResponseWriter, r *http.Request) {
 		s.tmpl.render(w, r, http.StatusBadRequest, "rule_edit", view)
 		return
 	}
-	if err := s.syncRuleSetMembership(rule.Name, form.Sets); err != nil {
+	if err := s.syncRuleFolders(rule.Name, form.Folders); err != nil {
 		logError("update rule folders", err)
 	}
 	s.setFlash(w, "ok", fmt.Sprintf("Created %s.", rule.Name))
-	if len(form.Sets) == 1 {
-		http.Redirect(w, r, "/rulesets/"+form.Sets[0], http.StatusSeeOther)
+	// Going back to the folder keeps a "write several into this folder" loop tight.
+	if len(form.Folders) == 1 {
+		http.Redirect(w, r, "/bundles/"+form.Folders[0], http.StatusSeeOther)
 		return
 	}
 	http.Redirect(w, r, "/rules/"+rule.Name, http.StatusSeeOther)
@@ -276,7 +253,7 @@ func (s *Server) handleRuleUpdate(w http.ResponseWriter, r *http.Request) {
 		s.tmpl.render(w, r, http.StatusBadRequest, "rule_edit", view)
 		return
 	}
-	if err := s.syncRuleSetMembership(updated.Name, form.Sets); err != nil {
+	if err := s.syncRuleFolders(updated.Name, form.Folders); err != nil {
 		logError("update rule folders", err)
 	}
 	s.setFlash(w, "ok", fmt.Sprintf("Saved %s.", updated.Name))
@@ -298,164 +275,18 @@ func (s *Server) handleRuleDelete(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/rules", http.StatusSeeOther)
 }
 
-// ---------- rule folders ----------
-
-type ruleSetView struct {
-	base
-	Set      *store.RuleSet
-	Rules    []*store.Rule
-	Rendered map[string]string
-}
-
-func (s *Server) handleRuleSet(w http.ResponseWriter, r *http.Request) {
-	set, err := s.store.RuleSet(r.PathValue("name"))
-	if err != nil {
-		s.notFound(w, r, "rule folder")
-		return
-	}
-	s.tmpl.render(w, r, http.StatusOK, "ruleset", ruleSetView{
-		base:     s.base(w, r, "rules"),
-		Set:      set,
-		Rules:    s.store.RuleSetRules(set),
-		Rendered: s.store.RenderRuleSet(set),
-	})
-}
-
-type ruleSetForm struct {
-	Name        string
-	Title       string
-	Description string
-	Rules       []string
-}
-
-type ruleSetEditView struct {
-	base
-	IsNew    bool
-	Set      *store.RuleSet
-	Form     ruleSetForm
-	AllRules []*store.Rule
-	Selected map[string]bool
-	Error    string
-}
-
-func (s *Server) handleRuleSetNew(w http.ResponseWriter, r *http.Request) {
-	s.tmpl.render(w, r, http.StatusOK, "ruleset_edit", ruleSetEditView{
-		base:     s.base(w, r, "rules"),
-		IsNew:    true,
-		Set:      &store.RuleSet{},
-		AllRules: s.store.Rules(),
-		Selected: map[string]bool{},
-	})
-}
-
-func (s *Server) handleRuleSetEdit(w http.ResponseWriter, r *http.Request) {
-	set, err := s.store.RuleSet(r.PathValue("name"))
-	if err != nil {
-		s.notFound(w, r, "rule folder")
-		return
-	}
-	selected := map[string]bool{}
-	for _, n := range set.Rules {
-		selected[n] = true
-	}
-	s.tmpl.render(w, r, http.StatusOK, "ruleset_edit", ruleSetEditView{
-		base:     s.base(w, r, "rules"),
-		Set:      set,
-		Form:     ruleSetForm{Name: set.Name, Title: set.Title, Description: set.Description, Rules: set.Rules},
-		AllRules: s.store.Rules(),
-		Selected: selected,
-	})
-}
-
-func readRuleSetForm(r *http.Request) ruleSetForm {
-	_ = r.ParseForm()
-	return ruleSetForm{
-		Name:        strings.TrimSpace(r.FormValue("name")),
-		Title:       strings.TrimSpace(r.FormValue("title")),
-		Description: strings.TrimSpace(r.FormValue("description")),
-		Rules:       r.Form["rules"],
-	}
-}
-
-func (s *Server) handleRuleSetCreate(w http.ResponseWriter, r *http.Request) {
-	form := readRuleSetForm(r)
-	view := ruleSetEditView{
-		base: s.base(w, r, "rules"), IsNew: true, Set: &store.RuleSet{}, Form: form,
-		AllRules: s.store.Rules(), Selected: selectedSet(form.Rules),
-	}
-	if err := store.ValidateName(form.Name); err != nil {
-		view.Error = "Name: " + err.Error()
-		s.tmpl.render(w, r, http.StatusBadRequest, "ruleset_edit", view)
-		return
-	}
-	set := &store.RuleSet{Name: form.Name, Title: form.Title, Description: form.Description, Rules: form.Rules}
-	if err := s.store.CreateRuleSet(set); err != nil {
-		if errors.Is(err, store.ErrExists) {
-			view.Error = fmt.Sprintf("There is already a folder called %q.", form.Name)
-		} else {
-			view.Error = err.Error()
-		}
-		s.tmpl.render(w, r, http.StatusBadRequest, "ruleset_edit", view)
-		return
-	}
-	s.setFlash(w, "ok", fmt.Sprintf("Created %s.", set.Name))
-	http.Redirect(w, r, "/rulesets/"+set.Name, http.StatusSeeOther)
-}
-
-func (s *Server) handleRuleSetUpdate(w http.ResponseWriter, r *http.Request) {
-	current := r.PathValue("name")
-	set, err := s.store.RuleSet(current)
-	if err != nil {
-		s.notFound(w, r, "rule folder")
-		return
-	}
-	form := readRuleSetForm(r)
-	view := ruleSetEditView{
-		base: s.base(w, r, "rules"), Set: set, Form: form,
-		AllRules: s.store.Rules(), Selected: selectedSet(form.Rules),
-	}
-	if err := store.ValidateName(form.Name); err != nil {
-		view.Error = "Name: " + err.Error()
-		s.tmpl.render(w, r, http.StatusBadRequest, "ruleset_edit", view)
-		return
-	}
-	updated := &store.RuleSet{Name: form.Name, Title: form.Title, Description: form.Description, Rules: form.Rules}
-	if err := s.store.SaveRuleSet(updated); err != nil {
-		view.Error = err.Error()
-		s.tmpl.render(w, r, http.StatusBadRequest, "ruleset_edit", view)
-		return
-	}
-	if form.Name != current {
-		if err := s.store.DeleteRuleSet(current); err != nil {
-			logError("delete old rule folder", err)
-		}
-	}
-	s.setFlash(w, "ok", fmt.Sprintf("Saved %s.", updated.Name))
-	http.Redirect(w, r, "/rulesets/"+updated.Name, http.StatusSeeOther)
-}
-
-func (s *Server) handleRuleSetDelete(w http.ResponseWriter, r *http.Request) {
-	name := r.PathValue("name")
-	if err := s.store.DeleteRuleSet(name); err != nil {
-		if errors.Is(err, store.ErrNotFound) {
-			s.notFound(w, r, "rule folder")
-			return
-		}
-		s.setFlash(w, "error", err.Error())
-		http.Redirect(w, r, "/rulesets/"+name, http.StatusSeeOther)
-		return
-	}
-	s.setFlash(w, "ok", fmt.Sprintf("Deleted %s.", name))
-	http.Redirect(w, r, "/rules", http.StatusSeeOther)
-}
-
 // ---------- API ----------
+
+// Rules used to live in their own kind of folder, served at /api/v1/rulesets.
+// There is one kind of folder now, but a CLI that is already installed still
+// asks at the old address, so these two endpoints answer from bundles and keep
+// `circe rules <folder>` working against a freshly updated registry.
 
 // ruleSetManifest is what the CLI resolves before writing a project's files.
 // The rendered text is included so the CLI does not have to know how rules are
 // ordered or which target each one belongs to.
 type ruleSetManifest struct {
-	Set      *store.RuleSet    `json:"set"`
+	Set      *store.Bundle     `json:"set"`
 	Rules    []*store.Rule     `json:"rules"`
 	Rendered map[string]string `json:"rendered"`
 	Registry string            `json:"registry,omitempty"`
@@ -475,24 +306,32 @@ func (s *Server) apiRule(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, rule)
 }
 
+// apiRuleSets lists the folders that carry rules. A folder of nothing but
+// skills is not a rule folder as far as `circe rules` is concerned, so listing
+// it would only offer the user something that installs nothing.
 func (s *Server) apiRuleSets(w http.ResponseWriter, r *http.Request) {
-	sets := s.store.RuleSets()
+	sets := []*store.Bundle{}
+	for _, b := range s.store.Bundles() {
+		if len(b.Rules) > 0 {
+			sets = append(sets, b)
+		}
+	}
 	writeJSON(w, http.StatusOK, map[string]any{"rulesets": sets, "total": len(sets)})
 }
 
 func (s *Server) apiRuleSet(w http.ResponseWriter, r *http.Request) {
-	set, err := s.store.RuleSet(r.PathValue("name"))
+	b, err := s.store.Bundle(r.PathValue("name"))
 	if err != nil {
 		writeJSONError(w, http.StatusNotFound, "not_found", err.Error())
 		return
 	}
-	rules := s.store.RuleSetRules(set)
+	rules := s.store.BundleRules(b)
 	if rules == nil {
 		rules = []*store.Rule{}
 	}
 	writeJSON(w, http.StatusOK, ruleSetManifest{
-		Set: set, Rules: rules,
-		Rendered: s.store.RenderRuleSet(set),
+		Set: b, Rules: rules,
+		Rendered: s.store.RenderBundleRules(b),
 		Registry: s.baseURL(r),
 	})
 }

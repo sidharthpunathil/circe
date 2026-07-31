@@ -38,15 +38,70 @@ Create and update take:
 `description` is required, 1024 characters or fewer, and must not contain `<` or `>`.
 The whole request is capped at 16 MiB.
 
+## Rules
+
+```
+GET    /api/v1/rules?q=            list and search
+GET    /api/v1/rules/{name}        one rule
+```
+
+A rule carries the text that lands in a project, and the files it belongs in:
+
+```json
+{
+  "name": "house-style",
+  "description": "How we write",
+  "body": "Prefer plain words.\n",
+  "targets": ["CLAUDE.md", "AGENTS.md"],
+  "updatedAt": "2026-07-30T04:12:09Z"
+}
+```
+
+`targets` may be omitted, which means `CLAUDE.md`.
+
+## MCP servers
+
+```
+GET    /api/v1/mcps?q=             list and search
+GET    /api/v1/mcps/{name}         one server
+```
+
+A server carries its transport and command, and the *names* of the environment variables
+it needs, never their values.
+
 ## Folders
+
+A folder holds any mix of skills, rules and MCP servers.
 
 ```
 GET  /api/v1/bundles                        list
-GET  /api/v1/bundles/{name}                 manifest with skills expanded
+GET  /api/v1/bundles/{name}                 manifest, everything expanded
 GET  /api/v1/bundles/{name}/archive.tar.gz  every skill in the folder
 ```
 
-The manifest includes a `context` map of the folder's `CLAUDE.md` / `AGENTS.md`.
+The listing gives each folder's `skills`, `rules` and `servers` as names. The manifest
+expands all three, so one request is enough to install a folder:
+
+```json
+{
+  "bundle": { "name": "frontend-kit", "title": "Frontend kit", "skills": ["design-taste"] },
+  "skills":  [ { "name": "design-taste", "description": "…" } ],
+  "rules":   [ { "name": "house-style", "body": "…", "targets": ["CLAUDE.md"] } ],
+  "servers": [ { "name": "github", "transport": "stdio", "command": "npx" } ],
+  "context": { "CLAUDE.md": "…" },
+  "registry": "https://your-registry"
+}
+```
+
+`context` is the folder's own `CLAUDE.md` / `AGENTS.md`. `registry` is where the client
+should fetch archives from, which matters behind a proxy. `rendered` and `mcp` are also
+included when the folder has rules or servers: the rule text keyed by the file it goes
+into, and the `.mcp.json` the servers add up to, for clients that would rather not
+assemble either themselves.
+
+Rules and MCP servers used to have folder types of their own, served under `/rulesets` and
+`/mcpsets`. Both are gone. A registry upgraded from that build folds their contents into
+`/bundles` on first boot, keeping the names.
 
 ## Downloads
 

@@ -218,35 +218,8 @@ func sortedCopy(in map[string]string) map[string]string {
 	return out
 }
 
-// MCPSet is a named group of servers, the unit the CLI installs.
-type MCPSet struct {
-	Name        string    `json:"name"`
-	Title       string    `json:"title,omitempty"`
-	Description string    `json:"description,omitempty"`
-	Servers     []string  `json:"servers"`
-	UpdatedAt   time.Time `json:"updatedAt"`
-}
+func (s *Store) mcpsDir() string { return filepath.Join(s.root, "mcps") }
 
-// Has reports whether the folder already contains the named server.
-func (s *MCPSet) Has(name string) bool {
-	for _, n := range s.Servers {
-		if n == name {
-			return true
-		}
-	}
-	return false
-}
-
-// DisplayTitle falls back to the name when no title is set.
-func (s *MCPSet) DisplayTitle() string {
-	if strings.TrimSpace(s.Title) != "" {
-		return s.Title
-	}
-	return s.Name
-}
-
-func (s *Store) mcpsDir() string    { return filepath.Join(s.root, "mcps") }
-func (s *Store) mcpSetsDir() string { return filepath.Join(s.root, "mcpsets") }
 func (s *Store) mcpPath(n string) string {
 	return filepath.Join(s.mcpsDir(), n+".json")
 }
@@ -274,35 +247,8 @@ func (s *Store) reloadMCPs() error {
 		}
 	}
 
-	sets := map[string]*MCPSet{}
-	if entries, err := os.ReadDir(s.mcpSetsDir()); err == nil {
-		for _, e := range entries {
-			if e.IsDir() || !strings.HasSuffix(e.Name(), ".json") {
-				continue
-			}
-			name := strings.TrimSuffix(e.Name(), ".json")
-			if ValidateName(name) != nil {
-				continue
-			}
-			raw, err := os.ReadFile(filepath.Join(s.mcpSetsDir(), e.Name()))
-			if err != nil {
-				continue
-			}
-			var set MCPSet
-			if err := json.Unmarshal(raw, &set); err != nil {
-				fmt.Fprintf(os.Stderr, "circe: skipping mcp folder %q: %v\n", name, err)
-				continue
-			}
-			set.Name = name
-			if set.Servers == nil {
-				set.Servers = []string{}
-			}
-			sets[name] = &set
-		}
-	}
-
 	s.mu.Lock()
-	s.mcps, s.mcpSets = servers, sets
+	s.mcps = servers
 	s.mu.Unlock()
 	return nil
 }
@@ -371,58 +317,6 @@ func (s *Store) SearchMCPServers(query string) []*MCPServer {
 		}, " "))
 		if strings.Contains(hay, q) {
 			out = append(out, m)
-		}
-	}
-	return out
-}
-
-// MCPSets returns every server folder sorted by name.
-func (s *Store) MCPSets() []*MCPSet {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	out := make([]*MCPSet, 0, len(s.mcpSets))
-	for _, set := range s.mcpSets {
-		out = append(out, set)
-	}
-	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
-	return out
-}
-
-// MCPSet returns one server folder by name.
-func (s *Store) MCPSet(name string) (*MCPSet, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	set, ok := s.mcpSets[name]
-	if !ok {
-		return nil, fmt.Errorf("mcp folder %q: %w", name, ErrNotFound)
-	}
-	return set, nil
-}
-
-// MCPSetCount returns how many server folders are stored.
-func (s *Store) MCPSetCount() int {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return len(s.mcpSets)
-}
-
-// MCPSetServers resolves a folder's servers, skipping any that no longer exist.
-func (s *Store) MCPSetServers(set *MCPSet) []*MCPServer {
-	out := make([]*MCPServer, 0, len(set.Servers))
-	for _, name := range set.Servers {
-		if m, err := s.MCPServer(name); err == nil {
-			out = append(out, m)
-		}
-	}
-	return out
-}
-
-// MCPSetsContaining returns folders that include the named server.
-func (s *Store) MCPSetsContaining(name string) []*MCPSet {
-	var out []*MCPSet
-	for _, set := range s.MCPSets() {
-		if set.Has(name) {
-			out = append(out, set)
 		}
 	}
 	return out
@@ -525,23 +419,23 @@ func (s *Store) DeleteMCPServer(name string) error {
 
 	s.mu.Lock()
 	delete(s.mcps, name)
-	var affected []*MCPSet
-	for _, set := range s.mcpSets {
-		if set.Has(name) {
-			kept := set.Servers[:0]
-			for _, n := range set.Servers {
+	var affected []*Bundle
+	for _, b := range s.bundles {
+		if b.HasServer(name) {
+			kept := make([]string, 0, len(b.Servers))
+			for _, n := range b.Servers {
 				if n != name {
 					kept = append(kept, n)
 				}
 			}
-			set.Servers = kept
-			affected = append(affected, set)
+			b.Servers = kept
+			affected = append(affected, b)
 		}
 	}
 	s.mu.Unlock()
 
-	for _, set := range affected {
-		if err := s.SaveMCPSet(set); err != nil {
+	for _, b := range affected {
+		if err := s.SaveBundle(b); err != nil {
 			return err
 		}
 	}
@@ -575,19 +469,19 @@ func (s *Store) RenameMCPServer(oldName, newName string) error {
 
 	s.mu.Lock()
 	delete(s.mcps, oldName)
-	var affected []*MCPSet
-	for _, set := range s.mcpSets {
-		for i, n := range set.Servers {
+	var affected []*Bundle
+	for _, b := range s.bundles {
+		for i, n := range b.Servers {
 			if n == oldName {
-				set.Servers[i] = newName
-				affected = append(affected, set)
+				b.Servers[i] = newName
+				affected = append(affected, b)
 			}
 		}
 	}
 	s.mu.Unlock()
 
-	for _, set := range affected {
-		if err := s.SaveMCPSet(set); err != nil {
+	for _, b := range affected {
+		if err := s.SaveBundle(b); err != nil {
 			return err
 		}
 	}
@@ -605,71 +499,6 @@ func (s *Store) refreshMCP(name string) error {
 	return nil
 }
 
-// SaveMCPSet writes a server folder, dropping references to missing servers.
-func (s *Store) SaveMCPSet(set *MCPSet) error {
-	if err := ValidateName(set.Name); err != nil {
-		return err
-	}
-	kept := make([]string, 0, len(set.Servers))
-	seen := map[string]bool{}
-	for _, name := range set.Servers {
-		if seen[name] {
-			continue
-		}
-		if _, err := s.MCPServer(name); err != nil {
-			continue
-		}
-		seen[name] = true
-		kept = append(kept, name)
-	}
-	set.Servers = kept
-	set.UpdatedAt = time.Now()
-
-	raw, err := json.MarshalIndent(set, "", "  ")
-	if err != nil {
-		return err
-	}
-	if err := os.MkdirAll(s.mcpSetsDir(), 0o755); err != nil {
-		return err
-	}
-	if err := writeFileAtomic(filepath.Join(s.mcpSetsDir(), set.Name+".json"), append(raw, '\n')); err != nil {
-		return err
-	}
-
-	s.mu.Lock()
-	s.mcpSets[set.Name] = set
-	s.mu.Unlock()
-	return nil
-}
-
-// CreateMCPSet saves a new server folder, failing if the name is taken.
-func (s *Store) CreateMCPSet(set *MCPSet) error {
-	if err := ValidateName(set.Name); err != nil {
-		return err
-	}
-	if _, err := s.MCPSet(set.Name); err == nil {
-		return fmt.Errorf("mcp folder %q: %w", set.Name, ErrExists)
-	}
-	return s.SaveMCPSet(set)
-}
-
-// DeleteMCPSet removes a server folder. The servers themselves are kept.
-func (s *Store) DeleteMCPSet(name string) error {
-	if err := ValidateName(name); err != nil {
-		return err
-	}
-	if _, err := s.MCPSet(name); err != nil {
-		return err
-	}
-	if err := os.Remove(filepath.Join(s.mcpSetsDir(), name+".json")); err != nil && !os.IsNotExist(err) {
-		return err
-	}
-	s.mu.Lock()
-	delete(s.mcpSets, name)
-	s.mu.Unlock()
-	return nil
-}
-
 // RenderMCPConfig builds the .mcp.json body for a set of servers.
 func RenderMCPConfig(servers []*MCPServer) ([]byte, error) {
 	cfg := map[string]any{}
@@ -681,11 +510,6 @@ func RenderMCPConfig(servers []*MCPServer) ([]byte, error) {
 		return nil, err
 	}
 	return append(raw, '\n'), nil
-}
-
-// RenderMCPSet builds the .mcp.json body for a folder.
-func (s *Store) RenderMCPSet(set *MCPSet) ([]byte, error) {
-	return RenderMCPConfig(s.MCPSetServers(set))
 }
 
 // MergeMCPConfig folds servers into an existing .mcp.json, preserving both any
@@ -814,4 +638,33 @@ func envReference(v string) string {
 		return inner
 	}
 	return ""
+}
+
+// ---------- servers inside a folder ----------
+
+// BundleServers resolves a folder's servers, skipping any that no longer exist.
+func (s *Store) BundleServers(b *Bundle) []*MCPServer {
+	out := make([]*MCPServer, 0, len(b.Servers))
+	for _, name := range b.Servers {
+		if m, err := s.MCPServer(name); err == nil {
+			out = append(out, m)
+		}
+	}
+	return out
+}
+
+// BundlesContainingServer returns folders that include the named server.
+func (s *Store) BundlesContainingServer(name string) []*Bundle {
+	var out []*Bundle
+	for _, b := range s.Bundles() {
+		if b.HasServer(name) {
+			out = append(out, b)
+		}
+	}
+	return out
+}
+
+// RenderBundleMCP builds the .mcp.json body for a folder's servers.
+func (s *Store) RenderBundleMCP(b *Bundle) ([]byte, error) {
+	return RenderMCPConfig(s.BundleServers(b))
 }

@@ -83,15 +83,15 @@ func TestRuleValidation(t *testing.T) {
 	}
 }
 
-func TestRuleSetLifecycle(t *testing.T) {
+func TestRulesInABundleLifecycle(t *testing.T) {
 	st := newRuleStore(t)
 	for _, n := range []string{"one", "two"} {
 		if err := st.CreateRule(&Rule{Name: n, Description: "Rule " + n + " for testing.", Body: "# " + n + "\n"}); err != nil {
 			t.Fatal(err)
 		}
 	}
-	set := &RuleSet{Name: "house", Title: "House Style", Rules: []string{"one", "two", "ghost"}}
-	if err := st.CreateRuleSet(set); err != nil {
+	set := &Bundle{Name: "house", Title: "House Style", Rules: []string{"one", "two", "ghost"}}
+	if err := st.CreateBundle(set); err != nil {
 		t.Fatal(err)
 	}
 	// A reference to a rule that does not exist is dropped rather than stored.
@@ -103,16 +103,16 @@ func TestRuleSetLifecycle(t *testing.T) {
 	if err := st.DeleteRule("one"); err != nil {
 		t.Fatal(err)
 	}
-	got, err := st.RuleSet("house")
+	got, err := st.Bundle("house")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Has("one") {
+	if got.HasRule("one") {
 		t.Errorf("deleted rule still referenced: %v", got.Rules)
 	}
 
 	// Deleting the folder leaves the rules alone.
-	if err := st.DeleteRuleSet("house"); err != nil {
+	if err := st.DeleteBundle("house"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := st.Rule("two"); err != nil {
@@ -125,14 +125,14 @@ func TestRenameRuleUpdatesFolders(t *testing.T) {
 	if err := st.CreateRule(&Rule{Name: "old", Description: "A rule to be renamed.", Body: "x\n"}); err != nil {
 		t.Fatal(err)
 	}
-	if err := st.CreateRuleSet(&RuleSet{Name: "set", Rules: []string{"old"}}); err != nil {
+	if err := st.CreateBundle(&Bundle{Name: "set", Rules: []string{"old"}}); err != nil {
 		t.Fatal(err)
 	}
 	if err := st.RenameRule("old", "new"); err != nil {
 		t.Fatal(err)
 	}
-	set, _ := st.RuleSet("set")
-	if !set.Has("new") || set.Has("old") {
+	set, _ := st.Bundle("set")
+	if !set.HasRule("new") || set.HasRule("old") {
 		t.Errorf("folder not repointed: %v", set.Rules)
 	}
 	if r, err := st.Rule("new"); err != nil || r.Name != "new" {
@@ -142,7 +142,7 @@ func TestRenameRuleUpdatesFolders(t *testing.T) {
 
 // Rendering is what the CLI writes; each target gets only the rules aimed at it,
 // joined in folder order so the author controls what the agent reads first.
-func TestRenderRuleSetSplitsByTarget(t *testing.T) {
+func TestRenderBundleRulesSplitsByTarget(t *testing.T) {
 	st := newRuleStore(t)
 	st.CreateRule(&Rule{Name: "both", Description: "Applies everywhere.", Body: "BOTH\n",
 		Targets: []string{TargetClaude, TargetAgents}})
@@ -150,11 +150,11 @@ func TestRenderRuleSetSplitsByTarget(t *testing.T) {
 		Targets: []string{TargetAgents}})
 	st.CreateRule(&Rule{Name: "claude-default", Description: "Defaults to Claude.", Body: "CLAUDE\n"})
 
-	set := &RuleSet{Name: "all", Rules: []string{"both", "agents-only", "claude-default"}}
-	if err := st.CreateRuleSet(set); err != nil {
+	set := &Bundle{Name: "all", Rules: []string{"both", "agents-only", "claude-default"}}
+	if err := st.CreateBundle(set); err != nil {
 		t.Fatal(err)
 	}
-	out := st.RenderRuleSet(set)
+	out := st.RenderBundleRules(set)
 
 	claude := out[TargetClaude]
 	if !strings.Contains(claude, "BOTH") || !strings.Contains(claude, "CLAUDE") {

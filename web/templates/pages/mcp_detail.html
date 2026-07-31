@@ -141,28 +141,25 @@
           </div>
         {{ end }}
 
-        {{ if .Sets }}
-          <div>
-            <p class="eyebrow mb-2.5">Part of</p>
+        <div>
+          <p class="eyebrow mb-2.5">Part of</p>
+          {{ if .Folders }}
             <ul class="flex flex-col gap-1.5">
-              {{ range .Sets }}
+              {{ range .Folders }}
                 <li>
-                  <a href="/mcpsets/{{ .Name }}" class="meta hover:text-fg transition-colors flex items-center gap-2">
+                  <a href="/bundles/{{ .Name }}" class="meta hover:text-fg transition-colors flex items-center gap-2">
                     <span class="text-fg-3/50" aria-hidden="true">›</span>
                     <span class="truncate">{{ .DisplayTitle }}</span>
                   </a>
                 </li>
               {{ end }}
             </ul>
-          </div>
-        {{ else }}
-          <div>
-            <p class="eyebrow mb-2.5">Part of</p>
+          {{ else }}
             <p class="meta">In no folder yet.</p>
             <p class="hint">A folder is what you install, so put this in one to use it.</p>
-            <a href="/mcpsets/new" class="btn btn-sm w-full mt-2.5">New folder</a>
-          </div>
-        {{ end }}
+            <a href="/mcp/{{ .Server.Name }}/edit" class="btn btn-sm w-full mt-2.5">Pick a folder</a>
+          {{ end }}
+        </div>
 
         <div class="pt-2 border-t border-line-soft">
           <form action="/mcp/{{ .Server.Name }}/delete" method="post"

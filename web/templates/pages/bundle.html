@@ -14,9 +14,10 @@
             {{ . }}
           </p>
         {{ end }}
+        <p class="mt-3 meta">{{ .Summary }}</p>
 
         {{/* Mirrored from the sidebar so the actions stay reachable on mobile,
-             where the sidebar stacks below the full skill list. */}}
+             where the sidebar stacks below the full contents. */}}
         <div class="mt-6 flex flex-wrap gap-2 lg:hidden">
           <a href="/bundles/{{ .Bundle.Name }}/edit" class="btn">Edit</a>
           <a href="/bundles/{{ .Bundle.Name }}/download" class="btn">Download</a>
@@ -28,7 +29,7 @@
             class="flex items-center gap-2 rounded-[10px] border border-line-soft bg-surface px-3.5 py-2.5"
           >
             <code
-              class="font-mono text-[12.5px] text-fg overflow-x-auto whitespace-nowrap flex-1 scrollbar-none"
+              class="font-mono text-[12.5px] text-fg overflow-x-auto whitespace-nowrap flex-1 min-w-0 scrollbar-none"
               >circe {{ .Bundle.Name }}</code
             >
             <button
@@ -42,14 +43,21 @@
           <p class="hint">
             Asks which ones you want. Add <span class="font-mono">-y</span> to take the lot.
           </p>
+          {{ if or .Rules .Servers }}
+            <p class="hint">
+              The rules go in with
+              <span class="font-mono">circe rules {{ .Bundle.Name }}</span>, the servers with
+              <span class="font-mono">circe mcp {{ .Bundle.Name }}</span>.
+            </p>
+          {{ end }}
         </div>
 
         <div class="mt-10">
-          <div class="flex items-baseline justify-between mb-4">
+          <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 mb-4">
             <h2 class="text-[20px]">
               {{ len .Skills }} {{ pluralize (len .Skills) "skill" "skills" }}
             </h2>
-            <div class="flex items-center gap-3">
+            <div class="flex flex-wrap items-center gap-3">
               <a
                 href="/skills/new?bundle={{ .Bundle.Name }}"
                 class="text-[14px] text-fg-3 hover:text-fg transition-colors"
@@ -70,14 +78,154 @@
           {{ else }}
             {{ template "empty"
               (dict
-                "Title" "Nothing in here yet"
-                "Body" "Add a few skills and this folder becomes installable."
+                "Title" "No skills in here"
+                "Body" "A folder can hold skills, rules and servers in any mix. Add a few skills and they install with it."
                 "Action" (printf "/bundles/%s/edit" .Bundle.Name)
                 "ActionLabel" "Add skills"
               )
             }}
           {{ end }}
         </div>
+
+        <div class="mt-12">
+          <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 mb-4">
+            <h2 class="text-[20px]">
+              {{ len .Rules }} {{ pluralize (len .Rules) "rule" "rules" }}
+            </h2>
+            <div class="flex flex-wrap items-center gap-3">
+              <a
+                href="/rules/new?folder={{ .Bundle.Name }}"
+                class="text-[14px] text-fg-3 hover:text-fg transition-colors"
+                >Write one here</a
+              >
+              <a
+                href="/bundles/{{ .Bundle.Name }}/edit"
+                class="text-[14px] text-fg-3 hover:text-fg transition-colors"
+                >Manage</a
+              >
+            </div>
+          </div>
+
+          {{ if .Rules }}
+            <div class="flex flex-col divide-y divide-line border-y border-line">
+              {{ range .Rules }}
+                <a href="/rules/{{ .Name }}" class="py-3 flex items-start gap-3 group min-w-0">
+                  <span class="text-fg-3/50 mt-0.5" aria-hidden="true">›</span>
+                  <span class="min-w-0 flex-1">
+                    <span class="flex items-center gap-2 flex-wrap">
+                      <span class="text-[14px] font-medium text-fg break-all">{{ .Name }}</span>
+                      {{ range .TargetsOrDefault }}<span class="badge">{{ . }}</span>{{ end }}
+                    </span>
+                    <span class="block text-[13px] text-fg-3 leading-snug mt-1 line-clamp-2"
+                      >{{ truncate 180 .Description }}</span
+                    >
+                  </span>
+                </a>
+              {{ end }}
+            </div>
+            <p class="hint">
+              Added to the project’s own file, leaving whatever is already there alone.
+            </p>
+          {{ else }}
+            <p class="text-[14px] text-fg-3">
+              No rules in here. Add some and they merge into the project’s
+              <span class="font-mono">CLAUDE.md</span> when you install the folder.
+            </p>
+          {{ end }}
+        </div>
+
+        <div class="mt-12">
+          <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 mb-4">
+            <h2 class="text-[20px]">
+              {{ len .Servers }} {{ pluralize (len .Servers) "server" "servers" }}
+            </h2>
+            <div class="flex flex-wrap items-center gap-3">
+              <a
+                href="/mcp/new?folder={{ .Bundle.Name }}"
+                class="text-[14px] text-fg-3 hover:text-fg transition-colors"
+                >Add one here</a
+              >
+              <a
+                href="/bundles/{{ .Bundle.Name }}/edit"
+                class="text-[14px] text-fg-3 hover:text-fg transition-colors"
+                >Manage</a
+              >
+            </div>
+          </div>
+
+          {{ if .Servers }}
+            <div class="flex flex-col divide-y divide-line border-y border-line">
+              {{ range .Servers }}
+                <a href="/mcp/{{ .Name }}" class="py-3 flex items-start gap-3 group min-w-0">
+                  <span class="text-fg-3/50 mt-0.5" aria-hidden="true">›</span>
+                  <span class="min-w-0 flex-1">
+                    <span class="flex items-center gap-2 flex-wrap">
+                      <span class="text-[14px] font-medium text-fg break-all">{{ .Name }}</span>
+                      <span class="badge">{{ .TransportOrDefault }}</span>
+                    </span>
+                    <span class="block text-[13px] text-fg-3 leading-snug mt-1 line-clamp-2"
+                      >{{ truncate 180 .Description }}</span
+                    >
+                  </span>
+                </a>
+              {{ end }}
+            </div>
+          {{ else }}
+            <p class="text-[14px] text-fg-3">
+              No servers in here. Add some and they merge into the project’s
+              <span class="font-mono">.mcp.json</span> when you install the folder.
+            </p>
+          {{ end }}
+        </div>
+
+        {{ if .Env }}
+          <div class="mt-12">
+            <p class="eyebrow mb-2.5">Set these first</p>
+            <div class="flex flex-col divide-y divide-line border-y border-line">
+              {{ range .Env }}
+                <div class="py-3 min-w-0">
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <span class="font-mono text-[12.5px] text-fg break-all">{{ .Name }}</span>
+                    <span class="badge">{{ if .Required }}required{{ else }}optional{{ end }}</span>
+                  </div>
+                  {{ with .Help }}
+                    <p class="text-[13px] text-fg-3 leading-snug mt-1.5 max-w-[62ch]">{{ . }}</p>
+                  {{ end }}
+                </div>
+              {{ end }}
+            </div>
+            <p class="hint">
+              These live in your shell, not in this registry. The generated file refers to them by
+              name only, which is what makes it safe to commit.
+            </p>
+          </div>
+        {{ end }}
+
+        {{ if .Rendered }}
+          <div class="mt-12">
+            <p class="eyebrow mb-2.5">What the rules add</p>
+            {{ range $file, $text := .Rendered }}
+              <div class="mb-4">
+                <p class="meta mb-1.5">{{ $file }}</p>
+                <pre
+                  class="font-mono text-[12px] leading-relaxed text-fg-2 bg-surface border border-line rounded-card p-4 overflow-x-auto"
+                ><code>{{ $text }}</code></pre>
+              </div>
+            {{ end }}
+          </div>
+        {{ end }}
+
+        {{ if .MCPConfig }}
+          <div class="mt-12">
+            <div class="flex flex-wrap items-baseline justify-between gap-3 mb-2.5">
+              <p class="eyebrow">What lands in .mcp.json</p>
+              <button type="button" class="btn btn-sm" data-copy="{{ .MCPConfig }}">Copy</button>
+            </div>
+            <pre
+              class="font-mono text-[12px] leading-relaxed text-fg-2 bg-surface border border-line rounded-card p-4 overflow-x-auto"
+            ><code>{{ .MCPConfig }}</code></pre>
+          </div>
+        {{ end }}
       </div>
 
       <aside class="lg:sticky lg:top-20 flex flex-col gap-6 min-w-0">
@@ -91,11 +239,19 @@
           <dl class="flex flex-col gap-2 meta">
             <div class="flex justify-between gap-3">
               <dt>Name</dt>
-              <dd class="text-fg">{{ .Bundle.Name }}</dd>
+              <dd class="text-fg min-w-0 break-all">{{ .Bundle.Name }}</dd>
             </div>
             <div class="flex justify-between gap-3">
               <dt>Skills</dt>
               <dd class="text-fg">{{ len .Skills }}</dd>
+            </div>
+            <div class="flex justify-between gap-3">
+              <dt>Rules</dt>
+              <dd class="text-fg">{{ len .Rules }}</dd>
+            </div>
+            <div class="flex justify-between gap-3">
+              <dt>Servers</dt>
+              <dd class="text-fg">{{ len .Servers }}</dd>
             </div>
             <div class="flex justify-between gap-3">
               <dt>Size</dt>
@@ -109,7 +265,7 @@
         </div>
 
         <div>
-          <p class="eyebrow mb-2.5">Project rules</p>
+          <p class="eyebrow mb-2.5">Project files</p>
           <ul class="flex flex-col">
             {{ $ctx := .Context }}
             {{ range .ContextNames }}
@@ -127,7 +283,9 @@
               </li>
             {{ end }}
           </ul>
-          <p class="hint">Added to the project’s own file when you install this folder.</p>
+          <p class="hint">
+            Written straight into the project’s own file, alongside whatever the rules add.
+          </p>
         </div>
 
 
@@ -171,7 +329,7 @@
               data-confirm="Stop sharing? The code stops working immediately.">
               <button type="submit" class="btn btn-sm w-full">Stop sharing</button>
             </form>
-            <p class="hint">Anyone with this can take their own copy.</p>
+            <p class="hint">Anyone with this can take their own copy of the skills.</p>
           {{ else }}
             <form action="/bundles/{{ .Bundle.Name }}/share" method="post">
               <button type="submit" class="btn btn-sm w-full">Create share code</button>
@@ -194,7 +352,7 @@
           <form
             action="/bundles/{{ .Bundle.Name }}/delete"
             method="post"
-            data-confirm="Delete the folder “{{ .Bundle.Name }}”? The skills themselves are kept."
+            data-confirm="Delete the folder “{{ .Bundle.Name }}”? What is in it is kept."
           >
             <button type="submit" class="btn btn-danger btn-sm w-full">Delete folder</button>
           </form>

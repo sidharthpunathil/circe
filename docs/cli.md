@@ -1,28 +1,116 @@
 # CLI reference
 
-`circe` installs skills from a registry into a project, and publishes local skills
+`circe` installs a folder from a registry into a project, and publishes local skills
 back up to it.
 
-## Installing skills
+A folder holds any mix of skills, rules and MCP servers. The bare command installs all of
+it; the three verbs narrow it to one kind:
+
+```bash
+circe frontend-kit          # skills, rules and servers
+circe skills frontend-kit   # only the skills
+circe rules  frontend-kit   # only the rules
+circe mcp    frontend-kit   # only the MCP servers
+```
+
+Each kind lands where that kind belongs, and nothing else in the project is touched:
+
+| Kind | Where it lands | How |
+| --- | --- | --- |
+| Skills | `.claude/skills/<name>/`, or `-d` | One directory per skill, recorded in `circe.json` |
+| Rules | `CLAUDE.md`, `AGENTS.md` | Merged into a marked block, per folder |
+| MCP servers | `.mcp.json`, or `-o` | Merged into `mcpServers`, leaving existing entries alone |
+
+Rules and MCP servers used to live in folders of their own. A registry upgraded from that
+build folds them into ordinary folders on its first boot, so the names you already type
+keep working.
+
+## Installing
 
 ### `circe <folder>`
 
-Install a folder's skills into the current project. This is the shorthand you'll use most.
+Install everything in a folder. This is the command you'll use most.
 
 ```bash
-circe frontend-kit        # pick which of its skills to install
-circe frontend-kit -y     # install all of them
+circe frontend-kit        # pick as you go
+circe frontend-kit -y     # take all of it
 ```
 
 `circe init <folder>` is the same thing spelled out.
 
+It reports each kind separately and closes with what the whole run did, plus any
+environment variables the servers need that your shell does not have:
+
+```
+Frontend kit · 3 skills, 2 rules and 1 server
+skills
+  ✓ design-taste  installed
+  3 installed in .claude/skills
+
+rules
+  ✓ CLAUDE.md  updated
+
+mcp servers
+  ✓ github  added
+  1 added in .mcp.json
+installed 3 skills, 2 rules and 1 server
+set these before the servers will start:
+  GITHUB_TOKEN  github
+```
+
+A folder holding nothing but skills prints exactly what it always did: no header, no
+section labels, no closing summary.
+
 | Flag | Purpose |
 | --- | --- |
-| `-y`, `--yes` | Install everything without prompting. Required in CI, where there's no terminal to pick with. |
-| `-d`, `--dir` | Install location. Defaults to `.claude/skills`, and is remembered afterwards. |
-| `--force` | Replace skills that already exist with different content. |
-| `--dry-run` | Report what would change without writing. |
-| `--context` | How to apply the folder's `CLAUDE.md`: `merge` (default), `skip`, `overwrite`. |
+| `-y`, `--yes` | Take everything without prompting. Required in CI, where there's no terminal to pick with. |
+| `-d`, `--dir` | Where the **skills** go. Defaults to `.claude/skills`, and is remembered afterwards. |
+| `-o`, `--out` | Which config the **MCP servers** merge into. Defaults to `.mcp.json`, per run. |
+| `--force` | Overwrite skills that already exist, and replace servers this project already has. |
+| `--dry-run` | Report what would change, across all three kinds, without writing anything. |
+| `--context` | How to apply `CLAUDE.md` and `AGENTS.md`: `merge` (default), `skip`, `overwrite`. |
+
+`-d` and `-o` each move one kind, because the three kinds land in three different places
+and there is no single directory to point at. Rules always go to `CLAUDE.md` and
+`AGENTS.md` in the project root: that is where the agent reads them, so there is nothing
+to choose. `-d` is remembered in `circe.json` so `pull` and `list` find the skills without
+it; `-o` is not remembered, because `.mcp.json` is where Claude Code looks and pointing
+somewhere else is a per-run decision.
+
+### `circe skills <folder>`
+
+Only the skills. Same flags as the bare command, minus `-o`.
+
+With no folder, lists the folders that have skills in them.
+
+If the folder also has rules, this leaves `CLAUDE.md` and `AGENTS.md` alone and says so.
+The rules and the folder's own instructions share one marked block, and writing half of a
+block would delete the other half on the next run.
+
+### `circe rules <folder>`
+
+Only the rules, merged into the project's `CLAUDE.md` and `AGENTS.md` inside a block
+marked with the folder's name. Your own content is untouched, and re-running replaces that
+block rather than adding a second one. Each rule chooses which of the two files it belongs
+in. The folder's own `CLAUDE.md` goes into the same block, ahead of the rules.
+
+With no folder, lists the folders that have rules in them.
+
+Flags: `--context`, `--dry-run`.
+
+### `circe mcp <folder>`
+
+Only the MCP servers, merged into the project's `.mcp.json`.
+
+Servers the project already has are reported and left exactly as they are, never replaced,
+unless you pass `--force`. Top level keys Circe does not model are carried through
+untouched, and a run that changes nothing does not rewrite the file. Afterwards it lists
+the environment variables those servers reference and your shell does not have, because a
+server with an unset variable starts and immediately dies.
+
+With no folder, lists the folders that have MCP servers in them.
+
+Flags: `-y`, `-o`, `--force` (which also takes the whole folder), `--dry-run`.
 
 ### `circe add <skill>…`
 
@@ -125,3 +213,7 @@ Installing writes `circe.json` in the project root:
 Commit it. Anyone who clones the project gets the same skills with `circe pull`.
 The checksum is what makes drift detection work, and `dir` is why you only pass `-d`
 once.
+
+Only skills are recorded. Rules and MCP servers are already visible in the project's own
+`CLAUDE.md` and `.mcp.json`, which are committed too, so a second copy of them here would
+be one more thing to drift.

@@ -1,8 +1,9 @@
-// Command circe installs skills from a personal registry into a project.
+// Command circe installs a folder from a personal registry into a project.
 //
-// Skills are written to ./.claude/skills/<name>/ and recorded in
-// ./circe.json, so any checkout of the project can be brought back to the
-// same set with a single `circe pull`.
+// A folder holds any mix of skills, rules and MCP servers. Skills are written
+// to ./.claude/skills/<name>/ and recorded in ./circe.json, so any checkout of
+// the project can be brought back to the same set with a single `circe pull`.
+// Rules merge into ./CLAUDE.md and ./AGENTS.md, servers into ./.mcp.json.
 package main
 
 import (
@@ -53,10 +54,14 @@ func report(err error) int {
 func newRootCmd() *cobra.Command {
 	root := &cobra.Command{
 		Use:   "circe",
-		Short: "Install skills from your personal registry",
-		Long: "circe installs skills from your personal registry into a project.\n\n" +
-			"Skills land in .claude/skills/ and are recorded in circe.json so the\n" +
-			"same set can be restored anywhere with `circe pull`.",
+		Short: "Install skills, rules and MCP servers from your personal registry",
+		Long: "circe installs a folder from your personal registry into a project.\n\n" +
+			"A folder holds any mix of skills, rules and MCP servers. `circe <folder>`\n" +
+			"installs all of it: skills into .claude/skills, rules into CLAUDE.md and\n" +
+			"AGENTS.md, servers into .mcp.json. `circe skills`, `circe rules` and\n" +
+			"`circe mcp` install one kind only.\n\n" +
+			"Installed skills are recorded in circe.json so the same set can be\n" +
+			"restored anywhere with `circe pull`.",
 		Version:       version,
 		SilenceUsage:  true,
 		SilenceErrors: true,
@@ -84,10 +89,10 @@ func newRootCmd() *cobra.Command {
 	return root
 }
 
-// expandShorthand rewrites `circe <bundle> [flags]` into
-// `circe init <bundle> [flags]`, so installing a folder of skills is
-// just its name. Done before cobra parses, because otherwise the init flags
-// (-y, -d, …) would be rejected as unknown root flags.
+// expandShorthand rewrites `circe <folder> [flags]` into
+// `circe init <folder> [flags]`, so installing a folder is just its name. Done
+// before cobra parses, because otherwise the init flags (-y, -d, …) would be
+// rejected as unknown root flags.
 func expandShorthand(root *cobra.Command, args []string) []string {
 	if len(args) == 0 {
 		return args

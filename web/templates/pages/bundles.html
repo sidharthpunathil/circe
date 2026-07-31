@@ -4,9 +4,9 @@
     <div class="flex flex-wrap items-end justify-between gap-4">
       <div>
         <h1 class="text-[32px] md:text-[40px]">Folders</h1>
-        <p class="mt-3 text-[15px] text-fg-3 max-w-[60ch]">
-          Skills you always reach for together. Name the set once, then pull it into any project
-          with <span class="font-mono text-[13px] text-fg-2">circe &lt;folder&gt;</span>.
+        <p class="mt-3 text-[15px] text-fg-3 max-w-[62ch]">
+          The skills, rules and servers you reach for together. Name the folder once, then pull it
+          into any project with <span class="font-mono text-[13px] text-fg-2">circe &lt;folder&gt;</span>.
         </p>
       </div>
       <a href="/bundles/new" class="btn btn-primary">New folder</a>
@@ -17,15 +17,12 @@
     {{ if .Bundles }}
       <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {{ range .Bundles }}
-          <a href="/bundles/{{ .Bundle.Name }}" class="card group flex flex-col gap-3">
+          <a href="/bundles/{{ .Bundle.Name }}" class="card group flex flex-col gap-3 min-w-0">
             <div class="flex items-start gap-3">
               <h3 class="text-[15px] font-medium text-fg leading-snug flex-1 min-w-0 break-words">
                 {{ .Bundle.DisplayTitle }}
               </h3>
-              <span class="badge shrink-0"
-                >{{ len .Bundle.Skills }}
-                {{ pluralize (len .Bundle.Skills) "skill" "skills" }}</span
-              >
+              <span class="badge shrink-0">{{ .Bundle.Count }}</span>
             </div>
             {{ with .Bundle.Description }}
               <p class="text-[13px] leading-[1.55] text-fg-3 line-clamp-2 flex-1">
@@ -34,11 +31,13 @@
             {{ else }}
               <p class="text-[13px] text-fg-3/60 italic flex-1">No description</p>
             {{ end }}
-            <div class="flex flex-wrap gap-x-2 gap-y-1">
-              {{ range .Preview }}<span class="meta">{{ .Name }}</span>{{ end }}
+            <div class="flex flex-wrap gap-x-2 gap-y-1 min-w-0">
+              {{ range .Preview }}<span class="meta break-all">{{ . }}</span>{{ end }}
               {{ if .More }}<span class="meta text-fg-3/60">+{{ .More }} more</span>{{ end }}
             </div>
-            <div class="meta pt-0.5">Updated {{ ago .Bundle.UpdatedAt }}</div>
+            <div class="meta pt-0.5 min-w-0 break-words">
+              {{ .Summary }} · updated {{ ago .Bundle.UpdatedAt }}
+            </div>
           </a>
         {{ end }}
       </div>
@@ -46,7 +45,7 @@
       {{ template "empty"
         (dict
           "Title" "No folders yet"
-          "Body" "Bundle the skills you always use together, so setting up a project takes one command."
+          "Body" "Group the skills, rules and servers you always use together, so setting up a project takes one command."
           "Action" "/bundles/new"
           "ActionLabel" "Make a folder"
         )

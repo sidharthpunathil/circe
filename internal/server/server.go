@@ -89,32 +89,30 @@ func (s *Server) routes() {
 	m.HandleFunc("GET /skills/{name}/files/{path...}", s.handleFileEdit)
 	m.HandleFunc("POST /skills/{name}/files/{path...}", s.handleFileSave)
 
-	// Rules: project guidance, grouped into their own folders.
+	// Rules: project guidance, listed on their own and grouped in folders.
 	m.HandleFunc("GET /rules", s.handleRules)
 	m.HandleFunc("GET /rules/new", s.handleRuleNew)
 	m.HandleFunc("POST /rules/new", s.handleRuleCreate)
-	// Rule folders live under their own prefix: /rules/sets/{name} and
-	// /rules/{name}/edit are ambiguous to the router, since neither pattern is
-	// more specific than the other.
-	m.HandleFunc("GET /rulesets/new", s.handleRuleSetNew)
-	m.HandleFunc("POST /rulesets/new", s.handleRuleSetCreate)
-	m.HandleFunc("GET /rulesets/{name}", s.handleRuleSet)
-	m.HandleFunc("GET /rulesets/{name}/edit", s.handleRuleSetEdit)
-	m.HandleFunc("POST /rulesets/{name}/edit", s.handleRuleSetUpdate)
-	m.HandleFunc("POST /rulesets/{name}/delete", s.handleRuleSetDelete)
 	m.HandleFunc("GET /rules/{name}", s.handleRule)
 	m.HandleFunc("GET /rules/{name}/edit", s.handleRuleEdit)
 	m.HandleFunc("POST /rules/{name}/edit", s.handleRuleUpdate)
 	m.HandleFunc("POST /rules/{name}/delete", s.handleRuleDelete)
 	m.HandleFunc("GET /api/v1/rules", s.apiRules)
 	m.HandleFunc("GET /api/v1/rules/{name}", s.apiRule)
+	// A folder is one thing now, so these two answer from bundles. They stay
+	// because a CLI that is already installed asks at the old address.
 	m.HandleFunc("GET /api/v1/rulesets", s.apiRuleSets)
 	m.HandleFunc("GET /api/v1/rulesets/{name}", s.apiRuleSet)
 
-	// MCP servers: live connections a project's .mcp.json points at. Their
-	// folders live under /mcpsets/ for the same reason rule folders do, so no
-	// pattern is ambiguous with /mcp/{name}.
+	// MCP servers: live connections a project's .mcp.json points at.
 	s.routesMCP(m)
+
+	// Rules and servers used to have folders of their own at these two
+	// prefixes. Everything they held is in a bundle now, under the same name,
+	// so an old link or bookmark lands on the folder it meant rather than on a
+	// dead end.
+	m.HandleFunc("GET /rulesets/{name}", s.redirectToBundle)
+	m.HandleFunc("GET /mcpsets/{name}", s.redirectToBundle)
 
 	m.HandleFunc("GET /bundles", s.handleBundles)
 	m.HandleFunc("GET /bundles/new", s.handleBundleNew)
@@ -176,6 +174,13 @@ func (s *Server) routes() {
 
 	// Static assets
 	m.Handle("GET /static/", s.staticHandler())
+}
+
+// redirectToBundle sends a retired per-kind folder URL to the one folder that
+// now holds what it used to. The name is passed through as it arrived, so a
+// folder that no longer exists 404s on the bundle page rather than here.
+func (s *Server) redirectToBundle(w http.ResponseWriter, r *http.Request) {
+	http.Redirect(w, r, "/bundles/"+url.PathEscape(r.PathValue("name")), http.StatusMovedPermanently)
 }
 
 // ServeHTTP applies cross-cutting middleware then dispatches.
@@ -251,14 +256,12 @@ func (s *Server) staticHandler() http.Handler {
 
 // stats summarizes the registry for the footer and home page.
 type stats struct {
-	Skills   int
-	Bundles  int
-	Rules    int
-	RuleSets int
-	MCPs     int
-	MCPSets  int
-	Tags     int
-	Size     int64
+	Skills  int
+	Bundles int
+	Rules   int
+	MCPs    int
+	Tags    int
+	Size    int64
 }
 
 // flash is a one-shot message shown after a redirect.
@@ -348,14 +351,12 @@ func (s *Server) base(w http.ResponseWriter, r *http.Request, nav string) base {
 		Flash:    s.takeFlash(w, r),
 		SEO:      s.pageMeta(r),
 		Stats: stats{
-			Skills:   len(skills),
-			Bundles:  s.store.BundleCount(),
-			Rules:    s.store.RuleCount(),
-			RuleSets: s.store.RuleSetCount(),
-			MCPs:     s.store.MCPCount(),
-			MCPSets:  s.store.MCPSetCount(),
-			Tags:     len(s.store.Tags()),
-			Size:     size,
+			Skills:  len(skills),
+			Bundles: s.store.BundleCount(),
+			Rules:   s.store.RuleCount(),
+			MCPs:    s.store.MCPCount(),
+			Tags:    len(s.store.Tags()),
+			Size:    size,
 		},
 	}
 }

@@ -2,10 +2,7 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -308,51 +305,10 @@ func TestPrintMCPEnvWhenEverythingIsSet(t *testing.T) {
 	}
 }
 
-// The registry API is fetched over HTTP, so a fake one exercises the command
-// end to end without needing the real server running.
-func fakeRegistry(t *testing.T) *httptest.Server {
-	t.Helper()
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		switch r.URL.Path {
-		case "/api/v1/mcpsets":
-			w.Write([]byte(`{"mcpsets":[
-				{"name":"essentials","title":"Essentials","description":"What every project wants","servers":["github","sentry"],"updatedAt":"2026-01-01T00:00:00Z"},
-				{"name":"analytics","title":"Analytics","description":"Warehouse access","servers":["duckdb"],"updatedAt":"2026-01-01T00:00:00Z"}]}`))
-		case "/api/v1/mcpsets/essentials":
-			w.Write([]byte(`{"name":"essentials","title":"Essentials","description":"What every project wants","updatedAt":"2026-01-01T00:00:00Z","servers":[
-				{"name":"github","description":"Issues and pull requests","transport":"stdio","command":"npx","args":["-y","@example/github"],"env":[{"name":"CIRCE_TEST_GITHUB_TOKEN","required":true,"help":"a token with repo scope"}]},
-				{"name":"sentry","description":"Errors and releases","transport":"http","url":"https://mcp.sentry.example"}]}`))
-		default:
-			http.Error(w, `{"error":"not found"}`, http.StatusNotFound)
-		}
-	}))
-	t.Cleanup(srv.Close)
-	return srv
-}
-
-// runCLI drives the real root command so flag wiring and output are covered.
-func runCLI(t *testing.T, args ...string) (string, error) {
-	t.Helper()
-	// A temporary home keeps the developer's own config and token out of it.
-	t.Setenv("HOME", t.TempDir())
-	t.Setenv("CIRCE_TOKEN", "")
-	t.Setenv("CIRCE_REGISTRY", "")
-	registryFlag = ""
-
-	var buf bytes.Buffer
-	root := newRootCmd()
-	root.SetOut(&buf)
-	root.SetErr(&buf)
-	root.SetArgs(args)
-	err := root.ExecuteContext(context.Background())
-	return buf.String(), err
-}
-
 func TestMCPCommandListsFolders(t *testing.T) {
-	srv := fakeRegistry(t)
+	srv := realRegistry(t)
 
-	out, err := runCLI(t, "mcp", "--registry", srv.URL)
+	out, err := runCLI(t, t.TempDir(), "mcp", "--registry", srv.URL)
 	if err != nil {
 		t.Fatalf("list: %v\n%s", err, out)
 	}
@@ -367,10 +323,11 @@ func TestMCPCommandListsFolders(t *testing.T) {
 }
 
 func TestMCPCommandInstallsFolder(t *testing.T) {
-	srv := fakeRegistry(t)
-	path := filepath.Join(t.TempDir(), mcpConfigName)
+	srv := realRegistry(t)
+	project := t.TempDir()
+	path := filepath.Join(project, mcpConfigName)
 
-	out, err := runCLI(t, "mcp", "essentials", "-y", "-o", path, "--registry", srv.URL)
+	out, err := runCLI(t, project, "mcp", "essentials", "-y", "--registry", srv.URL)
 	if err != nil {
 		t.Fatalf("install: %v\n%s", err, out)
 	}
@@ -396,11 +353,27 @@ func TestMCPCommandInstallsFolder(t *testing.T) {
 	}
 }
 
-func TestMCPCommandDryRunWritesNothing(t *testing.T) {
-	srv := fakeRegistry(t)
-	path := filepath.Join(t.TempDir(), mcpConfigName)
+// -o puts the servers somewhere other than the project's own .mcp.json, and
+// nothing else about the run changes.
+func TestMCPCommandWritesWhereOutSays(t *testing.T) {
+	srv := realRegistry(t)
+	path := filepath.Join(t.TempDir(), "config", "custom.json")
 
-	out, err := runCLI(t, "mcp", "essentials", "-y", "--dry-run", "-o", path, "--registry", srv.URL)
+	out, err := runCLI(t, t.TempDir(), "mcp", "essentials", "-y", "-o", path, "--registry", srv.URL)
+	if err != nil {
+		t.Fatalf("install: %v\n%s", err, out)
+	}
+	if len(servers(t, readConfig(t, path))) != 2 {
+		t.Errorf("both servers should be in %s", path)
+	}
+}
+
+func TestMCPCommandDryRunWritesNothing(t *testing.T) {
+	srv := realRegistry(t)
+	project := t.TempDir()
+	path := filepath.Join(project, mcpConfigName)
+
+	out, err := runCLI(t, project, "mcp", "essentials", "-y", "--dry-run", "--registry", srv.URL)
 	if err != nil {
 		t.Fatalf("dry run: %v\n%s", err, out)
 	}
@@ -413,13 +386,28 @@ func TestMCPCommandDryRunWritesNothing(t *testing.T) {
 }
 
 func TestMCPCommandUnknownFolder(t *testing.T) {
-	srv := fakeRegistry(t)
+	srv := realRegistry(t)
 
-	out, err := runCLI(t, "mcp", "nope", "-y", "--registry", srv.URL)
+	out, err := runCLI(t, t.TempDir(), "mcp", "nope", "-y", "--registry", srv.URL)
 	if err == nil {
 		t.Fatalf("want an error for a folder that does not exist:\n%s", out)
 	}
-	for _, want := range []string{`no mcp folder named "nope"`, "circe mcp"} {
+	for _, want := range []string{`no folder named "nope"`, "circe mcp"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error %q does not mention %q", err, want)
+		}
+	}
+}
+
+// A folder with no servers in it says so, and points at what it does have.
+func TestMCPCommandFolderWithoutServers(t *testing.T) {
+	srv := realRegistry(t)
+
+	out, err := runCLI(t, t.TempDir(), "mcp", "house-rules", "-y", "--registry", srv.URL)
+	if err == nil {
+		t.Fatalf("want an error for a folder with no servers:\n%s", out)
+	}
+	for _, want := range []string{`folder "house-rules" has no MCP servers`, "2 rules"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("error %q does not mention %q", err, want)
 		}

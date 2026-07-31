@@ -15,24 +15,13 @@ import (
 
 // routesMCP registers everything MCP. It lives here rather than in routes() so
 // the whole content type is one file.
-//
-// Folders sit at /mcpsets/ for the same reason rule folders do: /mcp/sets/{name}
-// and /mcp/{name}/edit are ambiguous to the router, and an ambiguous pattern is
-// a panic at startup, not a 404 at request time.
 func (s *Server) routesMCP(m *http.ServeMux) {
 	m.HandleFunc("GET /mcp", s.handleMCP)
 	m.HandleFunc("GET /mcp/new", s.handleMCPNew)
 	m.HandleFunc("POST /mcp/new", s.handleMCPCreate)
-	m.HandleFunc("GET /mcp/catalog", s.handleMCPCatalog)
+	// The catalog is a section of /mcp now rather than a page of its own, but
+	// this is still where its form posts to.
 	m.HandleFunc("POST /mcp/catalog/add", s.handleMCPCatalogAdd)
-
-	m.HandleFunc("GET /mcpsets/new", s.handleMCPSetNew)
-	m.HandleFunc("POST /mcpsets/new", s.handleMCPSetCreate)
-	m.HandleFunc("GET /mcpsets/{name}", s.handleMCPSet)
-	m.HandleFunc("GET /mcpsets/{name}/edit", s.handleMCPSetEdit)
-	m.HandleFunc("POST /mcpsets/{name}/edit", s.handleMCPSetUpdate)
-	m.HandleFunc("POST /mcpsets/{name}/delete", s.handleMCPSetDelete)
-	m.HandleFunc("GET /mcpsets/{name}/config", s.handleMCPSetConfig)
 
 	m.HandleFunc("GET /mcp/{name}", s.handleMCPServer)
 	m.HandleFunc("GET /mcp/{name}/edit", s.handleMCPEdit)
@@ -51,35 +40,12 @@ func (s *Server) routesMCP(m *http.ServeMux) {
 type mcpView struct {
 	base
 	Servers []*store.MCPServer
-	Sets    []mcpSetCard
 	Total   int
+	// The catalog sits on this page, below the servers already added, so
+	// browsing what exists is not a trip to somewhere else.
+	Groups  []catalogGroup
+	Added   map[string]bool
 	Catalog int
-}
-
-type mcpSetCard struct {
-	Set     *store.MCPSet
-	Preview []*store.MCPServer
-	More    int
-}
-
-func (s *Server) mcpSetCards(limit int) []mcpSetCard {
-	sets := s.store.MCPSets()
-	if limit > 0 && len(sets) > limit {
-		sets = sets[:limit]
-	}
-	out := make([]mcpSetCard, 0, len(sets))
-	for _, set := range sets {
-		servers := s.store.MCPSetServers(set)
-		card := mcpSetCard{Set: set}
-		const previewN = 4
-		if len(servers) > previewN {
-			card.Preview, card.More = servers[:previewN], len(servers)-previewN
-		} else {
-			card.Preview = servers
-		}
-		out = append(out, card)
-	}
-	return out
 }
 
 func (s *Server) handleMCP(w http.ResponseWriter, r *http.Request) {
@@ -87,17 +53,18 @@ func (s *Server) handleMCP(w http.ResponseWriter, r *http.Request) {
 	s.tmpl.render(w, r, http.StatusOK, "mcp", mcpView{
 		base:    s.base(w, r, "mcp"),
 		Servers: s.store.SearchMCPServers(q),
-		Sets:    s.mcpSetCards(0),
 		Total:   s.store.MCPCount(),
+		Groups:  catalogGroups(),
+		Added:   s.catalogAdded(),
 		Catalog: mcpcatalog.Count(),
 	})
 }
 
 type mcpDetailView struct {
 	base
-	Server *store.MCPServer
-	Sets   []*store.MCPSet
-	Config string
+	Server  *store.MCPServer
+	Folders []*store.Bundle
+	Config  string
 }
 
 func (s *Server) handleMCPServer(w http.ResponseWriter, r *http.Request) {
@@ -116,10 +83,10 @@ func (s *Server) handleMCPServer(w http.ResponseWriter, r *http.Request) {
 		config = string(raw)
 	}
 	s.tmpl.render(w, r, http.StatusOK, "mcp_detail", mcpDetailView{
-		base:   s.base(w, r, "mcp"),
-		Server: m,
-		Sets:   s.store.MCPSetsContaining(name),
-		Config: config,
+		base:    s.base(w, r, "mcp"),
+		Server:  m,
+		Folders: s.store.BundlesContainingServer(name),
+		Config:  config,
 	})
 }
 
@@ -149,7 +116,7 @@ type mcpForm struct {
 	Tags        string
 	Env         []envRow
 	Headers     []headerRow
-	Sets        []string
+	Folders     []string
 }
 
 // server builds the record this form describes. Blank rows are dropped here
@@ -193,8 +160,8 @@ type mcpEditView struct {
 	Error      string
 	Transports []string
 	Categories []string
-	AllSets    []*store.MCPSet
-	InSet      map[string]bool
+	AllFolders []*store.Bundle
+	InFolder   map[string]bool
 }
 
 func mcpFormFrom(m *store.MCPServer) mcpForm {
@@ -240,12 +207,12 @@ func (f mcpForm) withSpareRows() mcpForm {
 
 func (s *Server) handleMCPNew(w http.ResponseWriter, r *http.Request) {
 	selected := map[string]bool{}
-	for _, n := range r.URL.Query()["set"] {
-		if _, err := s.store.MCPSet(n); err == nil {
+	for _, n := range r.URL.Query()["folder"] {
+		if _, err := s.store.Bundle(n); err == nil {
 			selected[n] = true
 		}
 	}
-	form := mcpForm{Transport: store.TransportStdio, Command: "npx", Sets: keysOf(selected)}
+	form := mcpForm{Transport: store.TransportStdio, Command: "npx", Folders: keysOf(selected)}
 	s.tmpl.render(w, r, http.StatusOK, "mcp_edit", mcpEditView{
 		base:       s.base(w, r, "mcp"),
 		IsNew:      true,
@@ -253,8 +220,8 @@ func (s *Server) handleMCPNew(w http.ResponseWriter, r *http.Request) {
 		Form:       form.withSpareRows(),
 		Transports: store.MCPTransports(),
 		Categories: store.MCPCategories(),
-		AllSets:    s.store.MCPSets(),
-		InSet:      selected,
+		AllFolders: s.store.Bundles(),
+		InFolder:   selected,
 	})
 }
 
@@ -264,22 +231,22 @@ func (s *Server) handleMCPEdit(w http.ResponseWriter, r *http.Request) {
 		s.notFound(w, r, "mcp server")
 		return
 	}
-	inSet := map[string]bool{}
+	inFolder := map[string]bool{}
 	var current []string
-	for _, set := range s.store.MCPSetsContaining(m.Name) {
-		inSet[set.Name] = true
-		current = append(current, set.Name)
+	for _, b := range s.store.BundlesContainingServer(m.Name) {
+		inFolder[b.Name] = true
+		current = append(current, b.Name)
 	}
 	form := mcpFormFrom(m)
-	form.Sets = current
+	form.Folders = current
 	s.tmpl.render(w, r, http.StatusOK, "mcp_edit", mcpEditView{
 		base:       s.base(w, r, "mcp"),
 		Server:     m,
 		Form:       form.withSpareRows(),
 		Transports: store.MCPTransports(),
 		Categories: store.MCPCategories(),
-		AllSets:    s.store.MCPSets(),
-		InSet:      inSet,
+		AllFolders: s.store.Bundles(),
+		InFolder:   inFolder,
 	})
 }
 
@@ -306,7 +273,7 @@ func readMCPForm(r *http.Request) mcpForm {
 		Args:        strings.TrimSpace(r.FormValue("args")),
 		URL:         strings.TrimSpace(r.FormValue("url")),
 		Tags:        r.FormValue("tags"),
-		Sets:        r.Form["sets"],
+		Folders:     r.Form["folders"],
 	}
 
 	// An unchecked checkbox sends nothing, so "required" travels as the row's
@@ -343,24 +310,21 @@ func (s *Server) mcpEditViewFrom(w http.ResponseWriter, r *http.Request, f mcpFo
 		Form:       f.withSpareRows(),
 		Transports: store.MCPTransports(),
 		Categories: store.MCPCategories(),
-		AllSets:    s.store.MCPSets(),
-		InSet:      selectedSet(f.Sets),
+		AllFolders: s.store.Bundles(),
+		InFolder:   selectedSet(f.Folders),
 	}
 }
 
-// syncMCPSetMembership makes the server's folder memberships exactly `want`.
-func (s *Server) syncMCPSetMembership(server string, want []string) error {
-	wanted := map[string]bool{}
-	for _, n := range want {
-		wanted[n] = true
-	}
-	for _, set := range s.store.MCPSets() {
-		has, should := set.Has(server), wanted[set.Name]
+// syncServerFolders makes the server's folder memberships exactly `want`.
+func (s *Server) syncServerFolders(server string, want []string) error {
+	wanted := selectedSet(want)
+	for _, b := range s.store.Bundles() {
+		has, should := b.HasServer(server), wanted[b.Name]
 		if has == should {
 			continue
 		}
-		updated := *set
-		updated.Servers = append([]string(nil), set.Servers...)
+		updated := *b
+		updated.Servers = append([]string(nil), b.Servers...)
 		if should {
 			updated.Servers = append(updated.Servers, server)
 		} else {
@@ -372,8 +336,8 @@ func (s *Server) syncMCPSetMembership(server string, want []string) error {
 			}
 			updated.Servers = kept
 		}
-		if err := s.store.SaveMCPSet(&updated); err != nil {
-			return err
+		if err := s.store.SaveBundle(&updated); err != nil {
+			return fmt.Errorf("update folder %q: %w", b.Name, err)
 		}
 	}
 	return nil
@@ -393,12 +357,12 @@ func (s *Server) handleMCPCreate(w http.ResponseWriter, r *http.Request) {
 		s.tmpl.render(w, r, http.StatusBadRequest, "mcp_edit", view)
 		return
 	}
-	if err := s.syncMCPSetMembership(m.Name, form.Sets); err != nil {
-		logError("update mcp folders", err)
+	if err := s.syncServerFolders(m.Name, form.Folders); err != nil {
+		logError("update server folders", err)
 	}
 	s.setFlash(w, "ok", fmt.Sprintf("Added %s.", m.Name))
-	if len(form.Sets) == 1 {
-		http.Redirect(w, r, "/mcpsets/"+form.Sets[0], http.StatusSeeOther)
+	if len(form.Folders) == 1 {
+		http.Redirect(w, r, "/bundles/"+form.Folders[0], http.StatusSeeOther)
 		return
 	}
 	http.Redirect(w, r, "/mcp/"+m.Name, http.StatusSeeOther)
@@ -439,8 +403,8 @@ func (s *Server) handleMCPUpdate(w http.ResponseWriter, r *http.Request) {
 		s.tmpl.render(w, r, http.StatusBadRequest, "mcp_edit", view)
 		return
 	}
-	if err := s.syncMCPSetMembership(updated.Name, form.Sets); err != nil {
-		logError("update mcp folders", err)
+	if err := s.syncServerFolders(updated.Name, form.Folders); err != nil {
+		logError("update server folders", err)
 	}
 	s.setFlash(w, "ok", fmt.Sprintf("Saved %s.", updated.Name))
 	http.Redirect(w, r, "/mcp/"+updated.Name, http.StatusSeeOther)
@@ -468,13 +432,6 @@ type catalogGroup struct {
 	Entries  []mcpcatalog.Entry
 }
 
-type mcpCatalogView struct {
-	base
-	Groups []catalogGroup
-	Added  map[string]bool
-	Total  int
-}
-
 // catalogGroups orders the catalog the way the categories are declared, then
 // appends anything the catalog knows about that the list does not.
 func catalogGroups() []catalogGroup {
@@ -500,7 +457,9 @@ func catalogGroups() []catalogGroup {
 	return out
 }
 
-func (s *Server) handleMCPCatalog(w http.ResponseWriter, r *http.Request) {
+// catalogAdded marks the entries already in the registry, so the list can show
+// them as taken rather than offering to add them twice.
+func (s *Server) catalogAdded() map[string]bool {
 	added := map[string]bool{}
 	for _, m := range s.store.MCPServers() {
 		if m.CatalogID != "" {
@@ -508,12 +467,7 @@ func (s *Server) handleMCPCatalog(w http.ResponseWriter, r *http.Request) {
 		}
 		added[m.Name] = true
 	}
-	s.tmpl.render(w, r, http.StatusOK, "mcp_catalog", mcpCatalogView{
-		base:   s.base(w, r, "mcp"),
-		Groups: catalogGroups(),
-		Added:  added,
-		Total:  mcpcatalog.Count(),
-	})
+	return added
 }
 
 func (s *Server) handleMCPCatalogAdd(w http.ResponseWriter, r *http.Request) {
@@ -521,7 +475,7 @@ func (s *Server) handleMCPCatalogAdd(w http.ResponseWriter, r *http.Request) {
 	ids := r.Form["entry"]
 	if len(ids) == 0 {
 		s.setFlash(w, "error", "Pick at least one server first.")
-		http.Redirect(w, r, "/mcp/catalog", http.StatusSeeOther)
+		http.Redirect(w, r, "/mcp#catalog", http.StatusSeeOther)
 		return
 	}
 
@@ -559,19 +513,8 @@ func (s *Server) handleMCPCatalogAdd(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/mcp", http.StatusSeeOther)
 }
 
-// ---------- mcp folders ----------
-
-type mcpSetView struct {
-	base
-	Set       *store.MCPSet
-	Servers   []*store.MCPServer
-	Config    string
-	ConfigURL string
-	Env       []store.EnvVar
-}
-
-// requiredEnv collects, without duplicates, every variable the folder's servers
-// need before they will start.
+// requiredEnv collects, without duplicates, every variable a set of servers
+// needs before they will start.
 func requiredEnv(servers []*store.MCPServer) []store.EnvVar {
 	var out []store.EnvVar
 	seen := map[string]bool{}
@@ -588,179 +531,12 @@ func requiredEnv(servers []*store.MCPServer) []store.EnvVar {
 	return out
 }
 
-func (s *Server) handleMCPSet(w http.ResponseWriter, r *http.Request) {
-	set, err := s.store.MCPSet(r.PathValue("name"))
-	if err != nil {
-		s.notFound(w, r, "mcp folder")
-		return
-	}
-	servers := s.store.MCPSetServers(set)
-	var config string
-	if raw, err := s.store.RenderMCPSet(set); err != nil {
-		logError("render mcp folder", err)
-	} else {
-		config = string(raw)
-	}
-	s.tmpl.render(w, r, http.StatusOK, "mcpset", mcpSetView{
-		base:      s.base(w, r, "mcp"),
-		Set:       set,
-		Servers:   servers,
-		Config:    config,
-		ConfigURL: s.baseURL(r) + "/api/v1/mcpsets/" + set.Name + "/config",
-		Env:       requiredEnv(servers),
-	})
-}
-
-type mcpSetForm struct {
-	Name        string
-	Title       string
-	Description string
-	Servers     []string
-}
-
-type mcpSetEditView struct {
-	base
-	IsNew      bool
-	Set        *store.MCPSet
-	Form       mcpSetForm
-	AllServers []*store.MCPServer
-	Selected   map[string]bool
-	Error      string
-}
-
-func (s *Server) handleMCPSetNew(w http.ResponseWriter, r *http.Request) {
-	s.tmpl.render(w, r, http.StatusOK, "mcpset_edit", mcpSetEditView{
-		base:       s.base(w, r, "mcp"),
-		IsNew:      true,
-		Set:        &store.MCPSet{},
-		AllServers: s.store.MCPServers(),
-		Selected:   map[string]bool{},
-	})
-}
-
-func (s *Server) handleMCPSetEdit(w http.ResponseWriter, r *http.Request) {
-	set, err := s.store.MCPSet(r.PathValue("name"))
-	if err != nil {
-		s.notFound(w, r, "mcp folder")
-		return
-	}
-	selected := map[string]bool{}
-	for _, n := range set.Servers {
-		selected[n] = true
-	}
-	s.tmpl.render(w, r, http.StatusOK, "mcpset_edit", mcpSetEditView{
-		base:       s.base(w, r, "mcp"),
-		Set:        set,
-		Form:       mcpSetForm{Name: set.Name, Title: set.Title, Description: set.Description, Servers: set.Servers},
-		AllServers: s.store.MCPServers(),
-		Selected:   selected,
-	})
-}
-
-func readMCPSetForm(r *http.Request) mcpSetForm {
-	_ = r.ParseForm()
-	return mcpSetForm{
-		Name:        strings.TrimSpace(r.FormValue("name")),
-		Title:       strings.TrimSpace(r.FormValue("title")),
-		Description: strings.TrimSpace(r.FormValue("description")),
-		Servers:     r.Form["servers"],
-	}
-}
-
-func (s *Server) handleMCPSetCreate(w http.ResponseWriter, r *http.Request) {
-	form := readMCPSetForm(r)
-	view := mcpSetEditView{
-		base: s.base(w, r, "mcp"), IsNew: true, Set: &store.MCPSet{}, Form: form,
-		AllServers: s.store.MCPServers(), Selected: selectedSet(form.Servers),
-	}
-	if err := store.ValidateName(form.Name); err != nil {
-		view.Error = "Name: " + err.Error()
-		s.tmpl.render(w, r, http.StatusBadRequest, "mcpset_edit", view)
-		return
-	}
-	set := &store.MCPSet{Name: form.Name, Title: form.Title, Description: form.Description, Servers: form.Servers}
-	if err := s.store.CreateMCPSet(set); err != nil {
-		if errors.Is(err, store.ErrExists) {
-			view.Error = fmt.Sprintf("There is already a folder called %q.", form.Name)
-		} else {
-			view.Error = err.Error()
-		}
-		s.tmpl.render(w, r, http.StatusBadRequest, "mcpset_edit", view)
-		return
-	}
-	s.setFlash(w, "ok", fmt.Sprintf("Created %s.", set.Name))
-	http.Redirect(w, r, "/mcpsets/"+set.Name, http.StatusSeeOther)
-}
-
-func (s *Server) handleMCPSetUpdate(w http.ResponseWriter, r *http.Request) {
-	current := r.PathValue("name")
-	set, err := s.store.MCPSet(current)
-	if err != nil {
-		s.notFound(w, r, "mcp folder")
-		return
-	}
-	form := readMCPSetForm(r)
-	view := mcpSetEditView{
-		base: s.base(w, r, "mcp"), Set: set, Form: form,
-		AllServers: s.store.MCPServers(), Selected: selectedSet(form.Servers),
-	}
-	if err := store.ValidateName(form.Name); err != nil {
-		view.Error = "Name: " + err.Error()
-		s.tmpl.render(w, r, http.StatusBadRequest, "mcpset_edit", view)
-		return
-	}
-	updated := &store.MCPSet{Name: form.Name, Title: form.Title, Description: form.Description, Servers: form.Servers}
-	if err := s.store.SaveMCPSet(updated); err != nil {
-		view.Error = err.Error()
-		s.tmpl.render(w, r, http.StatusBadRequest, "mcpset_edit", view)
-		return
-	}
-	if form.Name != current {
-		if err := s.store.DeleteMCPSet(current); err != nil {
-			logError("delete old mcp folder", err)
-		}
-	}
-	s.setFlash(w, "ok", fmt.Sprintf("Saved %s.", updated.Name))
-	http.Redirect(w, r, "/mcpsets/"+updated.Name, http.StatusSeeOther)
-}
-
-func (s *Server) handleMCPSetDelete(w http.ResponseWriter, r *http.Request) {
-	name := r.PathValue("name")
-	if err := s.store.DeleteMCPSet(name); err != nil {
-		if errors.Is(err, store.ErrNotFound) {
-			s.notFound(w, r, "mcp folder")
-			return
-		}
-		s.setFlash(w, "error", err.Error())
-		http.Redirect(w, r, "/mcpsets/"+name, http.StatusSeeOther)
-		return
-	}
-	s.setFlash(w, "ok", fmt.Sprintf("Deleted %s.", name))
-	http.Redirect(w, r, "/mcp", http.StatusSeeOther)
-}
-
-// handleMCPSetConfig hands over the generated file itself, for anyone who would
-// rather drop it into a project by hand than run the CLI.
-func (s *Server) handleMCPSetConfig(w http.ResponseWriter, r *http.Request) {
-	set, err := s.store.MCPSet(r.PathValue("name"))
-	if err != nil {
-		s.notFound(w, r, "mcp folder")
-		return
-	}
-	raw, err := s.store.RenderMCPSet(set)
-	if err != nil {
-		s.setFlash(w, "error", err.Error())
-		http.Redirect(w, r, "/mcpsets/"+set.Name, http.StatusSeeOther)
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", set.Name+".mcp.json"))
-	if _, err := w.Write(raw); err != nil {
-		logError("write mcp config", err)
-	}
-}
-
 // ---------- API ----------
+
+// Servers used to live in their own kind of folder, served at /api/v1/mcpsets.
+// There is one kind of folder now, but a CLI that is already installed still
+// asks at the old address, so these endpoints answer from bundles and keep
+// `circe mcp <folder>` working against a freshly updated registry.
 
 // mcpSetManifest is what the CLI resolves before writing a project's .mcp.json.
 // The servers are included in full so the CLI does not have to fetch each one.
@@ -789,40 +565,44 @@ func (s *Server) apiMCP(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, m)
 }
 
+// apiMCPSets lists the folders that carry servers. A folder with none of them
+// installs nothing through `circe mcp`, so offering it would waste a choice.
 func (s *Server) apiMCPSets(w http.ResponseWriter, r *http.Request) {
-	sets := s.store.MCPSets()
-	if sets == nil {
-		sets = []*store.MCPSet{}
+	sets := []*store.Bundle{}
+	for _, b := range s.store.Bundles() {
+		if len(b.Servers) > 0 {
+			sets = append(sets, b)
+		}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"mcpsets": sets})
 }
 
 func (s *Server) apiMCPSet(w http.ResponseWriter, r *http.Request) {
-	set, err := s.store.MCPSet(r.PathValue("name"))
+	b, err := s.store.Bundle(r.PathValue("name"))
 	if err != nil {
 		writeJSONError(w, http.StatusNotFound, "not_found", err.Error())
 		return
 	}
-	servers := s.store.MCPSetServers(set)
+	servers := s.store.BundleServers(b)
 	if servers == nil {
 		servers = []*store.MCPServer{}
 	}
 	writeJSON(w, http.StatusOK, mcpSetManifest{
-		Name:        set.Name,
-		Title:       set.Title,
-		Description: set.Description,
-		UpdatedAt:   set.UpdatedAt,
+		Name:        b.Name,
+		Title:       b.Title,
+		Description: b.Description,
+		UpdatedAt:   b.UpdatedAt,
 		Servers:     servers,
 	})
 }
 
 func (s *Server) apiMCPSetConfig(w http.ResponseWriter, r *http.Request) {
-	set, err := s.store.MCPSet(r.PathValue("name"))
+	b, err := s.store.Bundle(r.PathValue("name"))
 	if err != nil {
 		writeJSONError(w, http.StatusNotFound, "not_found", err.Error())
 		return
 	}
-	raw, err := s.store.RenderMCPSet(set)
+	raw, err := s.store.RenderBundleMCP(b)
 	if err != nil {
 		writeJSONError(w, http.StatusInternalServerError, "internal", err.Error())
 		return

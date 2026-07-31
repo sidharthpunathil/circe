@@ -30,11 +30,17 @@ type Skill struct {
 
 // Bundle is the wire representation of a bundle.
 type Bundle struct {
-	Name        string    `json:"name"`
-	Title       string    `json:"title,omitempty"`
-	Description string    `json:"description,omitempty"`
-	Skills      []string  `json:"skills"`
-	UpdatedAt   time.Time `json:"updatedAt"`
+	Name        string   `json:"name"`
+	Title       string   `json:"title,omitempty"`
+	Description string   `json:"description,omitempty"`
+	Skills      []string `json:"skills"`
+	// A folder holds any mix of the three kinds, so the listing has to carry
+	// all three. Leaving these out made a folder of servers look empty to
+	// anything that only read the list, which is how `circe mcp` with no
+	// argument decides what to show.
+	Rules     []string  `json:"rules,omitempty"`
+	Servers   []string  `json:"servers,omitempty"`
+	UpdatedAt time.Time `json:"updatedAt"`
 }
 
 // SkillListResponse is returned by GET /api/v1/skills.

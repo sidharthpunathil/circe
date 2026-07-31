@@ -37,25 +37,23 @@
 
       <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {{ range .Bundles }}
-          <a href="/bundles/{{ .Bundle.Name }}" class="card group flex flex-col gap-3">
+          <a href="/bundles/{{ .Bundle.Name }}" class="card group flex flex-col gap-3 min-w-0">
             <div class="flex items-start gap-3">
-              <h3 class="text-[15px] font-medium text-fg leading-snug flex-1 min-w-0">
+              <h3 class="text-[15px] font-medium text-fg leading-snug flex-1 min-w-0 break-words">
                 {{ .Bundle.DisplayTitle }}
               </h3>
-              <span class="badge shrink-0"
-                >{{ len .Bundle.Skills }}
-                {{ pluralize (len .Bundle.Skills) "skill" "skills" }}</span
-              >
+              <span class="badge shrink-0">{{ .Bundle.Count }}</span>
             </div>
             {{ with .Bundle.Description }}
               <p class="text-[13px] leading-[1.55] text-fg-3 line-clamp-2">{{ truncate 120 . }}</p>
             {{ end }}
-            <div class="flex flex-wrap gap-1.5">
+            <div class="flex flex-wrap gap-1.5 min-w-0">
               {{ range .Preview }}
-                <span class="meta">{{ .Name }}</span>
+                <span class="meta break-all">{{ . }}</span>
               {{ end }}
               {{ if .More }}<span class="meta text-fg-3/60">+{{ .More }}</span>{{ end }}
             </div>
+            <div class="meta min-w-0 break-words">{{ .Summary }}</div>
           </a>
         {{ end }}
       </div>

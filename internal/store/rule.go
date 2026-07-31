@@ -1,7 +1,6 @@
 package store
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -68,35 +67,8 @@ func (r *Rule) Writes(target string) bool {
 // TagsCSV renders tags for a form field.
 func (r *Rule) TagsCSV() string { return strings.Join(r.Tags, ", ") }
 
-// RuleSet is a named group of rules, the unit the CLI installs.
-type RuleSet struct {
-	Name        string    `json:"name"`
-	Title       string    `json:"title,omitempty"`
-	Description string    `json:"description,omitempty"`
-	Rules       []string  `json:"rules"`
-	UpdatedAt   time.Time `json:"updatedAt"`
-}
+func (s *Store) rulesDir() string { return filepath.Join(s.root, "rules") }
 
-// Has reports whether the set already contains the named rule.
-func (s *RuleSet) Has(rule string) bool {
-	for _, r := range s.Rules {
-		if r == rule {
-			return true
-		}
-	}
-	return false
-}
-
-// DisplayTitle falls back to the name when no title is set.
-func (s *RuleSet) DisplayTitle() string {
-	if strings.TrimSpace(s.Title) != "" {
-		return s.Title
-	}
-	return s.Name
-}
-
-func (s *Store) rulesDir() string    { return filepath.Join(s.root, "rules") }
-func (s *Store) ruleSetsDir() string { return filepath.Join(s.root, "rulesets") }
 func (s *Store) rulePath(n string) string {
 	return filepath.Join(s.rulesDir(), n+".md")
 }
@@ -124,35 +96,8 @@ func (s *Store) reloadRules() error {
 		}
 	}
 
-	sets := map[string]*RuleSet{}
-	if entries, err := os.ReadDir(s.ruleSetsDir()); err == nil {
-		for _, e := range entries {
-			if e.IsDir() || !strings.HasSuffix(e.Name(), ".json") {
-				continue
-			}
-			name := strings.TrimSuffix(e.Name(), ".json")
-			if ValidateName(name) != nil {
-				continue
-			}
-			raw, err := os.ReadFile(filepath.Join(s.ruleSetsDir(), e.Name()))
-			if err != nil {
-				continue
-			}
-			var set RuleSet
-			if err := json.Unmarshal(raw, &set); err != nil {
-				fmt.Fprintf(os.Stderr, "circe: skipping rule folder %q: %v\n", name, err)
-				continue
-			}
-			set.Name = name
-			if set.Rules == nil {
-				set.Rules = []string{}
-			}
-			sets[name] = &set
-		}
-	}
-
 	s.mu.Lock()
-	s.rules, s.ruleSets = rules, sets
+	s.rules = rules
 	s.mu.Unlock()
 	return nil
 }
@@ -268,58 +213,6 @@ func (s *Store) SearchRules(query string) []*Rule {
 	return out
 }
 
-// RuleSets returns every rule folder sorted by name.
-func (s *Store) RuleSets() []*RuleSet {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	out := make([]*RuleSet, 0, len(s.ruleSets))
-	for _, set := range s.ruleSets {
-		out = append(out, set)
-	}
-	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
-	return out
-}
-
-// RuleSet returns one rule folder by name.
-func (s *Store) RuleSet(name string) (*RuleSet, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	set, ok := s.ruleSets[name]
-	if !ok {
-		return nil, fmt.Errorf("rule folder %q: %w", name, ErrNotFound)
-	}
-	return set, nil
-}
-
-// RuleSetCount returns how many rule folders are stored.
-func (s *Store) RuleSetCount() int {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return len(s.ruleSets)
-}
-
-// RuleSetRules resolves a folder's rules, skipping any that no longer exist.
-func (s *Store) RuleSetRules(set *RuleSet) []*Rule {
-	out := make([]*Rule, 0, len(set.Rules))
-	for _, name := range set.Rules {
-		if r, err := s.Rule(name); err == nil {
-			out = append(out, r)
-		}
-	}
-	return out
-}
-
-// RuleSetsContaining returns folders that include the named rule.
-func (s *Store) RuleSetsContaining(rule string) []*RuleSet {
-	var out []*RuleSet
-	for _, set := range s.RuleSets() {
-		if set.Has(rule) {
-			out = append(out, set)
-		}
-	}
-	return out
-}
-
 // ---------- mutations ----------
 
 // SaveRule writes a rule to disk.
@@ -384,23 +277,23 @@ func (s *Store) DeleteRule(name string) error {
 
 	s.mu.Lock()
 	delete(s.rules, name)
-	var affected []*RuleSet
-	for _, set := range s.ruleSets {
-		if set.Has(name) {
-			kept := set.Rules[:0]
-			for _, rn := range set.Rules {
+	var affected []*Bundle
+	for _, b := range s.bundles {
+		if b.HasRule(name) {
+			kept := make([]string, 0, len(b.Rules))
+			for _, rn := range b.Rules {
 				if rn != name {
 					kept = append(kept, rn)
 				}
 			}
-			set.Rules = kept
-			affected = append(affected, set)
+			b.Rules = kept
+			affected = append(affected, b)
 		}
 	}
 	s.mu.Unlock()
 
-	for _, set := range affected {
-		if err := s.SaveRuleSet(set); err != nil {
+	for _, b := range affected {
+		if err := s.SaveBundle(b); err != nil {
 			return err
 		}
 	}
@@ -434,19 +327,19 @@ func (s *Store) RenameRule(oldName, newName string) error {
 
 	s.mu.Lock()
 	delete(s.rules, oldName)
-	var affected []*RuleSet
-	for _, set := range s.ruleSets {
-		for i, rn := range set.Rules {
+	var affected []*Bundle
+	for _, b := range s.bundles {
+		for i, rn := range b.Rules {
 			if rn == oldName {
-				set.Rules[i] = newName
-				affected = append(affected, set)
+				b.Rules[i] = newName
+				affected = append(affected, b)
 			}
 		}
 	}
 	s.mu.Unlock()
 
-	for _, set := range affected {
-		if err := s.SaveRuleSet(set); err != nil {
+	for _, b := range affected {
+		if err := s.SaveBundle(b); err != nil {
 			return err
 		}
 	}
@@ -464,79 +357,39 @@ func (s *Store) refreshRule(name string) error {
 	return nil
 }
 
-// SaveRuleSet writes a rule folder, dropping references to missing rules.
-func (s *Store) SaveRuleSet(set *RuleSet) error {
-	if err := ValidateName(set.Name); err != nil {
-		return err
-	}
-	kept := make([]string, 0, len(set.Rules))
-	seen := map[string]bool{}
-	for _, name := range set.Rules {
-		if seen[name] {
-			continue
+// ---------- rules inside a folder ----------
+
+// BundleRules resolves a folder's rules, skipping any that no longer exist.
+func (s *Store) BundleRules(b *Bundle) []*Rule {
+	out := make([]*Rule, 0, len(b.Rules))
+	for _, name := range b.Rules {
+		if r, err := s.Rule(name); err == nil {
+			out = append(out, r)
 		}
-		if _, err := s.Rule(name); err != nil {
-			continue
+	}
+	return out
+}
+
+// BundlesContainingRule returns folders that include the named rule.
+func (s *Store) BundlesContainingRule(rule string) []*Bundle {
+	var out []*Bundle
+	for _, b := range s.Bundles() {
+		if b.HasRule(rule) {
+			out = append(out, b)
 		}
-		seen[name] = true
-		kept = append(kept, name)
 	}
-	set.Rules = kept
-	set.UpdatedAt = time.Now()
-
-	raw, err := json.MarshalIndent(set, "", "  ")
-	if err != nil {
-		return err
-	}
-	if err := os.MkdirAll(s.ruleSetsDir(), 0o755); err != nil {
-		return err
-	}
-	if err := writeFileAtomic(filepath.Join(s.ruleSetsDir(), set.Name+".json"), append(raw, '\n')); err != nil {
-		return err
-	}
-
-	s.mu.Lock()
-	s.ruleSets[set.Name] = set
-	s.mu.Unlock()
-	return nil
+	return out
 }
 
-// CreateRuleSet saves a new rule folder, failing if the name is taken.
-func (s *Store) CreateRuleSet(set *RuleSet) error {
-	if err := ValidateName(set.Name); err != nil {
-		return err
-	}
-	if _, err := s.RuleSet(set.Name); err == nil {
-		return fmt.Errorf("rule folder %q: %w", set.Name, ErrExists)
-	}
-	return s.SaveRuleSet(set)
-}
-
-// DeleteRuleSet removes a rule folder. The rules themselves are kept.
-func (s *Store) DeleteRuleSet(name string) error {
-	if err := ValidateName(name); err != nil {
-		return err
-	}
-	if _, err := s.RuleSet(name); err != nil {
-		return err
-	}
-	if err := os.Remove(filepath.Join(s.ruleSetsDir(), name+".json")); err != nil && !os.IsNotExist(err) {
-		return err
-	}
-	s.mu.Lock()
-	delete(s.ruleSets, name)
-	s.mu.Unlock()
-	return nil
-}
-
-// RenderRuleSet assembles a folder's rules into the text for each target file,
-// keyed by filename. Rules are joined in folder order so the author controls
-// the sequence the agent reads them in.
-func (s *Store) RenderRuleSet(set *RuleSet) map[string]string {
+// RenderBundleRules assembles a folder's rules into the text for each target
+// file, keyed by filename. Rules are joined in folder order, so the author
+// controls the sequence the agent reads them in, and a rule that only targets
+// AGENTS.md never lands in CLAUDE.md.
+func (s *Store) RenderBundleRules(b *Bundle) map[string]string {
 	out := map[string]string{}
 	for _, target := range RuleTargets() {
 		var parts []string
-		for _, r := range s.RuleSetRules(set) {
+		for _, r := range s.BundleRules(b) {
 			if !r.Writes(target) {
 				continue
 			}

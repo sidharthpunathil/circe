@@ -2,16 +2,15 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
-	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/sidharthpunathil/circe/internal/installer"
+	"github.com/sidharthpunathil/circe/internal/store"
 )
 
 // Rules install differently from skills: a skill is a directory copied into
@@ -19,143 +18,83 @@ import (
 // They therefore get their own verb rather than being folded into `add`.
 
 func newRulesCmd() *cobra.Command {
-	var (
-		contextMode string
-		dryRun      bool
-	)
+	var opts folderOptions
 	cmd := &cobra.Command{
-		Use:   "rules <folder>",
-		Short: "Add a folder of rules to this project",
-		Long: "Merge a rule folder into this project's CLAUDE.md and AGENTS.md.\n\n" +
-			"Your own content is left alone: the rules go in their own marked block,\n" +
-			"which is replaced rather than duplicated when you run this again.",
+		Use:   "rules [folder]",
+		Short: "Add a folder's rules to this project",
+		Long: "Merge a folder's rules into this project's CLAUDE.md and AGENTS.md,\n" +
+			"leaving its skills and MCP servers alone.\n\n" +
+			"Your own content is left alone too: the rules go in their own marked\n" +
+			"block, which is replaced rather than duplicated when you run this again.\n" +
+			"The folder's own CLAUDE.md and AGENTS.md go into the same block.\n\n" +
+			"With no folder, lists the folders that have rules in them.",
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
-				return listRuleFolders(cmd)
+				return listFolders(cmd, kindRules)
 			}
-			return runRules(cmd, args[0], contextMode, dryRun)
+			return runFolder(cmd, args[0], kindRules, &opts)
 		},
 	}
-	cmd.Flags().StringVar(&contextMode, "mode", "merge",
-		"how to apply: merge, skip or overwrite")
-	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "show what would change without writing")
+	opts.register(cmd, kindRules)
+	// The flag was called --mode when rules had a folder type of their own.
+	cmd.Flags().StringVar(&opts.context, "mode", "merge", "alias for --context")
+	_ = cmd.Flags().MarkHidden("mode")
 	return cmd
 }
 
-// ruleSetManifest mirrors what GET /api/v1/rulesets/{name} returns.
-type ruleSetManifest struct {
-	Set struct {
-		Name        string   `json:"name"`
-		Title       string   `json:"title"`
-		Description string   `json:"description"`
-		Rules       []string `json:"rules"`
-	} `json:"set"`
-	Rules []struct {
-		Name        string `json:"name"`
-		Description string `json:"description"`
-	} `json:"rules"`
-	Rendered map[string]string `json:"rendered"`
+// installFolderRules merges the folder's guidance into the project's own
+// CLAUDE.md and AGENTS.md. It returns its share of the combined summary.
+func installFolderRules(out io.Writer, root string, m *folderManifest,
+	opts *folderOptions, withRules bool) (string, error) {
+
+	files := folderGuidance(m, withRules)
+	if len(files) == 0 {
+		return "", nil
+	}
+	if err := applyContext(out, root, m.Name, files, opts.context, opts.dryRun); err != nil {
+		return "", err
+	}
+	if !withRules || len(m.Rules) == 0 {
+		return "", nil
+	}
+	return fmt.Sprintf("%d %s", len(m.Rules), pluralWord(len(m.Rules), "rule", "rules")), nil
 }
 
-func runRules(cmd *cobra.Command, folder, mode string, dryRun bool) error {
-	ctx := cmd.Context()
-	out := cmd.OutOrStdout()
-
-	root, err := projectRoot()
-	if err != nil {
-		return err
-	}
-	client, err := newClient()
-	if err != nil {
-		return err
-	}
-
-	manifest, err := fetchRuleSet(ctx, client, folder)
-	if err != nil {
-		return err
-	}
-	if len(manifest.Rendered) == 0 {
-		return fmt.Errorf("rule folder %q has nothing in it yet", folder)
-	}
-
-	label := manifest.Set.Title
-	if label == "" {
-		label = manifest.Set.Name
-	}
-	fmt.Fprintln(out, dimStyle.Render(fmt.Sprintf("%s · %d %s",
-		label, len(manifest.Rules), pluralWord(len(manifest.Rules), "rule", "rules"))))
-
-	if err := applyContext(out, root, folder, manifest.Rendered, mode, dryRun); err != nil {
-		return err
-	}
-	if dryRun {
-		fmt.Fprintln(out, dimStyle.Render("dry run: nothing was written"))
-	}
-	return nil
-}
-
-// fetchRuleSet reads a rule folder from the registry.
-func fetchRuleSet(ctx context.Context, c *installer.Client, name string) (*ruleSetManifest, error) {
-	body, err := getRaw(ctx, c, "/api/v1/rulesets/"+name)
-	if err != nil {
-		if installer.IsNotFound(err) {
-			return nil, fmt.Errorf("no rule folder named %q at %s. Try `circe rules` to list them: %w",
-				name, c.BaseURL, err)
-		}
-		return nil, err
-	}
-	var m ruleSetManifest
-	if err := json.Unmarshal(body, &m); err != nil {
-		return nil, fmt.Errorf("decode rule folder %q: %w", name, err)
-	}
-	return &m, nil
-}
-
-func listRuleFolders(cmd *cobra.Command) error {
-	out := cmd.OutOrStdout()
-	client, err := newClient()
-	if err != nil {
-		return err
-	}
-	body, err := getRaw(cmd.Context(), client, "/api/v1/rulesets")
-	if err != nil {
-		return err
-	}
-	var resp struct {
-		RuleSets []struct {
-			Name        string   `json:"name"`
-			Title       string   `json:"title"`
-			Description string   `json:"description"`
-			Rules       []string `json:"rules"`
-		} `json:"rulesets"`
-	}
-	if err := json.Unmarshal(body, &resp); err != nil {
-		return err
-	}
-	if len(resp.RuleSets) == 0 {
-		fmt.Fprintln(out, dimStyle.Render("no rule folders in the registry yet"))
-		return nil
-	}
-	sort.Slice(resp.RuleSets, func(i, j int) bool { return resp.RuleSets[i].Name < resp.RuleSets[j].Name })
-
-	col := 0
-	for _, s := range resp.RuleSets {
-		if len(s.Name) > col {
-			col = len(s.Name)
+// folderGuidance is everything the folder says to the agent, keyed by the file
+// it says it in: the folder's own CLAUDE.md and AGENTS.md first, then its rules
+// in folder order, so the author controls the sequence the agent reads them in.
+//
+// It is one string per file because it lands in one marked block per folder,
+// which is what makes re-installing replace rather than duplicate.
+func folderGuidance(m *folderManifest, withRules bool) map[string]string {
+	out := map[string]string{}
+	for file, body := range m.Context {
+		if strings.TrimSpace(body) != "" {
+			out[file] = strings.TrimRight(body, "\n")
 		}
 	}
-	for _, s := range resp.RuleSets {
-		pad := strings.Repeat(" ", col-len(s.Name))
-		desc := s.Description
-		if desc == "" {
-			desc = s.Title
-		}
-		fmt.Fprintf(out, "  %s%s  %s\n", s.Name, pad,
-			dimStyle.Render(fmt.Sprintf("%d %s  %s", len(s.Rules),
-				pluralWord(len(s.Rules), "rule", "rules"), truncate(desc, 48))))
+	if !withRules {
+		return out
 	}
-	return nil
+	for _, target := range store.RuleTargets() {
+		var parts []string
+		for _, r := range m.Rules {
+			// A rule that only targets AGENTS.md never lands in CLAUDE.md.
+			if r.Writes(target) {
+				parts = append(parts, strings.TrimRight(r.Body, "\n"))
+			}
+		}
+		if len(parts) == 0 {
+			continue
+		}
+		body := strings.Join(parts, "\n\n")
+		if existing := out[target]; existing != "" {
+			body = existing + "\n\n" + body
+		}
+		out[target] = body
+	}
+	return out
 }
 
 // getRaw performs an authenticated GET and returns the body.
@@ -181,31 +120,4 @@ func getRaw(ctx context.Context, c *installer.Client, path string) ([]byte, erro
 		return nil, &installer.APIError{Status: resp.StatusCode, URL: c.BaseURL + path}
 	}
 	return io.ReadAll(io.LimitReader(resp.Body, 8<<20))
-}
-
-// newSkillsCmd is the explicit counterpart to `circe rules`, so the two
-// resource types read symmetrically.
-func newSkillsCmd() *cobra.Command {
-	var (
-		flags       installFlags
-		yes, all    bool
-		contextMode string
-	)
-	cmd := &cobra.Command{
-		Use:   "skills <folder>",
-		Short: "Add a folder of skills to this project",
-		Long: "Install the skills in a folder into this project.\n\n" +
-			"Same as `circe <folder>`, spelled out for symmetry with\n" +
-			"`circe rules <folder>`.",
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runInit(cmd, args[0], yes || all, flags, contextMode)
-		},
-	}
-	flags.register(cmd)
-	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "install every skill in the folder without prompting")
-	cmd.Flags().BoolVar(&all, "all", false, "alias for --yes")
-	cmd.Flags().StringVar(&contextMode, "context", "merge",
-		"how to apply the folder's CLAUDE.md/AGENTS.md: merge, skip or overwrite")
-	return cmd
 }

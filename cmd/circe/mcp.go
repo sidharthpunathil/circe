@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -17,7 +16,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
 
-	"github.com/sidharthpunathil/circe/internal/installer"
 	"github.com/sidharthpunathil/circe/internal/store"
 )
 
@@ -31,176 +29,72 @@ import (
 const mcpConfigName = ".mcp.json"
 
 func newMCPCmd() *cobra.Command {
-	var (
-		opts     mcpOptions
-		yes, all bool
-	)
+	var opts folderOptions
 	cmd := &cobra.Command{
-		Use:   "mcp <folder>",
-		Short: "Add a folder of MCP servers to this project",
-		Long: "Merge a folder of MCP servers into this project's .mcp.json.\n\n" +
+		Use:   "mcp [folder]",
+		Short: "Add a folder's MCP servers to this project",
+		Long: "Merge a folder's MCP servers into this project's .mcp.json, leaving its\n" +
+			"skills and rules alone.\n\n" +
 			"Servers the project already has are left exactly as they are and reported,\n" +
 			"never replaced, unless you pass --force. Keys we do not model are carried\n" +
 			"through untouched.\n\n" +
+			"With no folder, lists the folders that have MCP servers in them.\n\n" +
 			"Without a terminal (CI, a pipe) there is nothing to pick with, so pass -y.",
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
-				return listMCPFolders(cmd)
+				return listFolders(cmd, kindServers)
 			}
-			opts.takeAll = yes || all || opts.force
-			return runMCP(cmd, args[0], opts)
+			return runFolder(cmd, args[0], kindServers, &opts)
 		},
 	}
-	cmd.Flags().StringVarP(&opts.out, "out", "o", mcpConfigName, "config file to merge the servers into")
-	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "install every server in the folder without prompting")
-	cmd.Flags().BoolVar(&all, "all", false, "alias for --yes")
-	cmd.Flags().BoolVar(&opts.force, "force", false,
-		"take the whole folder and replace servers this project already has")
-	cmd.Flags().BoolVar(&opts.dryRun, "dry-run", false, "report what would change without writing anything")
+	opts.register(cmd, kindServers)
 	return cmd
 }
 
-// mcpOptions are the flags one run of `mcp <folder>` works from.
-type mcpOptions struct {
-	out     string
-	takeAll bool
-	force   bool
-	dryRun  bool
-}
+// installFolderServers merges the folder's servers into the project's config.
+// It returns its share of the combined summary, and the servers that ended up
+// in the file so the caller can say which variables they still need.
+func installFolderServers(out io.Writer, root string, m *folderManifest,
+	opts *folderOptions) (string, []*store.MCPServer, error) {
 
-// mcpSetManifest mirrors what GET /api/v1/mcpsets/{name} returns.
-type mcpSetManifest struct {
-	Name        string             `json:"name"`
-	Title       string             `json:"title"`
-	Description string             `json:"description"`
-	Servers     []*store.MCPServer `json:"servers"`
-}
-
-func (m *mcpSetManifest) label() string {
-	if strings.TrimSpace(m.Title) != "" {
-		return m.Title
-	}
-	return m.Name
-}
-
-func runMCP(cmd *cobra.Command, folder string, opts mcpOptions) error {
-	ctx := cmd.Context()
-	out := cmd.OutOrStdout()
-
-	root, err := projectRoot()
+	// --force is a decision to take the folder as it stands, so it answers the
+	// picker as well as the collisions.
+	chosen, err := chooseMCPServers(m, opts.everything() || opts.force)
 	if err != nil {
-		return err
-	}
-	client, err := newClient()
-	if err != nil {
-		return err
-	}
-
-	manifest, err := fetchMCPSet(ctx, client, folder)
-	if err != nil {
-		return err
-	}
-	if len(manifest.Servers) == 0 {
-		return fmt.Errorf("mcp folder %q has nothing in it yet", folder)
-	}
-
-	fmt.Fprintln(out, dimStyle.Render(fmt.Sprintf("%s · %d %s",
-		manifest.label(), len(manifest.Servers),
-		pluralWord(len(manifest.Servers), "server", "servers"))))
-
-	chosen, err := chooseMCPServers(manifest, opts.takeAll)
-	if err != nil {
-		return err
+		return "", nil, err
 	}
 	if len(chosen) == 0 {
 		fmt.Fprintln(out, dimStyle.Render("no servers selected"))
-		return nil
+		return "", nil, nil
 	}
 
 	// The default target is relative to where the developer is standing, because
 	// .mcp.json is project scoped and the project is the current directory.
 	target := opts.out
+	if target == "" {
+		target = mcpConfigName
+	}
+	shown := target
 	if !filepath.IsAbs(target) {
 		target = filepath.Join(root, target)
 	}
 
 	results, written, err := applyMCPServers(target, chosen, opts.force, opts.dryRun)
 	if err != nil {
-		return err
+		return "", nil, err
 	}
-	printMCPResults(out, results, opts.out, opts.dryRun)
-	printMCPEnv(out, written, os.Getenv)
-	return nil
-}
-
-// fetchMCPSet reads a server folder from the registry.
-func fetchMCPSet(ctx context.Context, c *installer.Client, name string) (*mcpSetManifest, error) {
-	body, err := getRaw(ctx, c, "/api/v1/mcpsets/"+name)
-	if err != nil {
-		if installer.IsNotFound(err) {
-			return nil, fmt.Errorf("no mcp folder named %q at %s. Try `circe mcp` to list them: %w",
-				name, c.BaseURL, err)
-		}
-		return nil, err
+	printMCPResults(out, results, shown, opts.dryRun)
+	if len(written) == 0 {
+		return "", written, nil
 	}
-	var m mcpSetManifest
-	if err := json.Unmarshal(body, &m); err != nil {
-		return nil, fmt.Errorf("decode mcp folder %q: %w", name, err)
-	}
-	return &m, nil
-}
-
-func listMCPFolders(cmd *cobra.Command) error {
-	out := cmd.OutOrStdout()
-	client, err := newClient()
-	if err != nil {
-		return err
-	}
-	body, err := getRaw(cmd.Context(), client, "/api/v1/mcpsets")
-	if err != nil {
-		return err
-	}
-	var resp struct {
-		MCPSets []struct {
-			Name        string   `json:"name"`
-			Title       string   `json:"title"`
-			Description string   `json:"description"`
-			Servers     []string `json:"servers"`
-		} `json:"mcpsets"`
-	}
-	if err := json.Unmarshal(body, &resp); err != nil {
-		return err
-	}
-	if len(resp.MCPSets) == 0 {
-		fmt.Fprintln(out, dimStyle.Render("no mcp folders in the registry yet"))
-		return nil
-	}
-	sort.Slice(resp.MCPSets, func(i, j int) bool { return resp.MCPSets[i].Name < resp.MCPSets[j].Name })
-
-	col := 0
-	for _, s := range resp.MCPSets {
-		if len(s.Name) > col {
-			col = len(s.Name)
-		}
-	}
-	for _, s := range resp.MCPSets {
-		pad := strings.Repeat(" ", col-len(s.Name))
-		desc := s.Description
-		if desc == "" {
-			desc = s.Title
-		}
-		fmt.Fprintf(out, "  %s%s  %s\n", s.Name, pad,
-			dimStyle.Render(fmt.Sprintf("%d %s  %s", len(s.Servers),
-				pluralWord(len(s.Servers), "server", "servers"), truncate(desc, 48))))
-	}
-	return nil
+	return fmt.Sprintf("%d %s", len(written), pluralWord(len(written), "server", "servers")), written, nil
 }
 
 // chooseMCPServers picks which of the folder's servers to install.
-func chooseMCPServers(manifest *mcpSetManifest, takeAll bool) ([]*store.MCPServer, error) {
+func chooseMCPServers(m *folderManifest, takeAll bool) ([]*store.MCPServer, error) {
 	if takeAll {
-		return manifest.Servers, nil
+		return m.Servers, nil
 	}
 	if !interactive() {
 		return nil, errors.New("stdin is not a terminal, so the server picker cannot run. " +
@@ -208,9 +102,9 @@ func chooseMCPServers(manifest *mcpSetManifest, takeAll bool) ([]*store.MCPServe
 	}
 	// A folder is already a curated set, so everything starts selected and the
 	// user opts out rather than in.
-	names, err := selectMCPServers(fmt.Sprintf("%s · %d %s", manifest.label(),
-		len(manifest.Servers), pluralWord(len(manifest.Servers), "server", "servers")),
-		manifest.Servers)
+	names, err := selectMCPServers(fmt.Sprintf("%s · %d %s", m.label(),
+		len(m.Servers), pluralWord(len(m.Servers), "server", "servers")),
+		m.Servers)
 	if err != nil {
 		return nil, err
 	}
@@ -219,9 +113,9 @@ func chooseMCPServers(manifest *mcpSetManifest, takeAll bool) ([]*store.MCPServe
 		keep[n] = true
 	}
 	var chosen []*store.MCPServer
-	for _, m := range manifest.Servers {
-		if keep[m.Name] {
-			chosen = append(chosen, m)
+	for _, s := range m.Servers {
+		if keep[s.Name] {
+			chosen = append(chosen, s)
 		}
 	}
 	return chosen, nil

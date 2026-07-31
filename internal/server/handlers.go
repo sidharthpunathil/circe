@@ -15,11 +15,35 @@ import (
 	"github.com/sidharthpunathil/circe/internal/store"
 )
 
-// bundleCard is a bundle plus a short preview of its skills, for list pages.
+// bundleCard is a folder plus a short preview of what is in it, for list pages.
+// A folder holds three kinds of thing, so the card says what the mix is rather
+// than counting one kind and staying quiet about the rest.
 type bundleCard struct {
-	Bundle  *store.Bundle
-	Preview []*store.Skill
+	Bundle *store.Bundle
+	// Summary reads "6 skills · 2 rules · 3 servers", leaving out whichever
+	// kinds the folder does not have.
+	Summary string
+	Preview []string
 	More    int
+}
+
+// bundleSummary describes the mix in a folder. Zeroes are left out: "0 rules"
+// is noise, and a folder of nothing but skills should read as one.
+func bundleSummary(b *store.Bundle) string {
+	var parts []string
+	if n := len(b.Skills); n > 0 {
+		parts = append(parts, fmt.Sprintf("%d %s", n, plural(n, "skill", "skills")))
+	}
+	if n := len(b.Rules); n > 0 {
+		parts = append(parts, fmt.Sprintf("%d %s", n, plural(n, "rule", "rules")))
+	}
+	if n := len(b.Servers); n > 0 {
+		parts = append(parts, fmt.Sprintf("%d %s", n, plural(n, "server", "servers")))
+	}
+	if len(parts) == 0 {
+		return "Empty"
+	}
+	return strings.Join(parts, " · ")
 }
 
 func (s *Server) bundleCards(limit int) []bundleCard {
@@ -29,13 +53,17 @@ func (s *Server) bundleCards(limit int) []bundleCard {
 	}
 	out := make([]bundleCard, 0, len(bundles))
 	for _, b := range bundles {
-		skills := s.store.BundleSkills(b)
-		card := bundleCard{Bundle: b}
+		names := make([]string, 0, b.Count())
+		names = append(names, b.Skills...)
+		names = append(names, b.Rules...)
+		names = append(names, b.Servers...)
+
+		card := bundleCard{Bundle: b, Summary: bundleSummary(b)}
 		const previewN = 4
-		if len(skills) > previewN {
-			card.Preview, card.More = skills[:previewN], len(skills)-previewN
+		if len(names) > previewN {
+			card.Preview, card.More = names[:previewN], len(names)-previewN
 		} else {
-			card.Preview = skills
+			card.Preview = names
 		}
 		out = append(out, card)
 	}
@@ -661,8 +689,16 @@ func (s *Server) handleBundles(w http.ResponseWriter, r *http.Request) {
 
 type bundleView struct {
 	base
-	Bundle         *store.Bundle
-	Skills         []*store.Skill
+	Bundle  *store.Bundle
+	Skills  []*store.Skill
+	Rules   []*store.Rule
+	Servers []*store.MCPServer
+	Summary string
+	// Rendered is the rule text as it lands in the project, keyed by the file
+	// it goes into. MCPConfig is the same idea for the servers.
+	Rendered       map[string]string
+	MCPConfig      string
+	Env            []store.EnvVar
 	Size           int64
 	MarketplaceURL string
 	Context        map[string]string
@@ -690,10 +726,27 @@ func (s *Server) handleBundle(w http.ResponseWriter, r *http.Request) {
 	for _, sk := range skills {
 		size += sk.Size
 	}
+
+	servers := s.store.BundleServers(b)
+	var mcpConfig string
+	if len(servers) > 0 {
+		if raw, err := s.store.RenderBundleMCP(b); err != nil {
+			logError("render folder mcp config", err)
+		} else {
+			mcpConfig = string(raw)
+		}
+	}
+
 	s.tmpl.render(w, r, http.StatusOK, "bundle", bundleView{
 		base:           s.base(w, r, "bundles"),
 		Bundle:         b,
 		Skills:         skills,
+		Rules:          s.store.BundleRules(b),
+		Servers:        servers,
+		Summary:        bundleSummary(b),
+		Rendered:       s.store.RenderBundleRules(b),
+		MCPConfig:      mcpConfig,
+		Env:            requiredEnv(servers),
 		Size:           size,
 		MarketplaceURL: s.baseURL(r),
 		Context:        s.store.BundleContexts(b.Name),
@@ -710,26 +763,29 @@ type bundleForm struct {
 	Title       string
 	Description string
 	Skills      []string
+	Rules       []string
+	Servers     []string
 }
 
 type bundleEditView struct {
 	base
-	IsNew     bool
-	Bundle    *store.Bundle
-	Form      bundleForm
-	AllSkills []*store.Skill
-	Selected  map[string]bool
-	Error     string
+	IsNew      bool
+	Bundle     *store.Bundle
+	Form       bundleForm
+	AllSkills  []*store.Skill
+	AllRules   []*store.Rule
+	AllServers []*store.MCPServer
+	// One lookup per kind, so a rule and a skill that share a name cannot tick
+	// each other's box.
+	Selected        map[string]bool
+	SelectedRules   map[string]bool
+	SelectedServers map[string]bool
+	Error           string
 }
 
 func (s *Server) handleBundleNew(w http.ResponseWriter, r *http.Request) {
-	s.tmpl.render(w, r, http.StatusOK, "bundle_edit", bundleEditView{
-		base:      s.base(w, r, "bundles"),
-		IsNew:     true,
-		Bundle:    &store.Bundle{},
-		AllSkills: s.store.Skills(),
-		Selected:  map[string]bool{},
-	})
+	s.tmpl.render(w, r, http.StatusOK, "bundle_edit",
+		s.bundleEditViewFrom(w, r, bundleForm{}, true, &store.Bundle{}))
 }
 
 func (s *Server) handleBundleEdit(w http.ResponseWriter, r *http.Request) {
@@ -738,22 +794,15 @@ func (s *Server) handleBundleEdit(w http.ResponseWriter, r *http.Request) {
 		s.notFound(w, r, "bundle")
 		return
 	}
-	selected := map[string]bool{}
-	for _, n := range b.Skills {
-		selected[n] = true
+	form := bundleForm{
+		Name:        b.Name,
+		Title:       b.Title,
+		Description: b.Description,
+		Skills:      b.Skills,
+		Rules:       b.Rules,
+		Servers:     b.Servers,
 	}
-	s.tmpl.render(w, r, http.StatusOK, "bundle_edit", bundleEditView{
-		base:   s.base(w, r, "bundles"),
-		Bundle: b,
-		Form: bundleForm{
-			Name:        b.Name,
-			Title:       b.Title,
-			Description: b.Description,
-			Skills:      b.Skills,
-		},
-		AllSkills: s.store.Skills(),
-		Selected:  selected,
-	})
+	s.tmpl.render(w, r, http.StatusOK, "bundle_edit", s.bundleEditViewFrom(w, r, form, false, b))
 }
 
 func readBundleForm(r *http.Request) bundleForm {
@@ -763,21 +812,23 @@ func readBundleForm(r *http.Request) bundleForm {
 		Title:       strings.TrimSpace(r.FormValue("title")),
 		Description: strings.TrimSpace(r.FormValue("description")),
 		Skills:      r.Form["skills"],
+		Rules:       r.Form["rules"],
+		Servers:     r.Form["servers"],
 	}
 }
 
 func (s *Server) bundleEditViewFrom(w http.ResponseWriter, r *http.Request, form bundleForm, isNew bool, b *store.Bundle) bundleEditView {
-	selected := map[string]bool{}
-	for _, n := range form.Skills {
-		selected[n] = true
-	}
 	return bundleEditView{
-		base:      s.base(w, r, "bundles"),
-		IsNew:     isNew,
-		Bundle:    b,
-		Form:      form,
-		AllSkills: s.store.Skills(),
-		Selected:  selected,
+		base:            s.base(w, r, "bundles"),
+		IsNew:           isNew,
+		Bundle:          b,
+		Form:            form,
+		AllSkills:       s.store.Skills(),
+		AllRules:        s.store.Rules(),
+		AllServers:      s.store.MCPServers(),
+		Selected:        selectedSet(form.Skills),
+		SelectedRules:   selectedSet(form.Rules),
+		SelectedServers: selectedSet(form.Servers),
 	}
 }
 
@@ -795,6 +846,8 @@ func (s *Server) handleBundleCreate(w http.ResponseWriter, r *http.Request) {
 		Title:       form.Title,
 		Description: form.Description,
 		Skills:      form.Skills,
+		Rules:       form.Rules,
+		Servers:     form.Servers,
 	}
 	if err := s.store.CreateBundle(b); err != nil {
 		if errors.Is(err, store.ErrExists) {
@@ -838,6 +891,8 @@ func (s *Server) handleBundleUpdate(w http.ResponseWriter, r *http.Request) {
 		Title:       form.Title,
 		Description: form.Description,
 		Skills:      form.Skills,
+		Rules:       form.Rules,
+		Servers:     form.Servers,
 	}
 	if err := s.store.SaveBundle(updated); err != nil {
 		view.Error = err.Error()

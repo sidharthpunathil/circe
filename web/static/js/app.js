@@ -60,11 +60,20 @@
   });
 
   // Checkbox pickers: filter, select all/none, and a live selected count.
+  //
+  // A page can carry several pickers at once (a folder holds skills, rules and
+  // servers), so a picker's own count and "nothing matched" line are looked up
+  // inside its [data-picker] wrapper. Without a wrapper the whole document is
+  // the scope, which is what a single-picker page wants.
+  function pickerRoot(el) {
+    return (el && el.closest && el.closest("[data-picker]")) || document;
+  }
+
   function countSelected(scope) {
     var boxes = scope.querySelectorAll('input[type="checkbox"]');
     var n = 0;
     boxes.forEach(function (b) { if (b.checked) n++; });
-    document.querySelectorAll("[data-selected-count]").forEach(function (el) {
+    pickerRoot(scope).querySelectorAll("[data-selected-count]").forEach(function (el) {
       el.textContent = String(n);
     });
   }
@@ -72,7 +81,7 @@
   document.querySelectorAll("[data-filter]").forEach(function (input) {
     var scope = document.querySelector(input.getAttribute("data-filter"));
     if (!scope) return;
-    var emptyMsg = document.querySelector("[data-filter-empty]");
+    var emptyMsg = pickerRoot(scope).querySelector("[data-filter-empty]");
     input.addEventListener("input", function () {
       var q = input.value.trim().toLowerCase();
       var visible = 0;
@@ -103,7 +112,7 @@
   bindBulk("data-select-all", true);
   bindBulk("data-select-none", false);
 
-  document.querySelectorAll("#skill-picker, #import-picker").forEach(function (scope) {
+  document.querySelectorAll("#skill-picker, #import-picker, [data-picker-list]").forEach(function (scope) {
     scope.addEventListener("change", function () { countSelected(scope); });
     countSelected(scope);
   });

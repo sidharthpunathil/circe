@@ -107,24 +107,47 @@ func ParseTags(s string) []string {
 	return out
 }
 
-// Bundle is a named, ordered set of skills that the CLI can install together.
+// Bundle is a named set of everything a project needs at once: skills to
+// install, rules to merge into its CLAUDE.md, and MCP servers to add to its
+// .mcp.json.
+//
+// There used to be three parallel folder types, one per kind. That was a
+// modelling mistake: the reason to group things is that you reach for them
+// together, and what you reach for together is rarely all one kind. One folder
+// holds any mix, and the CLI installs whichever parts you ask for.
 type Bundle struct {
 	Name        string    `json:"name"`
 	Title       string    `json:"title,omitempty"`
 	Description string    `json:"description,omitempty"`
 	Skills      []string  `json:"skills"`
+	Rules       []string  `json:"rules,omitempty"`
+	Servers     []string  `json:"servers,omitempty"`
 	UpdatedAt   time.Time `json:"updatedAt"`
 }
 
-// Has reports whether the bundle already contains the named skill.
-func (b *Bundle) Has(skill string) bool {
-	for _, s := range b.Skills {
-		if s == skill {
+func contains(list []string, want string) bool {
+	for _, v := range list {
+		if v == want {
 			return true
 		}
 	}
 	return false
 }
+
+// Has reports whether the bundle already contains the named skill.
+func (b *Bundle) Has(skill string) bool { return contains(b.Skills, skill) }
+
+// HasRule reports whether the bundle already contains the named rule.
+func (b *Bundle) HasRule(name string) bool { return contains(b.Rules, name) }
+
+// HasServer reports whether the bundle already contains the named server.
+func (b *Bundle) HasServer(name string) bool { return contains(b.Servers, name) }
+
+// Count is how many things are in the folder, across all three kinds.
+func (b *Bundle) Count() int { return len(b.Skills) + len(b.Rules) + len(b.Servers) }
+
+// IsEmpty reports whether the folder would install nothing.
+func (b *Bundle) IsEmpty() bool { return b.Count() == 0 }
 
 // DisplayTitle falls back to the name when no title is set.
 func (b *Bundle) DisplayTitle() string {

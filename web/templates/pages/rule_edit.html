@@ -68,26 +68,24 @@
         <p class="hint">Markdown. This is copied into the project exactly as written.</p>
       </div>
 
-      {{ if .AllSets }}
-        <div>
-          <span class="label mb-0">Folders</span>
-          <p class="hint mt-1 mb-2.5">
-            Folders are what you install:
-            <span class="font-mono">circe rules &lt;folder&gt;</span>.
-          </p>
-          <div class="flex flex-wrap gap-2">
-            {{ $inS := .InSet }}
-            {{ range .AllSets }}
-              <label class="badge cursor-pointer has-[:checked]:badge-active transition-colors select-none">
-                <input type="checkbox" name="sets" value="{{ .Name }}"
-                  {{ if index $inS .Name }}checked{{ end }} class="accent-accent" />
-                {{ .DisplayTitle }}
-              </label>
-            {{ end }}
-            <a href="/rulesets/new" class="badge hover:text-fg transition-colors">+ New folder</a>
-          </div>
+      <div>
+        <span class="label mb-0">Folders</span>
+        <p class="hint mt-1 mb-2.5">
+          A folder is what you install, and it can hold skills and servers too:
+          <span class="font-mono">circe rules &lt;folder&gt;</span>.
+        </p>
+        <div class="flex flex-wrap gap-2">
+          {{ $inF := .InFolder }}
+          {{ range .AllFolders }}
+            <label class="badge cursor-pointer has-[:checked]:badge-active transition-colors select-none">
+              <input type="checkbox" name="folders" value="{{ .Name }}"
+                {{ if index $inF .Name }}checked{{ end }} class="accent-accent" />
+              {{ .DisplayTitle }}
+            </label>
+          {{ end }}
+          <a href="/bundles/new" class="badge hover:text-fg transition-colors">+ New folder</a>
         </div>
-      {{ end }}
+      </div>
 
       <div class="flex flex-wrap items-center gap-2.5 pt-1">
         <button type="submit" class="btn btn-primary">{{ if .IsNew }}Create rule{{ else }}Save changes{{ end }}</button>

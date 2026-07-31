@@ -32,16 +32,18 @@ project needs three different things from you:
 | **MCP servers** | A live connection to something outside the repo | `.mcp.json` |
 
 - **Write and edit** in a proper editor, with validation against the real `SKILL.md` rules.
-- **Group them into folders.** A folder is the unit you install.
-- **Install with one command**: `circe my-folder` drops every skill in it into
-  `./.claude/skills/`. `circe rules <folder>` and `circe mcp <folder>` do the same for the
-  other two.
+- **Group them into folders.** A folder holds any mix of the three, and is the unit you
+  install. A project needs a procedure, a house style and a database connection at the
+  same time, so one folder carries all of it.
+- **Install with one command**: `circe my-folder` installs everything in the folder, each
+  kind where it belongs. `circe skills`, `circe rules` and `circe mcp` narrow it to one
+  kind when that is all you want.
 - **Import from anywhere**: a repo on any git host (GitHub, GitLab, Bitbucket, Codeberg,
   self-hosted Gitea/Forgejo), a pasted `SKILL.md` or `.mcp.json`, your local
   `~/.claude/skills`, or a share code from someone else's registry. Content is copied in,
   so it stays yours even if the source disappears.
-- **A catalog of 32 known MCP servers**, so adding GitHub or Postgres does not start with
-  looking up a command line.
+- **A catalog of 32 known MCP servers** on the MCP tab, so adding GitHub or Postgres does
+  not start with looking up a command line.
 - **No database.** Everything is plain files on disk, so the storage directory *is* your
   backup. Commit it to git if you like.
 
@@ -96,17 +98,21 @@ or `make build` from a clone. Full options in [docs/install.md](docs/install.md)
 
 ## Use it
 
-Create a folder on the site, tick the skills that belong in it, then in any project:
+Create a folder on the site, tick the skills, rules and servers that belong in it, then in
+any project:
 
 ```bash
-circe my-folder        # pick which of its skills to install
-circe my-folder -y     # install all of them
+circe my-folder        # install the whole folder, picking as you go
+circe my-folder -y     # take all of it, no prompts
+circe skills my-folder # only its skills
 circe add design-taste # install a single skill
 ```
 
 Skills land in `.claude/skills/<name>/` and are recorded in `circe.json`, so
 `circe pull` restores the same set on any machine. Local edits are never clobbered:
-`pull` holds back anything you've changed unless you pass `--force`.
+`pull` holds back anything you've changed unless you pass `--force`. Rules merge into
+`CLAUDE.md` and `AGENTS.md`, servers into `.mcp.json`, each into the project's own file
+and without disturbing what you put there.
 
 Point the CLI at your deployment once:
 
@@ -121,10 +127,10 @@ fails here rather than somewhere confusing later. `circe logout` forgets it.
 
 | Command | What it does |
 | --- | --- |
-| `circe <folder>` | Choose skills from a folder and install them. `-y` takes all. |
-| `circe skills <folder>` | The same thing, spelled out. |
-| `circe rules <folder>` | Merge a rule folder into this project's CLAUDE.md / AGENTS.md. No args lists them. |
-| `circe mcp <folder>` | Merge a folder of MCP servers into this project's `.mcp.json`. No args lists them. |
+| `circe <folder>` | Install everything in a folder: its skills, its rules, its MCP servers. `-y` takes all. |
+| `circe skills <folder>` | Only the skills. No args lists the folders that have some. |
+| `circe rules <folder>` | Only the rules, merged into this project's CLAUDE.md / AGENTS.md. No args lists them. |
+| `circe mcp <folder>` | Only the MCP servers, merged into this project's `.mcp.json`. No args lists them. |
 | `circe add <skill>…` | Install specific skills; no args opens a picker. |
 | `circe list` | Show installed skills and whether they've drifted. `--remote` lists the registry. |
 | `circe search <query>` | Search the registry. |
@@ -135,7 +141,8 @@ fails here rather than somewhere confusing later. `circe logout` forgets it.
 | `circe login [url]` | Connect to a registry, verifying the token before saving. |
 | `circe config` | Show the resolved registry, config and install paths. |
 
-Flags: `-d/--dir` (install location, remembered after the first install), `--force`,
+Flags: `-d/--dir` (where skills go, remembered after the first install), `-o/--out` (which
+config the servers merge into), `--context` (how `CLAUDE.md` is applied), `--force`,
 `--dry-run`, `--registry`.
 
 ### Without the CLI
@@ -169,7 +176,7 @@ virtualenv can be hundreds of megabytes.
 Skills teach Claude *how to do something*. Rules tell it *how you work*: the text that ends
 up in a project's `CLAUDE.md` or `AGENTS.md`.
 
-Write rules on the **Rules** tab, group them into a folder, then:
+Write rules on the **Rules** tab, add them to a folder, then:
 
 ```bash
 circe rules house-style
@@ -177,17 +184,23 @@ circe rules house-style
 
 Each rule picks which files it belongs in, so a rule can go to `CLAUDE.md`, `AGENTS.md`, or
 both. They merge into the project's own files inside a marked block, so anything already
-there is untouched and re-running replaces only that block.
+there is untouched and re-running replaces only that block. The folder's own `CLAUDE.md`
+goes into that same block, ahead of the rules.
 
-The three verbs read symmetrically:
+The bare command installs the lot, and the three verbs narrow it:
 
 ```bash
+circe frontend-kit          # everything in the folder
 circe skills frontend-kit   # what it can do
-circe rules  house-style    # how you work
-circe mcp    essentials     # what it can reach
+circe rules  frontend-kit   # how you work
+circe mcp    frontend-kit   # what it can reach
 ```
 
-`circe <folder>` is still shorthand for the skills form.
+Run a verb with no folder and it lists the folders that have something of that kind.
+
+Because the rules and the folder's own instructions share one block,
+`circe skills <folder>` does not write that block when the folder has rules: it says so
+and leaves the file alone, rather than replacing the block with half of itself.
 
 ## MCP servers
 
@@ -196,14 +209,15 @@ database, an API, a browser, your issue tracker.
 
 The **MCP** tab has a catalog of 32 servers that are known to work, with their command
 lines already filled in, covering GitHub, Sentry, Linear, Notion, Slack, Stripe, Supabase,
-Railway, Postgres, Playwright, Figma and more. Tick the ones you want, group them into a
-folder, then:
+Railway, Postgres, Playwright, Figma and more. The catalog is on the page itself: tick the
+ones you want, add them to a folder, then:
 
 ```bash
 circe mcp essentials
 ```
 
-That merges them into the project's `.mcp.json`. Servers the project already has are
+That merges them into the project's `.mcp.json`. `circe essentials` does the same and
+installs whatever else that folder holds. Servers the project already has are
 reported and left alone rather than replaced, unless you pass `--force`, and any top level
 keys Circe does not model are carried through untouched. Re-running when nothing has
 changed does not rewrite the file.
@@ -254,6 +268,9 @@ Anything you wrote outside the block is untouched, re-installing replaces only t
 and several folders can contribute to one file. Use `--context=skip` to leave the file
 alone, or `--context=overwrite` to replace it wholesale.
 
+The folder's rules go in the same block, after its instructions, because a folder should
+say one thing to the agent rather than two.
+
 ## Settings
 
 Access tokens can be set in the UI at **Settings** instead of redeploying. An environment
@@ -294,6 +311,8 @@ This project used to be called Skillbuilder. The rename is handled for you:
   reinstalling replaces them rather than adding a second copy.
 - Sessions and share codes are unaffected: the values they are built from were deliberately
   left alone.
+- Rule folders and MCP folders are folded into ordinary folders on first boot, so
+  `circe rules <name>` and `circe mcp <name>` keep working on the same names.
 
 One thing needs a manual step, because the format allows no alias. If you added this
 registry to Claude Code as a plugin marketplace, re-add it:
@@ -311,13 +330,24 @@ data/
 │   └── my-skill/
 │       ├── SKILL.md          # YAML frontmatter + markdown body
 │       └── references/…      # optional companion files
+├── rules/
+│   └── house-style.md        # frontmatter + the text that lands in CLAUDE.md
+├── mcps/
+│   └── github.json           # one MCP server, and the variables it needs
 ├── bundles/
-│   └── my-folder.json        # { name, title, description, skills: [...] }
+│   ├── my-folder.json        # { name, title, description, skills, rules, servers }
+│   └── my-folder/CLAUDE.md   # instructions the folder ships with
 └── sources.json              # where each imported skill came from
 ```
 
 A skill directory here is byte-for-byte what gets installed into a project, so you can
 also just copy one into `~/.claude/skills/` by hand.
+
+**Coming from an older build?** Folders used to come in three parallel kinds: bundles for
+skills, rulesets for rules, mcpsets for servers. They are one folder now, and the first
+boot of this version folds `data/rulesets` and `data/mcpsets` into `data/bundles` and
+removes the old directories. A ruleset and a bundle with the same name become one folder.
+Nothing is asked of you and nothing is lost.
 
 Frontmatter round-trips losslessly. Keys the app doesn't model: `argument-hint`,
 `user-invokable`, anything else you've added: are preserved rather than dropped, and
@@ -333,8 +363,12 @@ GET  /api/v1/skills?q=&tag=            list and search
 GET  /api/v1/skills/{name}             one skill, with body and folder membership
 POST /api/v1/skills                    create
 PUT  /api/v1/skills/{name}             update
+GET  /api/v1/rules?q=                  list and search rules
+GET  /api/v1/rules/{name}              one rule, with its body and targets
+GET  /api/v1/mcps?q=                   list and search MCP servers
+GET  /api/v1/mcps/{name}               one MCP server
 GET  /api/v1/bundles                   list folders
-GET  /api/v1/bundles/{name}            manifest with skills expanded
+GET  /api/v1/bundles/{name}            manifest: skills, rules and servers expanded
 GET  /api/v1/bundles/{name}/archive.tar.gz
 GET  /api/v1/download?skill=a&skill=b  tar.gz of specific skills
 GET  /api/v1/health                    unauthenticated, for health checks

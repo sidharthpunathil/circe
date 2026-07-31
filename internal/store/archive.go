@@ -78,17 +78,50 @@ func (s *Store) WriteSkillZip(w io.Writer, name string) error {
 	return zw.Close()
 }
 
-// WriteBundleZip writes every skill in a bundle into one ZIP, each under its own
-// top-level directory, alongside a marketplace manifest so the archive can be
-// consumed directly by Claude Code.
+// WriteBundleZip writes a whole folder into one ZIP: its skills each under
+// their own directory, its rules rendered into the file each one targets, and
+// its servers as a ready .mcp.json, alongside a marketplace manifest so the
+// archive can be consumed directly by Claude Code.
+//
+// The layout mirrors where the CLI would put each thing in a project, so the
+// archive can be read as documentation of what installing the folder does.
 func (s *Store) WriteBundleZip(w io.Writer, b *Bundle, manifest []byte) error {
 	zw := zip.NewWriter(w)
+	add := func(name string, body []byte) error {
+		f, err := zw.Create(name)
+		if err != nil {
+			return err
+		}
+		_, err = f.Write(body)
+		return err
+	}
+
 	for _, name := range b.Skills {
 		if err := s.addSkillToZip(zw, name, path.Join("skills", name)); err != nil {
 			zw.Close()
 			return err
 		}
 	}
+
+	for target, body := range s.RenderBundleRules(b) {
+		if err := add(target, []byte(body+"\n")); err != nil {
+			zw.Close()
+			return err
+		}
+	}
+
+	if servers := s.BundleServers(b); len(servers) > 0 {
+		cfg, err := RenderMCPConfig(servers)
+		if err != nil {
+			zw.Close()
+			return err
+		}
+		if err := add(".mcp.json", cfg); err != nil {
+			zw.Close()
+			return err
+		}
+	}
+
 	if len(manifest) > 0 {
 		f, err := zw.Create(".claude-plugin/marketplace.json")
 		if err != nil {

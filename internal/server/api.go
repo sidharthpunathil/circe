@@ -46,6 +46,8 @@ func toAPIBundle(b *store.Bundle) api.Bundle {
 		Title:       b.Title,
 		Description: b.Description,
 		Skills:      b.Skills,
+		Rules:       b.Rules,
+		Servers:     b.Servers,
 		UpdatedAt:   b.UpdatedAt,
 	}
 }
@@ -205,22 +207,59 @@ func (s *Server) apiBundles(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, out)
 }
 
+// bundleManifest is the folder manifest on the wire: the skills contract the
+// CLI already knows, plus the two other kinds a folder holds.
+//
+// The extra fields are added here rather than in package api because the
+// embedded struct flattens into the same JSON object, so every existing client
+// sees exactly the document it saw before, with more keys after it.
+type bundleManifest struct {
+	api.BundleManifest
+	Rules   []*store.Rule      `json:"rules"`
+	Servers []*store.MCPServer `json:"servers"`
+	// Rendered is the rule text as it lands in the project, keyed by the file
+	// it goes into. MCP is the .mcp.json the servers add up to. Both are
+	// included so a client does not have to know how either is assembled.
+	Rendered map[string]string `json:"rendered,omitempty"`
+	MCP      string            `json:"mcp,omitempty"`
+}
+
 func (s *Server) apiBundle(w http.ResponseWriter, r *http.Request) {
 	b, err := s.store.Bundle(r.PathValue("name"))
 	if err != nil {
 		writeJSONError(w, http.StatusNotFound, "not_found", err.Error())
 		return
 	}
-	out := api.BundleManifest{
-		Bundle:   toAPIBundle(b),
-		Registry: s.baseURL(r),
-		Context:  s.store.BundleContexts(b.Name),
+	out := bundleManifest{
+		BundleManifest: api.BundleManifest{
+			Bundle:   toAPIBundle(b),
+			Registry: s.baseURL(r),
+			Context:  s.store.BundleContexts(b.Name),
+		},
+		Rules:   s.store.BundleRules(b),
+		Servers: s.store.BundleServers(b),
 	}
 	for _, sk := range s.store.BundleSkills(b) {
 		out.Skills = append(out.Skills, toAPISkill(sk, false))
 	}
 	if out.Skills == nil {
 		out.Skills = []api.Skill{}
+	}
+	if out.Rules == nil {
+		out.Rules = []*store.Rule{}
+	}
+	if out.Servers == nil {
+		out.Servers = []*store.MCPServer{}
+	}
+	if rendered := s.store.RenderBundleRules(b); len(rendered) > 0 {
+		out.Rendered = rendered
+	}
+	if len(out.Servers) > 0 {
+		if raw, err := s.store.RenderBundleMCP(b); err != nil {
+			logError("render folder mcp config", err)
+		} else {
+			out.MCP = string(raw)
+		}
 	}
 	writeJSON(w, http.StatusOK, out)
 }

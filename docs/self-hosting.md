@@ -76,14 +76,18 @@ usually the fastest way to move an existing library up.
 ```
 data/
 ├── skills/<name>/SKILL.md
-├── bundles/<name>.json
-├── bundles/<name>/CLAUDE.md
 ├── rules/<name>.md   # project conventions
-├── rulesets/<name>.json
+├── mcps/<name>.json  # one MCP server
+├── bundles/<name>.json      # a folder: its skills, rules and servers
+├── bundles/<name>/CLAUDE.md # instructions the folder ships with
 ├── sources.json      # provenance of imported skills
 ├── .credentials.json # access tokens (git-ignored, never back this up)
 └── shares.json       # active share codes
 ```
+
+A folder holds any mix of the three. If you are restoring a backup taken from an older
+build, its `rulesets/` and `mcpsets/` directories are folded into `bundles/` the first
+time this version boots.
 
 Copy it, rsync it, or commit it to a private git repo. Restoring means putting the
 directory back.
