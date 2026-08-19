@@ -12,7 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/sidharthpunathil/circe/internal/installer"
-	"github.com/sidharthpunathil/circe/internal/store"
+	"github.com/sidharthpunathil/circe/internal/model"
 )
 
 // import installs from a share code without needing a registry of your own.
@@ -58,7 +58,7 @@ func runImport(cmd *cobra.Command, code string, flags installFlags, contextMode 
 	if err != nil {
 		return err
 	}
-	origin, id, err := store.DecodeShareCode(code)
+	origin, id, err := model.DecodeShareCode(code)
 	if err != nil {
 		return err
 	}
@@ -95,7 +95,7 @@ func runImport(cmd *cobra.Command, code string, flags installFlags, contextMode 
 		return nil
 	}
 
-	folder := store.Slugify(payload.Name)
+	folder := model.Slugify(payload.Name)
 	if err := applyContext(out, root, folder, payload.Context, contextMode, flags.dryRun); err != nil {
 		return err
 	}

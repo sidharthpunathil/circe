@@ -50,6 +50,21 @@ func (a Auth) check(r *http.Request) bool {
 	return userOK == 1 && passOK == 1
 }
 
+// Authorize applies the registry's authentication to a request this server does
+// not itself route.
+//
+// The PocketBase dashboard is mounted beside the registry and reads the same
+// database, so it is a second way into the same content. Its own superuser
+// account is real protection, but it is a second door with a second lock, and a
+// public deployment should not be answering strangers at either. Putting it
+// behind this first means the dashboard's sign-in page is not even reachable
+// without the registry's password.
+//
+// It writes the challenge itself and reports whether the request may proceed.
+func (s *Server) Authorize(w http.ResponseWriter, r *http.Request) bool {
+	return s.requireAuth(w, r)
+}
+
 // requireAuth challenges unauthenticated requests. A small, explicit set of
 // paths is exempt: the health check so the platform can probe the service, and
 // the share endpoints, which serve only resources the owner opted to share.

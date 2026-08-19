@@ -473,7 +473,7 @@ func (s *Server) handleSkillUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// A changed name means moving the directory and repointing bundles.
+	// A changed name means renaming the record and repointing folders.
 	if form.Name != current {
 		if err := s.store.RenameSkill(current, form.Name); err != nil {
 			if errors.Is(err, store.ErrExists) {
@@ -877,7 +877,7 @@ func (s *Server) handleBundleUpdate(w http.ResponseWriter, r *http.Request) {
 		s.tmpl.render(w, r, http.StatusBadRequest, "bundle_edit", view)
 		return
 	}
-	// Renaming a bundle is a create-then-delete since the filename is the key.
+	// Renaming a folder is a create-then-delete, since the name is the key.
 	if form.Name != current {
 		if _, err := s.store.Bundle(form.Name); err == nil {
 			view.Error = fmt.Sprintf("A bundle named %q already exists.", form.Name)
@@ -900,7 +900,7 @@ func (s *Server) handleBundleUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if form.Name != current {
-		// Move context files before the old folder (and its directory) is removed.
+		// Repoint the context documents before the old folder is removed.
 		if err := s.store.MoveBundleContexts(current, form.Name); err != nil {
 			logError("move folder context files", err)
 		}

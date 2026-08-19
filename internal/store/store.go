@@ -1,7 +1,13 @@
-// Package store persists skills and bundles on the filesystem. The directory
-// layout is deliberately plain: data/skills/<name>/SKILL.md alongside any
-// bundled files, and data/bundles/<name>.json, so the data directory is itself
-// a usable backup that can be committed to git or copied into ~/.claude/skills.
+// Package store persists skills, rules, servers and folders in a PocketBase
+// database under the data directory.
+//
+// Every row keeps the canonical document it came from: the whole SKILL.md for a
+// skill, the whole markdown file for a rule, the whole JSON for a server or
+// folder. That is what makes the database an implementation detail rather than
+// a cage. `Store.ExportTree` renders the registry back to the plain directory
+// layout it has always used (skills/<name>/SKILL.md and friends), `ImportTree`
+// reads that layout back, and the git sync commits it. So the content stays
+// yours, and moving it somewhere else is a copy rather than an export format.
 package store
 
 import (
@@ -10,13 +16,14 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/sidharthpunathil/circe/internal/skillfile"
+	"github.com/pocketbase/pocketbase/core"
+
+	"github.com/sidharthpunathil/circe/internal/model"
 )
 
 // ErrNotFound is returned when a skill or bundle does not exist.
@@ -33,10 +40,16 @@ var skipDirs = map[string]bool{
 	".git": true, "node_modules": true, ".DS_Store": true,
 }
 
-// Store is a filesystem-backed collection of skills and bundles, with an
-// in-memory index for listing and search.
+// Store is a PocketBase-backed collection of skills, rules, servers and
+// folders, with an in-memory index for listing and search.
+//
+// The index is not a cache in front of a slow database, it is what keeps every
+// read path in the server unchanged from when this was a directory of files:
+// listings, search and ranking all run over parsed structs in memory, which is
+// the right shape for a registry that is read constantly and written rarely.
 type Store struct {
 	root string
+	app  core.App
 
 	mu      sync.RWMutex
 	skills  map[string]*Skill
@@ -45,20 +58,74 @@ type Store struct {
 	mcps    map[string]*MCPServer
 }
 
+// newStore returns a Store with an empty index.
+//
+// The maps are created here rather than by the first Reload, because adopting
+// an existing data directory writes through the normal save paths, and those
+// update the index as they go. A nil map is fine to read and panics to write.
+func newStore(root string) *Store {
+	return &Store{
+		root:    root,
+		skills:  map[string]*Skill{},
+		bundles: map[string]*Bundle{},
+		rules:   map[string]*Rule{},
+		mcps:    map[string]*MCPServer{},
+	}
+}
+
 // Open loads (creating if needed) a store rooted at dir.
 func Open(dir string) (*Store, error) {
-	abs, err := filepath.Abs(dir)
+	abs, err := absPath(dir)
 	if err != nil {
 		return nil, err
 	}
-	s := &Store{root: abs}
-	for _, sub := range []string{"skills", "bundles", "rules", "mcps"} {
-		if err := os.MkdirAll(filepath.Join(abs, sub), 0o755); err != nil {
-			return nil, err
-		}
+	if err := os.MkdirAll(abs, 0o755); err != nil {
+		return nil, err
 	}
+
+	s := newStore(abs)
+
 	// Fold the old per-kind folders into bundles before anything reads them.
+	// This still runs on the directory tree, because it is fixing up a layout
+	// that predates the database.
 	if err := s.migrateLegacyFolders(); err != nil {
+		return nil, err
+	}
+
+	app, err := openApp(abs)
+	if err != nil {
+		return nil, err
+	}
+	s.app = app
+
+	// A data directory written by an older release is a tree of files. Pull it
+	// in once, then leave it alone: the tree stays on disk untouched, so
+	// downgrading is always possible.
+	if err := s.adoptLegacyTree(); err != nil {
+		s.Close()
+		return nil, err
+	}
+
+	if err := s.Reload(); err != nil {
+		s.Close()
+		return nil, err
+	}
+	return s, nil
+}
+
+// OpenWithApp wraps an already-bootstrapped PocketBase application. The server
+// binary runs the full PocketBase app so the dashboard and its REST API are
+// available, and hands the same app here rather than opening the database twice.
+func OpenWithApp(app core.App) (*Store, error) {
+	if err := ensureSchema(app); err != nil {
+		return nil, err
+	}
+	s := newStore(app.DataDir())
+	s.app = app
+	if err := s.migrateLegacyFolders(); err != nil {
+		return nil, err
+	}
+	if err := s.adoptLegacyTree(); err != nil {
 		return nil, err
 	}
 	if err := s.Reload(); err != nil {
@@ -67,67 +134,31 @@ func Open(dir string) (*Store, error) {
 	return s, nil
 }
 
+// App exposes the underlying PocketBase application.
+func (s *Store) App() core.App { return s.app }
+
+// Close releases the database handles. Safe to call more than once.
+func (s *Store) Close() error {
+	if s.app == nil {
+		return nil
+	}
+	err := s.app.ResetBootstrapState()
+	s.app = nil
+	return err
+}
+
 // Root returns the absolute data directory.
 func (s *Store) Root() string { return s.root }
 
-func (s *Store) skillsDir() string        { return filepath.Join(s.root, "skills") }
-func (s *Store) bundlesDir() string       { return filepath.Join(s.root, "bundles") }
-func (s *Store) skillDir(n string) string { return filepath.Join(s.skillsDir(), n) }
-
-// Reload rebuilds the in-memory index from disk. Safe to call at any time; it
-// lets the user edit files directly on disk and refresh the site.
+// Reload rebuilds the in-memory index from the database.
 func (s *Store) Reload() error {
-	skills := map[string]*Skill{}
-	entries, err := os.ReadDir(s.skillsDir())
+	skills, err := s.loadSkills()
 	if err != nil {
 		return err
 	}
-	for _, e := range entries {
-		name := e.Name()
-		if strings.HasPrefix(name, ".") || ValidateName(name) != nil {
-			continue
-		}
-		// Resolve rather than trusting DirEntry.IsDir so symlinked skills load.
-		info, err := os.Stat(filepath.Join(s.skillsDir(), name))
-		if err != nil || !info.IsDir() {
-			continue
-		}
-		sk, err := s.loadSkill(name)
-		if err != nil {
-			// A malformed skill must not take down the whole index.
-			fmt.Fprintf(os.Stderr, "circe: skipping skill %q: %v\n", name, err)
-			continue
-		}
-		skills[name] = sk
-	}
-
-	bundles := map[string]*Bundle{}
-	bEntries, err := os.ReadDir(s.bundlesDir())
+	bundles, err := s.loadBundles()
 	if err != nil {
 		return err
-	}
-	for _, e := range bEntries {
-		if e.IsDir() || !strings.HasSuffix(e.Name(), ".json") {
-			continue
-		}
-		name := strings.TrimSuffix(e.Name(), ".json")
-		if ValidateName(name) != nil {
-			continue
-		}
-		raw, err := os.ReadFile(filepath.Join(s.bundlesDir(), e.Name()))
-		if err != nil {
-			continue
-		}
-		var b Bundle
-		if err := json.Unmarshal(raw, &b); err != nil {
-			fmt.Fprintf(os.Stderr, "circe: skipping bundle %q: %v\n", name, err)
-			continue
-		}
-		b.Name = name
-		if b.Skills == nil {
-			b.Skills = []string{}
-		}
-		bundles[name] = &b
 	}
 
 	s.mu.Lock()
@@ -140,91 +171,90 @@ func (s *Store) Reload() error {
 	return s.reloadMCPs()
 }
 
-// loadSkill reads one skill directory from disk.
-func (s *Store) loadSkill(name string) (*Skill, error) {
-	dir := s.skillDir(name)
-	raw, err := os.ReadFile(filepath.Join(dir, "SKILL.md"))
+// loadSkills reads every skill and its companion file list in two queries
+// rather than one per skill.
+func (s *Store) loadSkills() (map[string]*Skill, error) {
+	recs, err := s.all(colSkills)
 	if err != nil {
 		return nil, err
 	}
-	f, err := skillfile.Parse(raw)
+	files, err := s.all(colSkillFile)
+	if err != nil {
+		return nil, err
+	}
+	bySkill := map[string][]FileRef{}
+	for _, f := range files {
+		id := f.GetString("skill")
+		bySkill[id] = append(bySkill[id], FileRef{
+			Path: f.GetString("path"),
+			Size: int64(f.GetInt("size")),
+		})
+	}
+
+	out := map[string]*Skill{}
+	for _, rec := range recs {
+		name := rec.GetString("name")
+		if ValidateName(name) != nil {
+			continue
+		}
+		sk, err := skillFromRecord(rec, bySkill[rec.Id])
+		if err != nil {
+			// A malformed skill must not take down the whole index.
+			fmt.Fprintf(os.Stderr, "circe: skipping skill %q: %v\n", name, err)
+			continue
+		}
+		out[name] = sk
+	}
+	return out, nil
+}
+
+// skillFromRecord parses a stored SKILL.md back into a Skill. Parsing on read
+// rather than trusting the derived columns keeps one source of truth: whatever
+// the document says is what the registry serves.
+func skillFromRecord(rec *core.Record, files []FileRef) (*Skill, error) {
+	sk, err := model.ParseSkill(rec.GetString("name"), []byte(rec.GetString("source")))
 	if err != nil {
 		return nil, err
 	}
 
-	sk := &Skill{
-		Name:        name,
-		Description: strings.TrimSpace(f.Description),
-		Body:        f.Body,
-		Front:       f.Frontmatter,
-		Tags:        extractTags(f.Frontmatter),
-		Files:       []FileRef{},
-	}
-	if sk.Description == "" {
-		sk.Description = f.Summary(180)
-	}
-
-	var newest time.Time
-	var total int64
-	err = walkResolved(dir, func(e WalkEntry) error {
-		if e.Info.ModTime().After(newest) {
-			newest = e.Info.ModTime()
+	total := int64(len(rec.GetString("source")))
+	if files != nil {
+		sk.Files = files
+		for _, fr := range files {
+			total += fr.Size
 		}
-		total += e.Info.Size()
-		if e.Rel != "SKILL.md" {
-			sk.Files = append(sk.Files, FileRef{Path: e.Rel, Size: e.Info.Size()})
-		}
-		return nil
-	})
-	if err != nil {
-		return nil, err
 	}
 	sort.Slice(sk.Files, func(i, j int) bool { return sk.Files[i].Path < sk.Files[j].Path })
-	sk.UpdatedAt, sk.Size = newest, total
+
+	sk.UpdatedAt = rec.GetDateTime("updated").Time()
+	sk.Size = total
 	return sk, nil
 }
 
-// extractTags pulls tags from either metadata.tags or a top-level tags key,
-// since both conventions appear in real skill libraries.
-func extractTags(f skillfile.Frontmatter) []string {
-	var out []string
-	add := func(v any) {
-		switch t := v.(type) {
-		case []any:
-			for _, item := range t {
-				if str, ok := item.(string); ok {
-					if slug := Slugify(str); slug != "" {
-						out = append(out, slug)
-					}
-				}
-			}
-		case []string:
-			for _, str := range t {
-				if slug := Slugify(str); slug != "" {
-					out = append(out, slug)
-				}
-			}
-		case string:
-			out = append(out, ParseTags(t)...)
+// loadBundles reads every folder definition.
+func (s *Store) loadBundles() (map[string]*Bundle, error) {
+	recs, err := s.all(colBundles)
+	if err != nil {
+		return nil, err
+	}
+	out := map[string]*Bundle{}
+	for _, rec := range recs {
+		name := rec.GetString("name")
+		if ValidateName(name) != nil {
+			continue
 		}
-	}
-	if f.Metadata != nil {
-		add(f.Metadata["tags"])
-	}
-	if f.Extra != nil {
-		add(f.Extra["tags"])
-	}
-
-	seen := map[string]bool{}
-	var dedup []string
-	for _, t := range out {
-		if !seen[t] {
-			seen[t] = true
-			dedup = append(dedup, t)
+		var b Bundle
+		if err := json.Unmarshal([]byte(rec.GetString("source")), &b); err != nil {
+			fmt.Fprintf(os.Stderr, "circe: skipping bundle %q: %v\n", name, err)
+			continue
 		}
+		b.Name = name
+		if b.Skills == nil {
+			b.Skills = []string{}
+		}
+		out[name] = &b
 	}
-	sort.Strings(dedup)
-	return dedup
+	return out, nil
 }
 
 // ---------- skill queries ----------
@@ -360,9 +390,15 @@ func (s *Store) Tags() []TagCount {
 
 // ---------- skill mutations ----------
 
-// SaveSkill writes a skill's SKILL.md, creating the directory if needed. Files
-// bundled alongside it are left untouched.
+// SaveSkill writes a skill's SKILL.md. Files bundled alongside it are left
+// untouched.
 func (s *Store) SaveSkill(sk *Skill) error {
+	return s.saveSkillAt(sk, time.Time{})
+}
+
+// saveSkillAt is SaveSkill with an explicit timestamp, so an import can keep
+// the time the content actually last changed instead of claiming it is new.
+func (s *Store) saveSkillAt(sk *Skill, at time.Time) error {
 	if err := ValidateName(sk.Name); err != nil {
 		return err
 	}
@@ -370,40 +406,16 @@ func (s *Store) SaveSkill(sk *Skill) error {
 		return fmt.Errorf("description is required")
 	}
 
-	// Copying the struct still shares its maps, so clone them before editing:
-	// otherwise saving a skill mutates the caller's Metadata and Extra, which
-	// also races with readers holding a pointer from the index.
-	front := sk.Front
-	front.Metadata = cloneMap(sk.Front.Metadata)
-	front.Extra = cloneMap(sk.Front.Extra)
-	front.Name = sk.Name
-	front.Description = strings.TrimSpace(sk.Description)
-	if len(sk.Tags) > 0 {
-		if front.Metadata == nil {
-			front.Metadata = map[string]any{}
-		}
-		front.Metadata["tags"] = append([]string(nil), sk.Tags...)
-	} else if front.Metadata != nil {
-		delete(front.Metadata, "tags")
-		if len(front.Metadata) == 0 {
-			front.Metadata = nil
-		}
-	}
-	// Tags live in metadata; drop any stale top-level copy so they cannot diverge.
-	if front.Extra != nil {
-		delete(front.Extra, "tags")
-		if len(front.Extra) == 0 {
-			front.Extra = nil
-		}
-	}
+	source := string(sk.Document())
 
-	f := &skillfile.File{Frontmatter: front, Body: sk.Body}
-
-	dir := s.skillDir(sk.Name)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return err
-	}
-	if err := writeFileAtomic(filepath.Join(dir, "SKILL.md"), f.Bytes()); err != nil {
+	err := s.upsert(colSkills, "name", sk.Name, func(rec *core.Record) {
+		rec.Set("source", source)
+		rec.Set("description", strings.TrimSpace(sk.Description))
+		rec.Set("tags", sk.Tags)
+		rec.Set("size", len(source))
+		setUpdated(rec, "updated", at)
+	})
+	if err != nil {
 		return err
 	}
 	return s.refreshSkill(sk.Name)
@@ -414,13 +426,14 @@ func (s *Store) CreateSkill(sk *Skill) error {
 	if err := ValidateName(sk.Name); err != nil {
 		return err
 	}
-	if _, err := os.Stat(s.skillDir(sk.Name)); err == nil {
+	if _, err := s.findByField(colSkills, "name", sk.Name); err == nil {
 		return fmt.Errorf("skill %q: %w", sk.Name, ErrExists)
 	}
 	return s.SaveSkill(sk)
 }
 
-// DeleteSkill removes a skill directory and drops it from every bundle.
+// DeleteSkill removes a skill and drops it from every bundle. Companion files
+// go with it: the relation cascades.
 func (s *Store) DeleteSkill(name string) error {
 	if err := ValidateName(name); err != nil {
 		return err
@@ -428,7 +441,11 @@ func (s *Store) DeleteSkill(name string) error {
 	if _, err := s.Skill(name); err != nil {
 		return err
 	}
-	if err := os.RemoveAll(s.skillDir(name)); err != nil {
+	rec, err := s.findByField(colSkills, "name", name)
+	if err != nil {
+		return err
+	}
+	if err := s.app.Delete(rec); err != nil {
 		return err
 	}
 
@@ -457,7 +474,8 @@ func (s *Store) DeleteSkill(name string) error {
 	return nil
 }
 
-// RenameSkill moves a skill directory and updates bundle references.
+// RenameSkill renames a skill and updates bundle references. Companion files
+// follow, because they are attached by record id rather than by name.
 func (s *Store) RenameSkill(oldName, newName string) error {
 	if err := ValidateName(newName); err != nil {
 		return err
@@ -469,16 +487,22 @@ func (s *Store) RenameSkill(oldName, newName string) error {
 	if err != nil {
 		return err
 	}
-	if _, err := os.Stat(s.skillDir(newName)); err == nil {
+	if _, err := s.findByField(colSkills, "name", newName); err == nil {
 		return fmt.Errorf("skill %q: %w", newName, ErrExists)
 	}
-	if err := os.Rename(s.skillDir(oldName), s.skillDir(newName)); err != nil {
+
+	rec, err := s.findByField(colSkills, "name", oldName)
+	if err != nil {
+		return err
+	}
+	rec.Set("name", newName)
+	if err := asStoreError(s.app.Save(rec)); err != nil {
 		return err
 	}
 
-	// Rewrite the frontmatter name to match the new directory. Work on a copy:
-	// sk is the pointer held by the index and possibly by callers of Skill(),
-	// so renaming it in place would change it under them.
+	// Rewrite the frontmatter name to match. Work on a copy: sk is the pointer
+	// held by the index and possibly by callers of Skill(), so renaming it in
+	// place would change it under them.
 	renamed := *sk
 	renamed.Name = newName
 	if err := s.SaveSkill(&renamed); err != nil {
@@ -506,8 +530,17 @@ func (s *Store) RenameSkill(oldName, newName string) error {
 	return s.refreshSkill(newName)
 }
 
+// refreshSkill re-reads one skill from the database into the index.
 func (s *Store) refreshSkill(name string) error {
-	sk, err := s.loadSkill(name)
+	rec, err := s.findByField(colSkills, "name", name)
+	if err != nil {
+		return err
+	}
+	files, err := s.skillFileRefs(rec.Id)
+	if err != nil {
+		return err
+	}
+	sk, err := skillFromRecord(rec, files)
 	if err != nil {
 		return err
 	}
@@ -517,14 +550,31 @@ func (s *Store) refreshSkill(name string) error {
 	return nil
 }
 
+// skillFileRefs lists the companion files attached to a skill record.
+func (s *Store) skillFileRefs(skillID string) ([]FileRef, error) {
+	recs, err := s.app.FindRecordsByFilter(colSkillFile, "skill = {:id}", "path", 0, 0,
+		map[string]any{"id": skillID})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]FileRef, 0, len(recs))
+	for _, r := range recs {
+		out = append(out, FileRef{Path: r.GetString("path"), Size: int64(r.GetInt("size"))})
+	}
+	return out, nil
+}
+
 // ---------- bundled files ----------
 
-// safeJoin resolves rel inside the skill directory, refusing anything that
-// escapes it via traversal, absolute paths or symlinks.
-func (s *Store) safeJoin(skill, rel string) (string, error) {
-	if err := ValidateName(skill); err != nil {
-		return "", err
-	}
+// cleanRelPath validates a companion file path and returns it in slash form.
+//
+// This used to also resolve symlinks, because the path became a real location
+// on disk and a symlinked directory could redirect a write anywhere on the
+// host. Content lives in the database now, so a path is just a key and the
+// whole class of escape is gone. The syntactic rules stay: they are what keeps
+// an archive extracted from this registry from writing outside its own
+// directory on someone else's machine.
+func cleanRelPath(rel string) (string, error) {
 	rel = strings.TrimSpace(strings.ReplaceAll(rel, "\\", "/"))
 	if rel == "" {
 		return "", fmt.Errorf("path is required")
@@ -544,66 +594,57 @@ func (s *Store) safeJoin(skill, rel string) (string, error) {
 			return "", fmt.Errorf("hidden files are not supported")
 		}
 	}
+	return clean, nil
+}
 
-	dir := s.skillDir(skill)
-	full := filepath.Join(dir, filepath.FromSlash(clean))
+// safeJoin validates a skill name and a relative path together.
+func (s *Store) safeJoin(skill, rel string) (string, error) {
+	if err := ValidateName(skill); err != nil {
+		return "", err
+	}
+	return cleanRelPath(rel)
+}
 
-	base, err := filepath.EvalSymlinks(dir)
+// fileRecord finds one companion file row.
+func (s *Store) fileRecord(skill, rel string) (*core.Record, error) {
+	sk, err := s.findByField(colSkills, "name", skill)
 	if err != nil {
-		return "", fmt.Errorf("skill %q: %w", skill, ErrNotFound)
+		return nil, err
 	}
-
-	// Guard against symlinks pointing outside the skill directory. The target
-	// itself often does not exist yet (a file being created), and EvalSymlinks
-	// fails on missing paths, so resolve the nearest ancestor that does exist.
-	// Checking only `full` would skip this guard entirely for new files and let
-	// a symlinked directory redirect a write anywhere on the filesystem.
-	probe := full
-	for {
-		if _, err := os.Lstat(probe); err == nil {
-			break
-		}
-		parent := filepath.Dir(probe)
-		if parent == probe || len(parent) < len(dir) {
-			return "", fmt.Errorf("path escapes the skill directory")
-		}
-		probe = parent
-	}
-	resolved, err := filepath.EvalSymlinks(probe)
+	rec, err := s.app.FindFirstRecordByFilter(colSkillFile, "skill = {:id} && path = {:p}",
+		map[string]any{"id": sk.Id, "p": rel})
 	if err != nil {
-		return "", fmt.Errorf("resolve %q: %w", clean, err)
+		return nil, fmt.Errorf("file %q: %w", rel, ErrNotFound)
 	}
-	if rp, err := filepath.Rel(base, resolved); err != nil || rp == ".." || strings.HasPrefix(rp, ".."+string(filepath.Separator)) {
-		return "", fmt.Errorf("path escapes the skill directory")
-	}
-	return full, nil
+	return rec, nil
 }
 
 // ReadFile returns the contents of a bundled file.
 func (s *Store) ReadFile(skill, rel string) ([]byte, error) {
 	if rel == "SKILL.md" {
-		// Validate here too: this branch bypasses safeJoin, and without the
-		// check a crafted skill name would read any SKILL.md on the host.
+		// Validate here too: this branch bypasses safeJoin, and the name is
+		// used as a lookup key.
 		if err := ValidateName(skill); err != nil {
 			return nil, err
 		}
-		return os.ReadFile(filepath.Join(s.skillDir(skill), "SKILL.md"))
+		rec, err := s.findByField(colSkills, "name", skill)
+		if err != nil {
+			return nil, err
+		}
+		return []byte(rec.GetString("source")), nil
 	}
-	full, err := s.safeJoin(skill, rel)
+	clean, err := s.safeJoin(skill, rel)
 	if err != nil {
 		return nil, err
 	}
-	info, err := os.Stat(full)
+	rec, err := s.fileRecord(skill, clean)
 	if err != nil {
-		return nil, fmt.Errorf("file %q: %w", rel, ErrNotFound)
+		return nil, err
 	}
-	if info.IsDir() {
-		return nil, fmt.Errorf("%q is a directory", rel)
-	}
-	if info.Size() > maxFileSize {
+	if int64(rec.GetInt("size")) > maxFileSize {
 		return nil, fmt.Errorf("file is too large to display")
 	}
-	return os.ReadFile(full)
+	return s.readBlob(rec)
 }
 
 // WriteFile creates or replaces a bundled file.
@@ -617,41 +658,55 @@ func (s *Store) WriteFile(skill, rel string, data []byte) error {
 	if rel == "SKILL.md" {
 		return fmt.Errorf("edit SKILL.md through the skill editor")
 	}
-	full, err := s.safeJoin(skill, rel)
+	clean, err := s.safeJoin(skill, rel)
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+	sk, err := s.findByField(colSkills, "name", skill)
+	if err != nil {
 		return err
 	}
-	if err := writeFileAtomic(full, data); err != nil {
+
+	rec, err := s.fileRecord(skill, clean)
+	if err != nil {
+		c, cerr := s.app.FindCollectionByNameOrId(colSkillFile)
+		if cerr != nil {
+			return cerr
+		}
+		rec = core.NewRecord(c)
+		rec.Set("skill", sk.Id)
+		rec.Set("path", clean)
+	}
+	if err := setBlob(rec, path.Base(clean), data); err != nil {
+		return err
+	}
+	if err := asStoreError(s.app.Save(rec)); err != nil {
 		return err
 	}
 	return s.refreshSkill(skill)
 }
 
-// DeleteFile removes a bundled file, pruning directories left empty.
+// DeleteFile removes a bundled file.
 func (s *Store) DeleteFile(skill, rel string) error {
 	if rel == "SKILL.md" {
 		return fmt.Errorf("SKILL.md cannot be deleted")
 	}
-	full, err := s.safeJoin(skill, rel)
+	clean, err := s.safeJoin(skill, rel)
 	if err != nil {
 		return err
 	}
-	if err := os.RemoveAll(full); err != nil {
+	rec, err := s.fileRecord(skill, clean)
+	if err != nil {
+		// Deleting something that is not there is not a failure: the caller
+		// wanted it gone, and it is gone. This also mirrors what removing a
+		// directory used to do.
+		if errors.Is(err, ErrNotFound) {
+			return s.refreshSkill(skill)
+		}
 		return err
 	}
-	// Remove now-empty parent directories, stopping at the skill root.
-	root := s.skillDir(skill)
-	for dir := filepath.Dir(full); strings.HasPrefix(dir, root) && dir != root; dir = filepath.Dir(dir) {
-		entries, err := os.ReadDir(dir)
-		if err != nil || len(entries) > 0 {
-			break
-		}
-		if err := os.Remove(dir); err != nil {
-			break
-		}
+	if err := s.app.Delete(rec); err != nil {
+		return err
 	}
 	return s.refreshSkill(skill)
 }
@@ -692,8 +747,18 @@ func (s *Store) BundleCount() int {
 // that no longer exists, so a folder can never promise to install something
 // that is not there.
 func (s *Store) SaveBundle(b *Bundle) error {
+	return s.saveBundleAt(b, time.Now())
+}
+
+// saveBundleAt is SaveBundle with an explicit last-changed time, so an import
+// can keep the one the manifest already carries rather than claiming the folder
+// changed just now.
+func (s *Store) saveBundleAt(b *Bundle, at time.Time) error {
 	if err := ValidateName(b.Name); err != nil {
 		return err
+	}
+	if at.IsZero() {
+		at = time.Now()
 	}
 	prune := func(names []string, exists func(string) bool) []string {
 		kept := make([]string, 0, len(names))
@@ -710,14 +775,20 @@ func (s *Store) SaveBundle(b *Bundle) error {
 	b.Skills = prune(b.Skills, func(n string) bool { _, err := s.Skill(n); return err == nil })
 	b.Rules = prune(b.Rules, func(n string) bool { _, err := s.Rule(n); return err == nil })
 	b.Servers = prune(b.Servers, func(n string) bool { _, err := s.MCPServer(n); return err == nil })
-	b.UpdatedAt = time.Now()
+	b.UpdatedAt = at
 
-	raw, err := json.MarshalIndent(b, "", "  ")
+	raw, err := b.Document()
 	if err != nil {
 		return err
 	}
-	raw = append(raw, '\n')
-	if err := writeFileAtomic(filepath.Join(s.bundlesDir(), b.Name+".json"), raw); err != nil {
+
+	err = s.upsert(colBundles, "name", b.Name, func(rec *core.Record) {
+		rec.Set("source", string(raw))
+		rec.Set("title", b.Title)
+		rec.Set("description", b.Description)
+		setUpdated(rec, "updated", b.UpdatedAt)
+	})
+	if err != nil {
 		return err
 	}
 
@@ -746,10 +817,12 @@ func (s *Store) DeleteBundle(name string) error {
 	if _, err := s.Bundle(name); err != nil {
 		return err
 	}
-	if err := os.Remove(filepath.Join(s.bundlesDir(), name+".json")); err != nil && !os.IsNotExist(err) {
-		return err
+	if rec, err := s.findByField(colBundles, "name", name); err == nil {
+		if err := s.app.Delete(rec); err != nil {
+			return err
+		}
 	}
-	// Context files live in a sibling directory and would otherwise be orphaned.
+	// Context documents are keyed by folder name and would otherwise be orphaned.
 	if err := s.deleteBundleContexts(name); err != nil {
 		return err
 	}
@@ -779,40 +852,4 @@ func (s *Store) BundlesContaining(skill string) []*Bundle {
 		}
 	}
 	return out
-}
-
-// cloneMap returns a shallow copy so callers' maps are never mutated in place.
-func cloneMap(m map[string]any) map[string]any {
-	if m == nil {
-		return nil
-	}
-	out := make(map[string]any, len(m))
-	for k, v := range m {
-		out[k] = v
-	}
-	return out
-}
-
-// writeFileAtomic writes via a temp file and rename so a crash mid-write cannot
-// truncate an existing skill.
-func writeFileAtomic(dst string, data []byte) error {
-	dir := filepath.Dir(dst)
-	tmp, err := os.CreateTemp(dir, ".tmp-*")
-	if err != nil {
-		return err
-	}
-	tmpName := tmp.Name()
-	defer os.Remove(tmpName)
-
-	if _, err := tmp.Write(data); err != nil {
-		tmp.Close()
-		return err
-	}
-	if err := tmp.Close(); err != nil {
-		return err
-	}
-	if err := os.Chmod(tmpName, 0o644); err != nil {
-		return err
-	}
-	return os.Rename(tmpName, dst)
 }

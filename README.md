@@ -42,12 +42,16 @@ project needs three different things from you:
   self-hosted Gitea/Forgejo), a pasted `SKILL.md` or `.mcp.json`, your local
   `~/.claude/skills`, or a share code from someone else's registry. Content is copied in,
   so it stays yours even if the source disappears.
-- **A catalog of 32 known MCP servers** on the MCP tab, so adding GitHub or Postgres does
-  not start with looking up a command line.
-- **No database.** Everything is plain files on disk, so the storage directory *is* your
-  backup. Commit it to git if you like.
+- **Sync to GitHub.** Connect a repository and push: every skill, rule, server and folder
+  is written there as ordinary markdown and JSON, and committed. Pull brings it back. Your
+  library becomes something you can read in a browser, review in a pull request, and
+  restore on any machine.
+- **Your content stays plain.** Storage is a small embedded database, but every row keeps
+  the exact document it came from, and `circe-server export` writes the whole registry back
+  out as a directory of markdown and JSON. Nothing here is a format you'd need this program
+  to read.
 
-It's two Go binaries and a directory of markdown. That's the whole system.
+It's two Go binaries, one file of data, and no service to run beside it.
 
 ## Deploy it
 
@@ -58,9 +62,9 @@ It's two Go binaries and a directory of markdown. That's the whole system.
 Set **`CIRCE_PASSWORD`** when prompted, and attach a **volume mounted at `/data`**
 so your skills survive redeploys. That's it.
 
-It's cheap to run: the image is ~15 MB, it idles at around 20 MB of RAM and effectively
-zero CPU, and it needs no database: just a small volume. Enable **App Sleeping** and it
-costs close to nothing when you aren't using it.
+It's cheap to run: the image is about 30 MB, it idles at around 50 MB of RAM and
+effectively zero CPU, and there is no database server to run beside it, just a small
+volume. Enable **App Sleeping** and it costs close to nothing when you aren't using it.
 
 ### Docker
 
@@ -207,10 +211,9 @@ and leaves the file alone, rather than replacing the block with half of itself.
 A skill teaches the agent a procedure. An MCP server gives it something to reach: a
 database, an API, a browser, your issue tracker.
 
-The **MCP** tab has a catalog of 32 servers that are known to work, with their command
-lines already filled in, covering GitHub, Sentry, Linear, Notion, Slack, Stripe, Supabase,
-Railway, Postgres, Playwright, Figma and more. The catalog is on the page itself: tick the
-ones you want, add them to a folder, then:
+Add a server on the **MCP** tab: give it a command or a URL, and name the environment
+variables it needs. Or paste a `.mcp.json` you already have on the Import page and take the
+servers out of it. Put the ones you want in a folder, then:
 
 ```bash
 circe mcp essentials
@@ -276,9 +279,10 @@ say one thing to the agent rather than two.
 Access tokens can be set in the UI at **Settings** instead of redeploying. An environment
 variable of the same name always wins, so deployment config is never silently overridden.
 
-Tokens are written to `.credentials.json` inside the data directory, alongside a generated
-`.gitignore` that excludes it, so backing that directory up with git cannot sweep a token
-into a repository.
+Tokens are kept apart from everything else, in their own table that nothing exporting or
+syncing ever reads. So a token cannot be swept into a repository by a push, an export or a
+share code, and that is a property of where it is stored rather than a filter someone has
+to remember to write.
 
 ## Configure
 
@@ -294,7 +298,8 @@ Everything is environment variables. Nothing is baked into the binary.
 | `CIRCE_BASE_URL` | none | Public origin, if behind a proxy or custom domain. |
 | `CIRCE_SEED_REPO` | none | On first boot, when empty, import every skill from this repo. |
 | `CIRCE_SEED_FOLDER` | none | Put the seeded skills into a folder with this name. |
-| `GITHUB_TOKEN` | none | Raises the GitHub rate limit (60/hr unauthenticated) and reaches private repos. |
+| `CIRCE_NO_DASHBOARD` | none | Set to `1` to remove the PocketBase dashboard at `/_/` and its API. |
+| `GITHUB_TOKEN` | none | Raises the GitHub rate limit (60/hr unauthenticated) and reaches private repos. Also what sync commits with. |
 
 Seeding only runs when the registry is empty, so redeploys never overwrite your edits.
 
@@ -324,8 +329,28 @@ registry to Claude Code as a plugin marketplace, re-add it:
 
 ## How data is stored
 
+Skills, rules, servers and folders live in a [PocketBase](https://pocketbase.io) database
+inside the data directory. PocketBase is a single Go library rather than a service, so this
+is still one binary and one volume, with a dashboard at `/_/` for looking at the raw data.
+
 ```
 data/
+├── data.db          # the registry
+├── auxiliary.db     # request logs
+└── storage/         # companion files that ship with a skill
+```
+
+What matters more than the storage is what each row holds. **Every record keeps the exact
+document it came from**: the whole `SKILL.md`, the whole rule markdown, the whole server
+JSON. Nothing is shredded into columns and reassembled, so writing the registry back out is
+a copy rather than an export format:
+
+```bash
+circe-server export -out ./my-library
+```
+
+```
+my-library/
 ├── skills/
 │   └── my-skill/
 │       ├── SKILL.md          # YAML frontmatter + markdown body
@@ -340,19 +365,44 @@ data/
 └── sources.json              # where each imported skill came from
 ```
 
-A skill directory here is byte-for-byte what gets installed into a project, so you can
-also just copy one into `~/.claude/skills/` by hand.
+A skill directory here is byte-for-byte what gets installed into a project, so you can copy
+one into `~/.claude/skills/` by hand. `circe-server import -in ./my-library` reads the same
+layout back, and it is exactly what [syncing](#sync-with-github) commits. Access tokens and
+share links are never written to either.
 
-**Coming from an older build?** Folders used to come in three parallel kinds: bundles for
-skills, rulesets for rules, mcpsets for servers. They are one folder now, and the first
-boot of this version folds `data/rulesets` and `data/mcpsets` into `data/bundles` and
-removes the old directories. A ruleset and a bundle with the same name become one folder.
-Nothing is asked of you and nothing is lost.
+**Coming from an older build?** Two upgrades happen on first boot, both silent and neither
+destructive. Folders used to come in three parallel kinds (bundles for skills, rulesets for
+rules, mcpsets for servers) and are now one folder, so `data/rulesets` and `data/mcpsets`
+are folded into `data/bundles`. Then the whole directory tree, which is how every earlier
+release stored things, is read into the database. **The tree itself is left exactly where it
+is**, so nothing is lost and an older binary still finds everything it expects.
 
 Frontmatter round-trips losslessly. Keys the app doesn't model: `argument-hint`,
 `user-invokable`, anything else you've added: are preserved rather than dropped, and
 `allowed-tools` keeps whichever form it was authored in. The parser is tested against a
 library of 116 real-world skills.
+
+## Sync with GitHub
+
+Point the registry at a repository once, on **Settings**, and then it is two buttons.
+
+**Push** writes everything out in the layout above and commits it. The commit contains
+exactly what the registry holds, so deleting a skill here deletes it there. Anything else
+in the repository, a README, a LICENSE, a workflow, is carried through untouched, so the
+target can be a repository you also use for other things. Pushing twice with nothing
+changed makes no commit at all.
+
+**Pull** reads the repository back in, replacing what is here. That is the direction that
+loses work, so it never happens on its own and always asks first.
+
+You need a GitHub token with **Contents: read and write** on the repository, set on the
+same page. Private repositories are fine, and usually the right answer. Commits go through
+GitHub's API rather than a `git` binary, because the deployed image is `scratch` and has
+none.
+
+Two things are never committed: access tokens, because a token in a repository is a token
+that has leaked, and share codes, because a share code is a bearer capability that works
+without your password.
 
 ## HTTP API
 
@@ -374,14 +424,27 @@ GET  /api/v1/download?skill=a&skill=b  tar.gz of specific skills
 GET  /api/v1/health                    unauthenticated, for health checks
 ```
 
+PocketBase's own REST API is mounted alongside it at `/api/collections/…`, and its
+dashboard at `/_/`. Both sit behind `CIRCE_PASSWORD`: a request without it is turned away
+before PocketBase sees it, so the dashboard's sign-in page is not reachable by a stranger
+either. Past that door its superuser account applies as a second lock, and the registry's
+collections have no public read rule. Set `CIRCE_NO_DASHBOARD=1` to remove both entirely.
+
 ## Develop
 
 ```bash
 make dev      # server with live template reload
 make watch    # rebuild CSS on change (run alongside make dev)
 make test     # go test ./... -race
+make e2e      # drive the real site in a browser (needs Playwright)
 make lint     # go vet + gofmt check
+make export   # write the registry out as plain files
 ```
+
+`make e2e` builds the server, starts it on a scratch data directory and walks Chromium
+through the flows a person actually performs. It needs `pip install playwright &&
+playwright install chromium`, and nothing else in the project does: there is still no Node
+or Python in the build.
 
 Contributions are welcome: issues and pull requests both. If you're changing the UI,
 `make dev` reloads templates on every request so you don't need to restart.
@@ -389,10 +452,20 @@ Contributions are welcome: issues and pull requests both. If you're changing the
 ## Security notes
 
 The server binds to loopback by default and rejects cross-origin mutations, because a page
-in your browser can otherwise reach a local port. Bundled-file paths are validated against
-traversal and symlink escapes, archive extraction rejects Zip-Slip entries, and markdown is
-rendered with raw HTML escaped so an imported third-party skill can't inject script into
-your registry.
+in your browser can otherwise reach a local port. Companion-file paths are validated against
+traversal, archive extraction rejects Zip-Slip entries, and markdown is rendered with raw
+HTML escaped so an imported third-party skill can't inject script into your registry.
+
+The PocketBase dashboard at `/_/` reads the same database the registry does, so it is
+behind the same password rather than beside it: without `CIRCE_PASSWORD` a request never
+reaches PocketBase at all, and its own sign-in page cannot be probed. Its superuser account
+is then a second lock on a door strangers cannot get to, there is no such account until you
+make one, and the link that makes the first one goes to the server log rather than to the
+internet. `CIRCE_NO_DASHBOARD=1` removes the door entirely.
+
+PocketBase is pinned to an exact version, and a test fails if that moves. It is pre-1.0 and
+has changed its API across minor releases, so upgrading is a decision with a checklist
+rather than something a dependency bot should do on your behalf.
 
 Found something? Open an issue.
 

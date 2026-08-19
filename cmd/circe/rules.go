@@ -10,7 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/sidharthpunathil/circe/internal/installer"
-	"github.com/sidharthpunathil/circe/internal/store"
+	"github.com/sidharthpunathil/circe/internal/model"
 )
 
 // Rules install differently from skills: a skill is a directory copied into
@@ -77,7 +77,7 @@ func folderGuidance(m *folderManifest, withRules bool) map[string]string {
 	if !withRules {
 		return out
 	}
-	for _, target := range store.RuleTargets() {
+	for _, target := range model.RuleTargets() {
 		var parts []string
 		for _, r := range m.Rules {
 			// A rule that only targets AGENTS.md never lands in CLAUDE.md.

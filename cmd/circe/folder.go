@@ -14,7 +14,7 @@ import (
 
 	"github.com/sidharthpunathil/circe/internal/api"
 	"github.com/sidharthpunathil/circe/internal/installer"
-	"github.com/sidharthpunathil/circe/internal/store"
+	"github.com/sidharthpunathil/circe/internal/model"
 )
 
 // A folder is one thing that holds any mix of skills, rules and MCP servers,
@@ -72,8 +72,8 @@ type folderManifest struct {
 	Title       string
 	Description string
 	Skills      []api.Skill
-	Rules       []*store.Rule
-	Servers     []*store.MCPServer
+	Rules       []*model.Rule
+	Servers     []*model.MCPServer
 	// Context is the folder's own CLAUDE.md and AGENTS.md, keyed by filename.
 	Context map[string]string
 	// Registry is the base URL to use for follow-up downloads.
@@ -93,8 +93,8 @@ func (m *folderManifest) UnmarshalJSON(raw []byte) error {
 		named
 		Bundle   *named             `json:"bundle"`
 		Skills   []api.Skill        `json:"skills"`
-		Rules    []*store.Rule      `json:"rules"`
-		Servers  []*store.MCPServer `json:"servers"`
+		Rules    []*model.Rule      `json:"rules"`
+		Servers  []*model.MCPServer `json:"servers"`
 		Context  map[string]string  `json:"context"`
 		Registry string             `json:"registry"`
 	}
@@ -292,7 +292,7 @@ func runFolder(cmd *cobra.Command, name string, kinds folderKind, opts *folderOp
 	section := sectionLabeller(out, shown.count() > 1)
 
 	var done []string
-	var written []*store.MCPServer
+	var written []*model.MCPServer
 
 	if doing.has(kindSkills) {
 		section("skills")

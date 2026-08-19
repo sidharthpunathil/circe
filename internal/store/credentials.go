@@ -6,34 +6,38 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/pocketbase/pocketbase/core"
 )
 
 // Credentials are access tokens set through the UI rather than the environment.
 //
-// They deliberately do NOT live in settings.json or anywhere else inside the
-// normal data tree, because that tree is meant to be committed as a backup.
-// They go in data/.credentials.json, and creating it also writes a
-// data/.gitignore that excludes it, so `git add data/` cannot sweep a token
-// into a repository by accident.
-const (
-	credentialsFile = ".credentials.json"
-	dataGitignore   = ".gitignore"
-)
+// They live in their own collection, and nothing that leaves this machine ever
+// reads it: not the export, not the git sync, not a share code. Keeping them in
+// a separate table rather than a field on something else is the point, because
+// it makes "never send this anywhere" a property of the schema instead of a
+// filter somebody has to remember to write.
+//
+// Older releases kept them in data/.credentials.json. That file is still read
+// once on open so an upgrade carries the tokens over, and is then left alone.
+const credentialsFile = ".credentials.json"
 
 // Credentials maps a token name (GITHUB_TOKEN, …) to its value.
 type Credentials map[string]string
 
 func (s *Store) credentialsPath() string { return filepath.Join(s.root, credentialsFile) }
 
-// Credentials reads the stored tokens. A missing file is not an error.
+// Credentials reads the stored tokens.
 func (s *Store) Credentials() Credentials {
-	raw, err := os.ReadFile(s.credentialsPath())
-	if err != nil {
-		return Credentials{}
-	}
 	out := Credentials{}
-	if err := json.Unmarshal(raw, &out); err != nil {
-		return Credentials{}
+	recs, err := s.all(colCreds)
+	if err != nil {
+		return out
+	}
+	for _, rec := range recs {
+		if v := rec.GetString("value"); v != "" {
+			out[rec.GetString("name")] = v
+		}
 	}
 	return out
 }
@@ -48,44 +52,64 @@ func (s *Store) SaveCredentials(c Credentials) error {
 		}
 	}
 
-	if len(clean) == 0 {
-		if err := os.Remove(s.credentialsPath()); err != nil && !os.IsNotExist(err) {
-			return err
-		}
-		return nil
-	}
-
-	if err := s.ensureDataGitignore(); err != nil {
-		return err
-	}
-	raw, err := json.MarshalIndent(clean, "", "  ")
+	recs, err := s.all(colCreds)
 	if err != nil {
 		return err
 	}
-	if err := writeFileAtomic(s.credentialsPath(), append(raw, '\n')); err != nil {
+	seen := map[string]bool{}
+	for _, rec := range recs {
+		name := rec.GetString("name")
+		value, keep := clean[name]
+		if !keep {
+			if err := s.app.Delete(rec); err != nil {
+				return err
+			}
+			continue
+		}
+		seen[name] = true
+		rec.Set("value", value)
+		if err := asStoreError(s.app.Save(rec)); err != nil {
+			return err
+		}
+	}
+
+	col, err := s.app.FindCollectionByNameOrId(colCreds)
+	if err != nil {
 		return err
 	}
-	// Tokens are secrets; keep them off other local accounts.
-	return os.Chmod(s.credentialsPath(), 0o600)
+	for name, value := range clean {
+		if seen[name] {
+			continue
+		}
+		rec := core.NewRecord(col)
+		rec.Set("name", name)
+		rec.Set("value", value)
+		if err := asStoreError(s.app.Save(rec)); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
-// ensureDataGitignore guarantees the credentials file cannot be committed with
-// the rest of the data directory.
-func (s *Store) ensureDataGitignore() error {
-	path := filepath.Join(s.root, dataGitignore)
-	existing, err := os.ReadFile(path)
-	if err != nil && !os.IsNotExist(err) {
-		return err
-	}
-	if strings.Contains(string(existing), credentialsFile) {
+// adoptLegacyCredentials imports data/.credentials.json once, if the database
+// has no tokens yet. The file is left in place: it is the operator's, and a
+// downgrade should still find it.
+func (s *Store) adoptLegacyCredentials() error {
+	if len(s.Credentials()) > 0 {
 		return nil
 	}
-	body := string(existing)
-	if body != "" && !strings.HasSuffix(body, "\n") {
-		body += "\n"
+	raw, err := os.ReadFile(s.credentialsPath())
+	if err != nil {
+		return nil
 	}
-	body += "# Access tokens. Never commit these.\n" + credentialsFile + "\n"
-	return writeFileAtomic(path, []byte(body))
+	old := Credentials{}
+	if err := json.Unmarshal(raw, &old); err != nil {
+		return nil
+	}
+	if len(old) == 0 {
+		return nil
+	}
+	return s.SaveCredentials(old)
 }
 
 // CredentialNames lists the tokens the UI offers, in display order.

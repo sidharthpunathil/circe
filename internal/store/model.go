@@ -1,158 +1,96 @@
 package store
 
 import (
-	"fmt"
-	"regexp"
-	"sort"
-	"strings"
-	"time"
-
-	"github.com/sidharthpunathil/circe/internal/skillfile"
+	"github.com/sidharthpunathil/circe/internal/model"
 )
 
-// nameRe constrains skill and bundle names to a safe, filesystem-friendly slug.
-// This is also the primary defense against path traversal: a name that matches
-// this pattern cannot contain a separator or a dot segment.
-var nameRe = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
+// What a skill, rule, server or folder *is* lives in internal/model. The store
+// only knows where to put one.
+//
+// That split exists for a concrete reason: the CLI needs the types in order to
+// install things, and needs no database at all. If the types lived here, every
+// `circe` binary would link SQLite and the whole PocketBase runtime to render a
+// folder listing, and would roughly double in size for it.
+//
+// Everything is re-exported below so that the rest of the server keeps spelling
+// these as store.Skill and store.ValidateName. An alias is the same type, not a
+// wrapper around it, so a *model.Skill and a *store.Skill are interchangeable.
 
-// ValidateName reports whether s is usable as a skill or bundle directory name.
-func ValidateName(s string) error {
-	switch {
-	case s == "":
-		return fmt.Errorf("give it a name")
-	case len(s) > 64:
-		return fmt.Errorf("that name is too long; keep it under 64 characters")
-	case !nameRe.MatchString(s):
-		return fmt.Errorf("use lowercase letters, digits and hyphens, like my-skill")
-	}
-	return nil
-}
+type (
+	// Skill is a stored skill: its parsed SKILL.md plus any bundled files.
+	Skill = model.Skill
+	// Bundle is a named set of everything a project needs at once.
+	Bundle = model.Bundle
+	// Rule is one piece of project guidance.
+	Rule = model.Rule
+	// MCPServer is one server definition.
+	MCPServer = model.MCPServer
+	// EnvVar is one environment variable a server needs before it will start.
+	EnvVar = model.EnvVar
+	// FileRef describes one bundled file inside a skill.
+	FileRef = model.FileRef
+	// Share records one shared resource.
+	Share = model.Share
+)
+
+const (
+	TargetClaude = model.TargetClaude
+	TargetAgents = model.TargetAgents
+
+	TransportStdio = model.TransportStdio
+	TransportHTTP  = model.TransportHTTP
+	TransportSSE   = model.TransportSSE
+	TransportWS    = model.TransportWS
+
+	ShareKindFolder = model.ShareKindFolder
+	ShareKindSkill  = model.ShareKindSkill
+)
+
+// ValidateName reports whether s is usable as a skill or folder name.
+func ValidateName(s string) error { return model.ValidateName(s) }
 
 // Slugify converts arbitrary text into a valid name.
-func Slugify(s string) string {
-	s = strings.ToLower(strings.TrimSpace(s))
-	var b strings.Builder
-	lastHyphen := true // suppress leading hyphen
-	for _, r := range s {
-		switch {
-		case r >= 'a' && r <= 'z', r >= '0' && r <= '9':
-			b.WriteRune(r)
-			lastHyphen = false
-		default:
-			if !lastHyphen {
-				b.WriteRune('-')
-				lastHyphen = true
-			}
-		}
-	}
-	out := strings.Trim(b.String(), "-")
-	if len(out) > 64 {
-		out = strings.Trim(out[:64], "-")
-	}
-	return out
+func Slugify(s string) string { return model.Slugify(s) }
+
+// ParseTags splits a comma-separated tag input into a normalized list.
+func ParseTags(s string) []string { return model.ParseTags(s) }
+
+// RuleTargets lists the files a rule can be merged into.
+func RuleTargets() []string { return model.RuleTargets() }
+
+// ValidRuleTarget reports whether name is a target we write.
+func ValidRuleTarget(name string) bool { return model.ValidRuleTarget(name) }
+
+// MCPTransports lists the transports in the order the UI offers them.
+func MCPTransports() []string { return model.MCPTransports() }
+
+// ValidTransport reports whether name is a transport we can write.
+func ValidTransport(name string) bool { return model.ValidTransport(name) }
+
+// NormalizeTransport maps what people paste from vendor docs onto what we store.
+func NormalizeTransport(s string) string { return model.NormalizeTransport(s) }
+
+// MCPCategories are the buckets the MCP page groups servers by.
+func MCPCategories() []string { return model.MCPCategories() }
+
+// ValidateMCPServer checks a server definition before it is stored.
+func ValidateMCPServer(m *MCPServer) error { return model.ValidateMCPServer(m) }
+
+// RenderMCPConfig renders servers as a project's .mcp.json.
+func RenderMCPConfig(servers []*MCPServer) ([]byte, error) { return model.RenderMCPConfig(servers) }
+
+// MergeMCPConfig merges servers into an existing .mcp.json.
+func MergeMCPConfig(existing []byte, servers []*MCPServer, overwrite bool) ([]byte, []string, error) {
+	return model.MergeMCPConfig(existing, servers, overwrite)
 }
 
-// FileRef describes one bundled file inside a skill directory.
-type FileRef struct {
-	Path string `json:"path"` // slash-separated, relative to the skill dir
-	Size int64  `json:"size"`
-}
+// ParseMCPConfig reads servers out of a pasted .mcp.json.
+func ParseMCPConfig(raw []byte) ([]*MCPServer, error) { return model.ParseMCPConfig(raw) }
 
-// Ext returns the lowercase file extension without the dot.
-func (f FileRef) Ext() string {
-	i := strings.LastIndex(f.Path, ".")
-	if i < 0 {
-		return ""
-	}
-	return strings.ToLower(f.Path[i+1:])
-}
+// EncodeShareCode packs an origin and share id into one pasteable token.
+func EncodeShareCode(origin, id string) string { return model.EncodeShareCode(origin, id) }
 
-// Dir returns the top-level directory of the file, or "" if at the root.
-func (f FileRef) Dir() string {
-	i := strings.Index(f.Path, "/")
-	if i < 0 {
-		return ""
-	}
-	return f.Path[:i]
-}
-
-// Skill is a stored skill: its parsed SKILL.md plus any bundled files.
-type Skill struct {
-	Name        string                `json:"name"`
-	Description string                `json:"description"`
-	Body        string                `json:"body"`
-	Front       skillfile.Frontmatter `json:"-"`
-	Tags        []string              `json:"tags,omitempty"`
-	Files       []FileRef             `json:"files,omitempty"`
-	UpdatedAt   time.Time             `json:"updatedAt"`
-	Size        int64                 `json:"size"`
-}
-
-// TagsCSV renders tags for a form field.
-func (s *Skill) TagsCSV() string { return strings.Join(s.Tags, ", ") }
-
-// ParseTags splits a comma-separated tag input into a normalized, deduped list.
-func ParseTags(s string) []string {
-	seen := map[string]bool{}
-	var out []string
-	for _, part := range strings.Split(s, ",") {
-		t := Slugify(part)
-		if t == "" || seen[t] {
-			continue
-		}
-		seen[t] = true
-		out = append(out, t)
-	}
-	sort.Strings(out)
-	return out
-}
-
-// Bundle is a named set of everything a project needs at once: skills to
-// install, rules to merge into its CLAUDE.md, and MCP servers to add to its
-// .mcp.json.
-//
-// There used to be three parallel folder types, one per kind. That was a
-// modelling mistake: the reason to group things is that you reach for them
-// together, and what you reach for together is rarely all one kind. One folder
-// holds any mix, and the CLI installs whichever parts you ask for.
-type Bundle struct {
-	Name        string    `json:"name"`
-	Title       string    `json:"title,omitempty"`
-	Description string    `json:"description,omitempty"`
-	Skills      []string  `json:"skills"`
-	Rules       []string  `json:"rules,omitempty"`
-	Servers     []string  `json:"servers,omitempty"`
-	UpdatedAt   time.Time `json:"updatedAt"`
-}
-
-func contains(list []string, want string) bool {
-	for _, v := range list {
-		if v == want {
-			return true
-		}
-	}
-	return false
-}
-
-// Has reports whether the bundle already contains the named skill.
-func (b *Bundle) Has(skill string) bool { return contains(b.Skills, skill) }
-
-// HasRule reports whether the bundle already contains the named rule.
-func (b *Bundle) HasRule(name string) bool { return contains(b.Rules, name) }
-
-// HasServer reports whether the bundle already contains the named server.
-func (b *Bundle) HasServer(name string) bool { return contains(b.Servers, name) }
-
-// Count is how many things are in the folder, across all three kinds.
-func (b *Bundle) Count() int { return len(b.Skills) + len(b.Rules) + len(b.Servers) }
-
-// IsEmpty reports whether the folder would install nothing.
-func (b *Bundle) IsEmpty() bool { return b.Count() == 0 }
-
-// DisplayTitle falls back to the name when no title is set.
-func (b *Bundle) DisplayTitle() string {
-	if strings.TrimSpace(b.Title) != "" {
-		return b.Title
-	}
-	return b.Name
+// DecodeShareCode accepts either a share code or a plain share URL.
+func DecodeShareCode(input string) (origin, id string, err error) {
+	return model.DecodeShareCode(input)
 }

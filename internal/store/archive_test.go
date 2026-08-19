@@ -78,7 +78,9 @@ func keys(m map[string]string) []string {
 func junkySkill(t *testing.T, s *Store, name string) {
 	t.Helper()
 	mustCreate(t, s, &Skill{Name: name, Description: "A packable skill", Body: "Packable body"})
-	writeTree(t, s.skillDir(name), map[string]string{
+	// Seeded the way a repository import lands, which is the only way junk like
+	// a vendored virtualenv gets in: the editor refuses these paths.
+	seedFiles(t, s, name, map[string]string{
 		"references/keep.md":            "keep me",
 		"scripts/run.sh":                "#!/bin/sh\necho hi\n",
 		"__pycache__/x.pyc":             "junk",
@@ -134,7 +136,7 @@ func TestExcluded(t *testing.T) {
 }
 
 func TestWriteSkillsTarGz(t *testing.T) {
-	s, _ := newStore(t)
+	s, _ := openStore(t)
 	junkySkill(t, s, "packme")
 
 	var buf bytes.Buffer
@@ -200,7 +202,7 @@ func TestWriteSkillsTarGz(t *testing.T) {
 }
 
 func TestWriteSkillsTarGzMultipleSkills(t *testing.T) {
-	s, _ := newStore(t)
+	s, _ := openStore(t)
 	mustCreate(t, s, &Skill{Name: "one", Description: "First skill", Body: "One"})
 	mustCreate(t, s, &Skill{Name: "two", Description: "Second skill", Body: "Two"})
 	if err := s.WriteFile("two", "references/x.md", []byte("x")); err != nil {
@@ -219,7 +221,7 @@ func TestWriteSkillsTarGzMultipleSkills(t *testing.T) {
 }
 
 func TestWriteSkillsTarGzErrors(t *testing.T) {
-	s, _ := newStore(t)
+	s, _ := openStore(t)
 	mustCreate(t, s, &Skill{Name: "real", Description: "Real skill", Body: "Body"})
 
 	var buf bytes.Buffer
@@ -240,7 +242,7 @@ func TestWriteSkillsTarGzErrors(t *testing.T) {
 }
 
 func TestWriteSkillZipSingleTopLevelDir(t *testing.T) {
-	s, _ := newStore(t)
+	s, _ := openStore(t)
 	junkySkill(t, s, "zipme")
 
 	var buf bytes.Buffer
@@ -279,7 +281,7 @@ func TestWriteSkillZipSingleTopLevelDir(t *testing.T) {
 }
 
 func TestWriteSkillZipMissingSkill(t *testing.T) {
-	s, _ := newStore(t)
+	s, _ := openStore(t)
 	var buf bytes.Buffer
 	if err := s.WriteSkillZip(&buf, "ghost"); !errors.Is(err, ErrNotFound) {
 		t.Errorf("WriteSkillZip(ghost) = %v, want ErrNotFound", err)
@@ -287,7 +289,7 @@ func TestWriteSkillZipMissingSkill(t *testing.T) {
 }
 
 func TestWriteBundleZip(t *testing.T) {
-	s, _ := newStore(t)
+	s, _ := openStore(t)
 	mustCreate(t, s, &Skill{Name: "one", Description: "First skill", Body: "One"})
 	mustCreate(t, s, &Skill{Name: "two", Description: "Second skill", Body: "Two"})
 	b := &Bundle{Name: "pack", Skills: []string{"one", "two"}}
@@ -315,17 +317,21 @@ func TestWriteBundleZip(t *testing.T) {
 // for the WalkDir-on-a-symlinked-root problem: a plugin-linked skill must not
 // download as an empty archive.
 func TestArchiveIncludesSymlinkedSkillContent(t *testing.T) {
-	s, base := newStore(t)
+	s, base := openStore(t)
 	real := filepath.Join(base, "real-skill")
 	writeTree(t, real, map[string]string{
 		"SKILL.md":          "---\nname: linked\ndescription: A symlinked skill directory\n---\n\nBody\n",
 		"references/api.md": "reference",
 	})
-	if err := os.Symlink(real, s.skillDir("linked")); err != nil {
+	tree := filepath.Join(base, "tree")
+	if err := os.MkdirAll(filepath.Join(tree, "skills"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Reload(); err != nil {
+	if err := os.Symlink(real, filepath.Join(tree, "skills", "linked")); err != nil {
 		t.Fatal(err)
+	}
+	if _, err := s.ImportTree(tree, true); err != nil {
+		t.Fatalf("ImportTree: %v", err)
 	}
 
 	var buf bytes.Buffer
@@ -340,5 +346,18 @@ func TestArchiveIncludesSymlinkedSkillContent(t *testing.T) {
 	}
 	if entries["linked/references/api.md"] != "reference" {
 		t.Errorf("content = %q", entries["linked/references/api.md"])
+	}
+}
+
+// seedFiles stores raw file contents against a skill that already exists,
+// keeping whatever SKILL.md it already has.
+func seedFiles(t *testing.T, s *Store, name string, files map[string]string) {
+	t.Helper()
+	raw := map[string][]byte{"SKILL.md": []byte(mustRead(t, s, name, "SKILL.md"))}
+	for rel, body := range files {
+		raw[rel] = []byte(body)
+	}
+	if err := s.WriteSkillFiles(name, raw, true); err != nil {
+		t.Fatalf("seedFiles(%q): %v", name, err)
 	}
 }

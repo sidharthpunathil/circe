@@ -16,7 +16,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
 
-	"github.com/sidharthpunathil/circe/internal/store"
+	"github.com/sidharthpunathil/circe/internal/model"
 )
 
 // MCP servers install differently again: a skill is a directory copied into
@@ -56,7 +56,7 @@ func newMCPCmd() *cobra.Command {
 // It returns its share of the combined summary, and the servers that ended up
 // in the file so the caller can say which variables they still need.
 func installFolderServers(out io.Writer, root string, m *folderManifest,
-	opts *folderOptions) (string, []*store.MCPServer, error) {
+	opts *folderOptions) (string, []*model.MCPServer, error) {
 
 	// --force is a decision to take the folder as it stands, so it answers the
 	// picker as well as the collisions.
@@ -92,7 +92,7 @@ func installFolderServers(out io.Writer, root string, m *folderManifest,
 }
 
 // chooseMCPServers picks which of the folder's servers to install.
-func chooseMCPServers(m *folderManifest, takeAll bool) ([]*store.MCPServer, error) {
+func chooseMCPServers(m *folderManifest, takeAll bool) ([]*model.MCPServer, error) {
 	if takeAll {
 		return m.Servers, nil
 	}
@@ -112,7 +112,7 @@ func chooseMCPServers(m *folderManifest, takeAll bool) ([]*store.MCPServer, erro
 	for _, n := range names {
 		keep[n] = true
 	}
-	var chosen []*store.MCPServer
+	var chosen []*model.MCPServer
 	for _, s := range m.Servers {
 		if keep[s.Name] {
 			chosen = append(chosen, s)
@@ -122,7 +122,7 @@ func chooseMCPServers(m *folderManifest, takeAll bool) ([]*store.MCPServer, erro
 }
 
 // selectMCPServers shows the multi-select picker, seeded with everything.
-func selectMCPServers(title string, servers []*store.MCPServer) ([]string, error) {
+func selectMCPServers(title string, servers []*model.MCPServer) ([]string, error) {
 	width := termWidth()
 	names := make([]string, len(servers))
 	for i, m := range servers {
@@ -173,7 +173,7 @@ type mcpResult struct {
 // applyMCPServers merges servers into the config at path and reports both what
 // changed and which servers were actually written, so the caller can tell the
 // developer which environment variables those servers still want.
-func applyMCPServers(path string, servers []*store.MCPServer, force, dryRun bool) ([]mcpResult, []*store.MCPServer, error) {
+func applyMCPServers(path string, servers []*model.MCPServer, force, dryRun bool) ([]mcpResult, []*model.MCPServer, error) {
 	existing, err := os.ReadFile(path)
 	switch {
 	case os.IsNotExist(err):
@@ -193,7 +193,7 @@ func applyMCPServers(path string, servers []*store.MCPServer, force, dryRun bool
 		return nil, nil, mcpConfigError(path, err)
 	}
 
-	merged, replaced, err := store.MergeMCPConfig(existing, servers, force)
+	merged, replaced, err := model.MergeMCPConfig(existing, servers, force)
 	if err != nil {
 		return nil, nil, mcpConfigError(path, err)
 	}
@@ -203,7 +203,7 @@ func applyMCPServers(path string, servers []*store.MCPServer, force, dryRun bool
 	}
 
 	var results []mcpResult
-	var written []*store.MCPServer
+	var written []*model.MCPServer
 	changed := 0
 	for _, m := range servers {
 		current, exists := present[m.Name]
@@ -345,7 +345,7 @@ type mcpEnvNeed struct {
 // missingMCPEnv finds the variables the config points at with ${NAME} that are
 // not set. Without them the server starts and immediately fails, which is a
 // confusing way to find out, so it is worth saying up front.
-func missingMCPEnv(servers []*store.MCPServer, lookup func(string) string) []mcpEnvNeed {
+func missingMCPEnv(servers []*model.MCPServer, lookup func(string) string) []mcpEnvNeed {
 	index := map[string]*mcpEnvNeed{}
 	var order []string
 	for _, m := range servers {
@@ -383,7 +383,7 @@ func missingMCPEnv(servers []*store.MCPServer, lookup func(string) string) []mcp
 
 // printMCPEnv is the most useful thing this command prints: the config only
 // references ${NAME}, so a server with an unset variable will not start.
-func printMCPEnv(w io.Writer, servers []*store.MCPServer, lookup func(string) string) {
+func printMCPEnv(w io.Writer, servers []*model.MCPServer, lookup func(string) string) {
 	declared := 0
 	for _, m := range servers {
 		declared += len(m.Env)

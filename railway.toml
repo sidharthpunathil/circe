@@ -3,8 +3,9 @@ builder = "dockerfile"
 dockerfilePath = "Dockerfile"
 
 [deploy]
-# One instance is plenty: the workload is a Go binary serving embedded assets
-# off a local volume, and a second replica could not share that volume anyway.
+# One instance, and this one is a correctness constraint rather than a sizing
+# choice: the registry is a single-writer SQLite database on a local volume, so
+# a second replica would neither see the same data nor be safe to write it.
 numReplicas = 1
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3

@@ -20,7 +20,7 @@ else
   endif
 endif
 
-.PHONY: all build css serve dev test lint clean tools
+.PHONY: all build css serve dev test e2e export lint clean tools
 
 all: build
 
@@ -56,6 +56,14 @@ dev: css
 ## test: run the full test suite with the race detector
 test:
 	go test ./... -race
+
+## e2e: drive the real site in a browser (needs Playwright)
+e2e:
+	python3 e2e/e2e.py
+
+## export: write the registry out as plain files, to ./circe-export
+export:
+	go run ./cmd/server export
 
 ## lint: vet and check formatting
 lint:

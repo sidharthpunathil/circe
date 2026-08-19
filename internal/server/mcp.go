@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sidharthpunathil/circe/internal/mcpcatalog"
 	"github.com/sidharthpunathil/circe/internal/store"
 )
 
@@ -19,9 +18,7 @@ func (s *Server) routesMCP(m *http.ServeMux) {
 	m.HandleFunc("GET /mcp", s.handleMCP)
 	m.HandleFunc("GET /mcp/new", s.handleMCPNew)
 	m.HandleFunc("POST /mcp/new", s.handleMCPCreate)
-	// The catalog is a section of /mcp now rather than a page of its own, but
 	// this is still where its form posts to.
-	m.HandleFunc("POST /mcp/catalog/add", s.handleMCPCatalogAdd)
 
 	m.HandleFunc("GET /mcp/{name}", s.handleMCPServer)
 	m.HandleFunc("GET /mcp/{name}/edit", s.handleMCPEdit)
@@ -41,11 +38,6 @@ type mcpView struct {
 	base
 	Servers []*store.MCPServer
 	Total   int
-	// The catalog sits on this page, below the servers already added, so
-	// browsing what exists is not a trip to somewhere else.
-	Groups  []catalogGroup
-	Added   map[string]bool
-	Catalog int
 }
 
 func (s *Server) handleMCP(w http.ResponseWriter, r *http.Request) {
@@ -54,9 +46,6 @@ func (s *Server) handleMCP(w http.ResponseWriter, r *http.Request) {
 		base:    s.base(w, r, "mcp"),
 		Servers: s.store.SearchMCPServers(q),
 		Total:   s.store.MCPCount(),
-		Groups:  catalogGroups(),
-		Added:   s.catalogAdded(),
-		Catalog: mcpcatalog.Count(),
 	})
 }
 
@@ -395,7 +384,6 @@ func (s *Server) handleMCPUpdate(w http.ResponseWriter, r *http.Request) {
 	// rather than quietly dropping it on the first save.
 	updated.Homepage = existing.Homepage
 	updated.Official = existing.Official
-	updated.CatalogID = existing.CatalogID
 	updated.Extra = existing.Extra
 
 	if err := s.store.SaveMCPServer(updated); err != nil {
@@ -422,94 +410,6 @@ func (s *Server) handleMCPDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.setFlash(w, "ok", fmt.Sprintf("Deleted %s.", name))
-	http.Redirect(w, r, "/mcp", http.StatusSeeOther)
-}
-
-// ---------- catalog ----------
-
-type catalogGroup struct {
-	Category string
-	Entries  []mcpcatalog.Entry
-}
-
-// catalogGroups orders the catalog the way the categories are declared, then
-// appends anything the catalog knows about that the list does not.
-func catalogGroups() []catalogGroup {
-	byCategory := mcpcatalog.ByCategory()
-	var out []catalogGroup
-	seen := map[string]bool{}
-	for _, c := range store.MCPCategories() {
-		seen[c] = true
-		if entries := byCategory[c]; len(entries) > 0 {
-			out = append(out, catalogGroup{Category: c, Entries: entries})
-		}
-	}
-	var extra []string
-	for c := range byCategory {
-		if !seen[c] {
-			extra = append(extra, c)
-		}
-	}
-	sort.Strings(extra)
-	for _, c := range extra {
-		out = append(out, catalogGroup{Category: c, Entries: byCategory[c]})
-	}
-	return out
-}
-
-// catalogAdded marks the entries already in the registry, so the list can show
-// them as taken rather than offering to add them twice.
-func (s *Server) catalogAdded() map[string]bool {
-	added := map[string]bool{}
-	for _, m := range s.store.MCPServers() {
-		if m.CatalogID != "" {
-			added[m.CatalogID] = true
-		}
-		added[m.Name] = true
-	}
-	return added
-}
-
-func (s *Server) handleMCPCatalogAdd(w http.ResponseWriter, r *http.Request) {
-	_ = r.ParseForm()
-	ids := r.Form["entry"]
-	if len(ids) == 0 {
-		s.setFlash(w, "error", "Pick at least one server first.")
-		http.Redirect(w, r, "/mcp#catalog", http.StatusSeeOther)
-		return
-	}
-
-	var added, skipped []string
-	for _, id := range ids {
-		entry, ok := mcpcatalog.Get(id)
-		if !ok {
-			continue
-		}
-		if err := s.store.CreateMCPServer(entry.ToServer()); err != nil {
-			if errors.Is(err, store.ErrExists) {
-				skipped = append(skipped, id)
-				continue
-			}
-			logError("add catalog server "+id, err)
-			skipped = append(skipped, id)
-			continue
-		}
-		added = append(added, id)
-	}
-
-	switch {
-	case len(added) == 1 && len(skipped) == 0:
-		s.setFlash(w, "ok", fmt.Sprintf("Added %s.", added[0]))
-		http.Redirect(w, r, "/mcp/"+added[0], http.StatusSeeOther)
-		return
-	case len(added) == 0:
-		s.setFlash(w, "ok", "Nothing to add. Those are already in your registry.")
-	case len(skipped) == 0:
-		s.setFlash(w, "ok", fmt.Sprintf("Added %d %s.", len(added), plural(len(added), "server", "servers")))
-	default:
-		s.setFlash(w, "ok", fmt.Sprintf("Added %d %s, skipped %d already here.",
-			len(added), plural(len(added), "server", "servers"), len(skipped)))
-	}
 	http.Redirect(w, r, "/mcp", http.StatusSeeOther)
 }
 

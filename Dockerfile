@@ -27,7 +27,8 @@ RUN go mod download
 COPY . .
 COPY --from=css /src/web/static/css/app.css ./web/static/css/app.css
 ARG VERSION=dev
-# CGO off and a stripped binary: this has to run in a scratch image and stay small.
+# CGO off: the SQLite driver is pure Go, which is what lets this run in a
+# scratch image with no libc at all.
 RUN CGO_ENABLED=0 GOOS=linux go build \
       -trimpath \
       -ldflags="-s -w -X main.version=${VERSION}" \
@@ -45,7 +46,9 @@ ENV ZONEINFO=/usr/local/go/lib/time/zoneinfo.zip \
 # Templates and static assets are embedded in the binary, so there is nothing
 # else to copy and no working directory to set up.
 #
-# No VOLUME instruction: Railway rejects it and manages persistence itself.
-# Mount a volume at /data on whichever platform you deploy to.
+# /data must be writable and must persist: the registry creates its database
+# there on first boot. No VOLUME instruction, because Railway rejects it and
+# manages persistence itself. Mount a volume at /data on whichever platform you
+# deploy to.
 EXPOSE 8080
 ENTRYPOINT ["/circe-server"]

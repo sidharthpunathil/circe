@@ -2,9 +2,9 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
-	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -13,19 +13,47 @@ import (
 	"github.com/sidharthpunathil/circe/internal/store"
 )
 
-// sourcesPath is where provenance for remotely imported skills is recorded. It
-// lives inside the data directory so it is part of the backup.
-func (s *Server) sourcesPath() string {
-	return filepath.Join(s.store.Root(), "sources.json")
+// Provenance for remotely imported skills lives in the registry alongside the
+// content, so a skill and the record of where it came from are backed up,
+// exported and committed together.
+func (s *Server) loadSources() map[string]gitsource.Source {
+	out := map[string]gitsource.Source{}
+	for name, raw := range s.store.Sources() {
+		var src gitsource.Source
+		if err := json.Unmarshal(raw, &src); err != nil {
+			logError("load source "+name, err)
+			continue
+		}
+		// Tolerate entries that predate the Skill field, so callers can always
+		// trust src.Skill.
+		if src.Skill == "" {
+			src.Skill = name
+		}
+		out[name] = src
+	}
+	return out
 }
 
-func (s *Server) loadSources() map[string]gitsource.Source {
-	m, err := gitsource.LoadSources(s.sourcesPath())
-	if err != nil {
-		logError("load sources", err)
-		return map[string]gitsource.Source{}
+// saveSources replaces the whole provenance set, which is how every caller
+// uses it: load the map, edit it, hand it back.
+func (s *Server) saveSources(m map[string]gitsource.Source) error {
+	for name := range s.store.Sources() {
+		if _, keep := m[name]; !keep {
+			if err := s.store.DeleteSource(name); err != nil {
+				return err
+			}
+		}
 	}
-	return m
+	for name, src := range m {
+		raw, err := json.Marshal(src)
+		if err != nil {
+			return err
+		}
+		if err := s.store.SaveSource(name, raw); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // ghCandidate decorates a discovered skill with whether we already have it.
@@ -226,7 +254,7 @@ func (s *Server) handleImportRepoRun(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if err := gitsource.SaveSources(s.sourcesPath(), sources); err != nil {
+	if err := s.saveSources(sources); err != nil {
 		logError("save sources", err)
 	}
 
@@ -290,7 +318,7 @@ func (s *Server) handleSkillResync(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		sources[name] = gitsource.NewSource(name, repo, res.Meta, c)
-		if err := gitsource.SaveSources(s.sourcesPath(), sources); err != nil {
+		if err := s.saveSources(sources); err != nil {
 			logError("save sources", err)
 		}
 		s.setFlash(w, "ok", fmt.Sprintf("Re-synced %s from %s.", name, repo.String()))
@@ -404,7 +432,7 @@ func (s *Server) handleBundleSync(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if err := gitsource.SaveSources(s.sourcesPath(), sources); err != nil {
+	if err := s.saveSources(sources); err != nil {
 		logError("save sources", err)
 	}
 

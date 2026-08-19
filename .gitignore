@@ -4,7 +4,11 @@
 # Tailwind standalone binary, fetched by `make css`
 /tailwindcss
 
-# Note: data/ is intentionally NOT ignored. The whole point of this tool is that
-# data/ is your skill backup, so committing it is the backup.
+# The data directory is now a live SQLite database rather than a tree of
+# markdown, and it holds your access tokens. Committing it would commit those,
+# and a copy taken while the server is running is a torn write rather than a
+# backup. Use `circe-server export` to get a directory worth committing, or
+# connect a repository on the Settings page and push to it.
+/data/
 
 .DS_Store

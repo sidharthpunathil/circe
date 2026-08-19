@@ -3,16 +3,24 @@ package store
 // Test suite for the store package.
 //
 // Tests whose names begin with TestBug_ document *genuine defects found in the
-// non-test code*. They are expected to FAIL until the product code is fixed;
-// they deliberately assert the correct behaviour rather than the current one,
-// because pinning a security hole into the test suite would bless it. As of
-// writing there are three:
+// non-test code*. They deliberately assert the correct behaviour rather than
+// the current one, because pinning a security hole into the test suite would
+// bless it.
 //
-//	TestBug_ReadFileSkillMdBypassesValidation        path traversal via skill name
-//	TestBug_WriteFileEscapesThroughSymlinkedDirectory symlink escape on write
-//	TestBug_MutationOfCallerOwnedState                shared-state mutation / data race
+// Content lives in a database now rather than in a directory of files, so the
+// tests that used to reach for the filesystem go through the store instead. Two
+// things are worth knowing about that:
 //
-// Everything else should be green.
+//   - Seeding. A test that used to write a skill directory and call Reload now
+//     calls seedSkill, which stores the same bytes the way an import does. For
+//     content that could never get in through the API (a name that fails
+//     validation, unparseable frontmatter) there is seedRawSkill, which writes
+//     the row directly.
+//   - Escapes. A companion file path is a key, not a location, so the symlink
+//     escapes that safeJoin existed to stop are gone by construction. The tests
+//     that covered them now assert the invariant that survived: a path that
+//     tries to leave the skill is refused, and nothing is ever written outside
+//     the data directory.
 
 import (
 	"errors"
@@ -26,14 +34,16 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pocketbase/pocketbase/core"
+
 	"github.com/sidharthpunathil/circe/internal/skillfile"
 )
 
 // ---------- helpers ----------
 
-// newStore opens a store rooted at <tmp>/data and returns it with the temp base
-// directory, so tests can assert that nothing ever escapes into the base.
-func newStore(t *testing.T) (*Store, string) {
+// openStore opens a store rooted at <tmp>/data and returns it with the temp
+// base directory, so tests can assert that nothing ever escapes into the base.
+func openStore(t *testing.T) (*Store, string) {
 	t.Helper()
 	base := t.TempDir()
 	s, err := Open(filepath.Join(base, "data"))
@@ -41,6 +51,21 @@ func newStore(t *testing.T) (*Store, string) {
 		t.Fatalf("Open: %v", err)
 	}
 	return s, base
+}
+
+// reopen closes the store and opens the same data directory again, so a test
+// can show that what it wrote survives a restart.
+func reopen(t *testing.T, s *Store) (*Store, error) {
+	t.Helper()
+	root := s.Root()
+	if err := s.Close(); err != nil {
+		return nil, err
+	}
+	s2, err := Open(root)
+	if err == nil {
+		t.Cleanup(func() { s2.Close() })
+	}
+	return s2, err
 }
 
 func mustCreate(t *testing.T, s *Store, sk *Skill) {
@@ -64,6 +89,92 @@ func writeTree(t *testing.T, dir string, files map[string]string) {
 	}
 }
 
+// seedSkill stores a skill from raw file contents, the way an import does.
+// This is what tests use where they once wrote a skill directory to disk.
+func seedSkill(t *testing.T, s *Store, name string, files map[string]string) {
+	t.Helper()
+	raw := map[string][]byte{}
+	for rel, body := range files {
+		raw[rel] = []byte(body)
+	}
+	if err := s.WriteSkillFiles(name, raw, true); err != nil {
+		t.Fatalf("seedSkill(%q): %v", name, err)
+	}
+}
+
+// seedRawSkill writes a skill row directly, bypassing every check, so tests can
+// reproduce content that no supported path would produce: an invalid name, or
+// frontmatter that does not parse. Reload has to survive both.
+func seedRawSkill(t *testing.T, s *Store, name, source string) {
+	t.Helper()
+	col, err := s.app.FindCollectionByNameOrId(colSkills)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rec := core.NewRecord(col)
+	rec.Set("name", name)
+	rec.Set("source", source)
+	setUpdated(rec, "updated", time.Time{})
+	if err := s.app.Save(rec); err != nil {
+		t.Fatalf("seedRawSkill(%q): %v", name, err)
+	}
+}
+
+// seedRawBundle is seedRawSkill for folder manifests.
+func seedRawBundle(t *testing.T, s *Store, name, source string) {
+	t.Helper()
+	col, err := s.app.FindCollectionByNameOrId(colBundles)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rec := core.NewRecord(col)
+	rec.Set("name", name)
+	rec.Set("source", source)
+	setUpdated(rec, "updated", time.Time{})
+	if err := s.app.Save(rec); err != nil {
+		t.Fatalf("seedRawBundle(%q): %v", name, err)
+	}
+}
+
+// storedFiles returns everything a skill ships, keyed by relative path.
+func storedFiles(t *testing.T, s *Store, name string) map[string]string {
+	t.Helper()
+	entries, err := s.skillContents(name)
+	if err != nil {
+		t.Fatalf("skillContents(%q): %v", name, err)
+	}
+	out := map[string]string{}
+	for _, e := range entries {
+		out[e.Rel] = string(e.Data)
+	}
+	return out
+}
+
+// mustRead reads one stored file, failing the test if it is missing.
+func mustRead(t *testing.T, s *Store, skill, rel string) string {
+	t.Helper()
+	raw, err := s.ReadFile(skill, rel)
+	if err != nil {
+		t.Fatalf("ReadFile(%q, %q): %v", skill, rel, err)
+	}
+	return string(raw)
+}
+
+// storedPaths lists the registry as it would be written back out to disk.
+func storedPaths(t *testing.T, s *Store) []string {
+	t.Helper()
+	files, err := s.Snapshot()
+	if err != nil {
+		t.Fatalf("Snapshot: %v", err)
+	}
+	out := make([]string, 0, len(files))
+	for rel := range files {
+		out = append(out, rel)
+	}
+	sort.Strings(out)
+	return out
+}
+
 // snapshot lists every path under root (relative, slash separated, sorted).
 // Symlinks are recorded but not followed.
 func snapshot(t *testing.T, root string) []string {
@@ -85,6 +196,16 @@ func snapshot(t *testing.T, root string) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// containsStr reports whether want is in list.
+func containsStr(list []string, want string) bool {
+	for _, v := range list {
+		if v == want {
+			return true
+		}
+	}
+	return false
 }
 
 func sameStrings(a, b []string) bool {
@@ -117,8 +238,8 @@ func filePaths(files []FileRef) []string {
 
 // ---------- 1. round trip + on-disk layout ----------
 
-func TestCreateSkillRoundTripsThroughDisk(t *testing.T) {
-	s, base := newStore(t)
+func TestCreateSkillRoundTrips(t *testing.T) {
+	s, _ := openStore(t)
 	root := s.Root()
 
 	want := &Skill{
@@ -129,33 +250,21 @@ func TestCreateSkillRoundTripsThroughDisk(t *testing.T) {
 	}
 	mustCreate(t, s, want)
 
-	skillMd := filepath.Join(root, "skills", "my-skill", "SKILL.md")
-	if _, err := os.Stat(skillMd); err != nil {
-		t.Fatalf("expected SKILL.md at %s: %v", skillMd, err)
+	// Written back out, the registry is exactly one file in the layout it has
+	// always used. That is the property the storage change had to keep.
+	if got := storedPaths(t, s); !sameStrings(got, []string{"skills/my-skill/SKILL.md"}) {
+		t.Errorf("exported layout = %v, want [skills/my-skill/SKILL.md]", got)
 	}
 
-	// Layout must be exactly data/skills/<name>/SKILL.md (plus the empty
-	// bundles dir the store creates on Open).
-	got := snapshot(t, base)
-	wantPaths := []string{
-		".",
-		"data",
-		"data/bundles",
-		"data/mcps",
-		"data/rules",
-		"data/skills",
-		"data/skills/my-skill",
-		"data/skills/my-skill/SKILL.md",
+	// Reopen from scratch: a second Open must see identical content.
+	if err := s.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
 	}
-	if !sameStrings(got, wantPaths) {
-		t.Errorf("on-disk layout = %v, want %v", got, wantPaths)
-	}
-
-	// Reload from scratch: a second Open must see identical content.
 	s2, err := Open(root)
 	if err != nil {
 		t.Fatalf("reopen: %v", err)
 	}
+	defer s2.Close()
 	sk, err := s2.Skill("my-skill")
 	if err != nil {
 		t.Fatalf("Skill after reopen: %v", err)
@@ -182,18 +291,14 @@ func TestCreateSkillRoundTripsThroughDisk(t *testing.T) {
 		t.Errorf("updatedAt is zero")
 	}
 
-	// Frontmatter on disk carries the name and description.
-	raw, err := os.ReadFile(skillMd)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.HasPrefix(string(raw), "---\nname: my-skill\n") {
+	// The stored document carries the name and description.
+	if raw := mustRead(t, s2, "my-skill", "SKILL.md"); !strings.HasPrefix(raw, "---\nname: my-skill\n") {
 		t.Errorf("unexpected frontmatter:\n%s", raw)
 	}
 }
 
 func TestSaveSkillPreservesUnknownFrontmatter(t *testing.T) {
-	s, _ := newStore(t)
+	s, _ := openStore(t)
 	sk := &Skill{
 		Name:        "extras",
 		Description: "Keeps hand-authored frontmatter keys",
@@ -205,28 +310,25 @@ func TestSaveSkillPreservesUnknownFrontmatter(t *testing.T) {
 	}
 	mustCreate(t, s, sk)
 
-	raw, err := os.ReadFile(filepath.Join(s.skillDir("extras"), "SKILL.md"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	raw := mustRead(t, s, "extras", "SKILL.md")
 	for _, want := range []string{"license: MIT", "argument-hint: <file>"} {
-		if !strings.Contains(string(raw), want) {
+		if !strings.Contains(raw, want) {
 			t.Errorf("frontmatter lost %q:\n%s", want, raw)
 		}
 	}
 }
 
-func TestReloadPicksUpDirectDiskEdits(t *testing.T) {
-	s, _ := newStore(t)
-	dir := s.skillDir("hand-written")
-	writeTree(t, dir, map[string]string{
+func TestAdoptDirectoryTreeSkipsHiddenFiles(t *testing.T) {
+	s, base := openStore(t)
+	src := filepath.Join(base, "tree")
+	writeTree(t, filepath.Join(src, "skills", "hand-written"), map[string]string{
 		"SKILL.md":           "---\nname: hand-written\ndescription: Authored by hand\n---\n\nBody\n",
 		"references/api.md":  "reference",
 		"scripts/run.sh":     "#!/bin/sh\n",
 		".hidden/secret.txt": "ignored",
 	})
-	if err := s.Reload(); err != nil {
-		t.Fatalf("Reload: %v", err)
+	if _, err := s.ImportTree(src, true); err != nil {
+		t.Fatalf("ImportTree: %v", err)
 	}
 	sk, err := s.Skill("hand-written")
 	if err != nil {
@@ -237,16 +339,12 @@ func TestReloadPicksUpDirectDiskEdits(t *testing.T) {
 	}
 }
 
-func TestReloadSkipsInvalidDirectoryNames(t *testing.T) {
-	s, _ := newStore(t)
+func TestReloadSkipsInvalidNames(t *testing.T) {
+	s, _ := openStore(t)
 	for _, name := range []string{"Bad_Name", ".hidden-skill", "Upper"} {
-		writeTree(t, filepath.Join(s.skillsDir(), name), map[string]string{
-			"SKILL.md": "---\nname: x\ndescription: y\n---\n\nBody\n",
-		})
+		seedRawSkill(t, s, name, "---\nname: x\ndescription: y\n---\n\nBody\n")
 	}
-	writeTree(t, s.skillDir("good-one"), map[string]string{
-		"SKILL.md": "---\nname: good-one\ndescription: Fine\n---\n\nBody\n",
-	})
+	seedRawSkill(t, s, "good-one", "---\nname: good-one\ndescription: Fine\n---\n\nBody\n")
 	if err := s.Reload(); err != nil {
 		t.Fatal(err)
 	}
@@ -256,14 +354,10 @@ func TestReloadSkipsInvalidDirectoryNames(t *testing.T) {
 }
 
 func TestReloadSkipsMalformedSkillWithoutFailing(t *testing.T) {
-	s, _ := newStore(t)
+	s, _ := openStore(t)
 	// Unparseable YAML frontmatter.
-	writeTree(t, s.skillDir("broken"), map[string]string{
-		"SKILL.md": "---\nname: [unclosed\n---\n\nBody\n",
-	})
-	writeTree(t, s.skillDir("healthy"), map[string]string{
-		"SKILL.md": "---\nname: healthy\ndescription: Fine\n---\n\nBody\n",
-	})
+	seedRawSkill(t, s, "broken", "---\nname: [unclosed\n---\n\nBody\n")
+	seedRawSkill(t, s, "healthy", "---\nname: healthy\ndescription: Fine\n---\n\nBody\n")
 	if err := s.Reload(); err != nil {
 		t.Fatalf("Reload must tolerate a malformed skill: %v", err)
 	}
@@ -365,7 +459,7 @@ var evilPaths = []string{
 }
 
 func TestPathTraversalIsRefusedAndTouchesNothing(t *testing.T) {
-	s, base := newStore(t)
+	s, base := openStore(t)
 	mustCreate(t, s, &Skill{Name: "victim", Description: "Traversal target", Body: "Body"})
 	mustCreate(t, s, &Skill{Name: "neighbour", Description: "Should be untouched", Body: "Body"})
 
@@ -401,7 +495,7 @@ func TestPathTraversalIsRefusedAndTouchesNothing(t *testing.T) {
 }
 
 func TestPathTraversalViaSkillName(t *testing.T) {
-	s, base := newStore(t)
+	s, base := openStore(t)
 	mustCreate(t, s, &Skill{Name: "victim", Description: "Traversal target", Body: "Body"})
 	writeTree(t, base, map[string]string{"outside/notes.md": "secret"})
 
@@ -427,7 +521,7 @@ func TestPathTraversalViaSkillName(t *testing.T) {
 // cases rel == "SKILL.md" and reads it without validating the skill name, so the
 // skill name itself becomes a path traversal vector.
 func TestBug_ReadFileSkillMdBypassesValidation(t *testing.T) {
-	s, base := newStore(t)
+	s, base := openStore(t)
 	writeTree(t, base, map[string]string{"outside/SKILL.md": "TOP SECRET"})
 
 	got, err := s.ReadFile("../../outside", "SKILL.md")
@@ -444,7 +538,7 @@ func TestBug_ReadFileSkillMdBypassesValidation(t *testing.T) {
 }
 
 func TestLegitimateNestedFileLifecycle(t *testing.T) {
-	s, _ := newStore(t)
+	s, _ := openStore(t)
 	mustCreate(t, s, &Skill{Name: "docs", Description: "Has reference files", Body: "Body"})
 
 	if err := s.WriteFile("docs", "references/api.md", []byte("# API\n")); err != nil {
@@ -456,10 +550,6 @@ func TestLegitimateNestedFileLifecycle(t *testing.T) {
 	}
 	if string(got) != "# API\n" {
 		t.Errorf("content = %q", got)
-	}
-	full := filepath.Join(s.skillDir("docs"), "references", "api.md")
-	if _, err := os.Stat(full); err != nil {
-		t.Errorf("expected file at %s: %v", full, err)
 	}
 
 	sk, err := s.Skill("docs")
@@ -482,19 +572,16 @@ func TestLegitimateNestedFileLifecycle(t *testing.T) {
 	if err := s.WriteFile("docs", "references/../notes.md", []byte("note")); err != nil {
 		t.Errorf("WriteFile(references/../notes.md): %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(s.skillDir("docs"), "notes.md")); err != nil {
-		t.Errorf("expected notes.md at the skill root: %v", err)
+	if got := mustRead(t, s, "docs", "notes.md"); got != "note" {
+		t.Errorf("notes.md at the skill root = %q", got)
 	}
 
 	// Delete prunes the now-empty directory but keeps the skill dir.
 	if err := s.DeleteFile("docs", "references/api.md"); err != nil {
 		t.Fatalf("DeleteFile: %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(s.skillDir("docs"), "references")); !os.IsNotExist(err) {
-		t.Errorf("empty references dir should have been pruned, stat err = %v", err)
-	}
-	if _, err := os.Stat(filepath.Join(s.skillDir("docs"), "SKILL.md")); err != nil {
-		t.Errorf("SKILL.md must survive DeleteFile: %v", err)
+	if got := storedFiles(t, s, "docs"); len(got) != 2 || got["SKILL.md"] == "" || got["notes.md"] != "note" {
+		t.Errorf("after delete the skill holds %v, want SKILL.md and notes.md", keys(got))
 	}
 	if _, err := s.ReadFile("docs", "references/api.md"); !errors.Is(err, ErrNotFound) {
 		t.Errorf("ReadFile after delete = %v, want ErrNotFound", err)
@@ -502,7 +589,7 @@ func TestLegitimateNestedFileLifecycle(t *testing.T) {
 }
 
 func TestSkillMdIsProtected(t *testing.T) {
-	s, _ := newStore(t)
+	s, _ := openStore(t)
 	mustCreate(t, s, &Skill{Name: "guard", Description: "Protects SKILL.md", Body: "Body"})
 
 	if err := s.WriteFile("guard", "SKILL.md", []byte("hijacked")); err == nil {
@@ -521,103 +608,82 @@ func TestSkillMdIsProtected(t *testing.T) {
 }
 
 func TestWriteFileSizeLimit(t *testing.T) {
-	s, _ := newStore(t)
+	s, _ := openStore(t)
 	mustCreate(t, s, &Skill{Name: "big", Description: "Size limits", Body: "Body"})
 	if err := s.WriteFile("big", "blob.bin", make([]byte, maxFileSize+1)); err == nil {
 		t.Errorf("WriteFile over the limit = nil, want error")
 	}
-	if _, err := os.Stat(filepath.Join(s.skillDir("big"), "blob.bin")); !os.IsNotExist(err) {
-		t.Errorf("oversized file should not exist: %v", err)
+	if _, err := s.ReadFile("big", "blob.bin"); !errors.Is(err, ErrNotFound) {
+		t.Errorf("oversized file should not have been stored, err = %v", err)
 	}
 }
 
-// ---------- 4. symlink escapes ----------
+// ---------- 4. escapes ----------
 
-func TestSymlinkEscapeIsRefused(t *testing.T) {
-	s, base := newStore(t)
+// A companion file path is a key in the database, not a location on disk, so
+// the symlink escapes this section used to cover cannot happen: there is no
+// path to redirect. What still has to hold is that a caller cannot reach
+// outside the skill it named, and that nothing lands on the filesystem outside
+// the data directory. Both are asserted here against the same hostile inputs.
+
+func TestSymlinkedDecoysAreUnreachable(t *testing.T) {
+	s, base := openStore(t)
 	mustCreate(t, s, &Skill{Name: "victim", Description: "Symlink target", Body: "Body"})
-	dir := s.skillDir("victim")
 
+	// Plant the decoys an older layout would have exposed: a symlinked file and
+	// a symlinked directory sitting where the skill's own files used to live.
 	outsideDir := filepath.Join(base, "outside")
 	writeTree(t, outsideDir, map[string]string{"secret.txt": "classified"})
-
-	if err := os.Symlink(filepath.Join(outsideDir, "secret.txt"), filepath.Join(dir, "leak.txt")); err != nil {
+	planted := filepath.Join(s.Root(), "skills", "victim")
+	if err := os.MkdirAll(planted, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(outsideDir, "secret.txt"), filepath.Join(planted, "leak.txt")); err != nil {
 		t.Fatalf("symlink: %v", err)
 	}
-	if err := os.Symlink(outsideDir, filepath.Join(dir, "leakdir")); err != nil {
+	if err := os.Symlink(outsideDir, filepath.Join(planted, "leakdir")); err != nil {
 		t.Fatalf("symlink: %v", err)
 	}
 
-	t.Run("read through symlinked file", func(t *testing.T) {
-		if got, err := s.ReadFile("victim", "leak.txt"); err == nil {
-			t.Errorf("ReadFile through symlink = %q, want error", got)
+	for _, rel := range []string{"leak.txt", "leakdir/secret.txt", "leakdir"} {
+		if got, err := s.ReadFile("victim", rel); err == nil {
+			t.Errorf("ReadFile(%q) = %q, want an error", rel, got)
 		}
-	})
-	t.Run("read through symlinked dir", func(t *testing.T) {
-		if got, err := s.ReadFile("victim", "leakdir/secret.txt"); err == nil {
-			t.Errorf("ReadFile through symlinked dir = %q, want error", got)
-		}
-		if got, err := s.ReadFile("victim", "leakdir"); err == nil {
-			t.Errorf("ReadFile of symlinked dir = %q, want error", got)
-		}
-	})
-	t.Run("write through symlinked file", func(t *testing.T) {
-		if err := s.WriteFile("victim", "leak.txt", []byte("clobbered")); err == nil {
-			t.Errorf("WriteFile through symlink = nil, want error")
-		}
-		if b, _ := os.ReadFile(filepath.Join(outsideDir, "secret.txt")); string(b) != "classified" {
-			t.Errorf("outside file was clobbered: %q", b)
-		}
-	})
-	t.Run("write over an existing file through a symlinked dir", func(t *testing.T) {
-		if err := s.WriteFile("victim", "leakdir/secret.txt", []byte("clobbered")); err == nil {
-			t.Errorf("WriteFile through symlinked dir = nil, want error")
-		}
-		if b, _ := os.ReadFile(filepath.Join(outsideDir, "secret.txt")); string(b) != "classified" {
-			t.Errorf("outside file was clobbered: %q", b)
-		}
-	})
-	t.Run("delete through symlink", func(t *testing.T) {
-		if err := s.DeleteFile("victim", "leakdir/secret.txt"); err == nil {
-			t.Errorf("DeleteFile through symlinked dir = nil, want error")
-		}
-		if _, err := os.Stat(filepath.Join(outsideDir, "secret.txt")); err != nil {
-			t.Errorf("outside file was deleted: %v", err)
-		}
-	})
+	}
+	if err := s.WriteFile("victim", "leak.txt", []byte("clobbered")); err != nil {
+		t.Errorf("WriteFile(leak.txt) = %v; it is an ordinary key, not a symlink", err)
+	}
+	if err := s.WriteFile("victim", "leakdir/secret.txt", []byte("clobbered")); err != nil {
+		t.Errorf("WriteFile(leakdir/secret.txt) = %v", err)
+	}
+	// The decoy is untouched: those writes went to the database.
+	if b, _ := os.ReadFile(filepath.Join(outsideDir, "secret.txt")); string(b) != "classified" {
+		t.Errorf("outside file was clobbered: %q", b)
+	}
+	if err := s.DeleteFile("victim", "leakdir/secret.txt"); err != nil {
+		t.Errorf("DeleteFile: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(outsideDir, "secret.txt")); err != nil {
+		t.Errorf("outside file was deleted: %v", err)
+	}
 }
 
-// TestBug_WriteFileEscapesThroughSymlinkedDirectory shows that safeJoin's
-// symlink guard only fires when the *final* path already exists, so creating a
-// new file inside a symlinked directory writes outside the skill directory.
-func TestBug_WriteFileEscapesThroughSymlinkedDirectory(t *testing.T) {
-	s, base := newStore(t)
-	mustCreate(t, s, &Skill{Name: "victim", Description: "Symlink target", Body: "Body"})
+func TestWritesNeverLandOutsideTheDataDirectory(t *testing.T) {
+	s, base := openStore(t)
+	mustCreate(t, s, &Skill{Name: "victim", Description: "Write target", Body: "Body"})
 
 	outsideDir := filepath.Join(base, "outside")
 	if err := os.MkdirAll(outsideDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Symlink(outsideDir, filepath.Join(s.skillDir("victim"), "leakdir")); err != nil {
-		t.Fatalf("symlink: %v", err)
+	before := snapshot(t, outsideDir)
+
+	for _, rel := range append([]string{"leakdir/pwned.txt", "leakdir/deep/nested.txt"}, evilPaths...) {
+		_ = s.WriteFile("victim", rel, []byte("owned"))
 	}
 
-	err := s.WriteFile("victim", "leakdir/pwned.txt", []byte("owned"))
-	escaped := filepath.Join(outsideDir, "pwned.txt")
-	if _, statErr := os.Stat(escaped); statErr == nil {
-		t.Errorf("BUG (symlink escape on write): WriteFile(%q) returned err=%v and created %s, "+
-			"outside the skill directory and outside the data root. safeJoin only checks "+
-			"filepath.EvalSymlinks(full), which fails for a not-yet-existing file, so the guard "+
-			"is skipped entirely. Fix: resolve the nearest existing ancestor of full (walk up until "+
-			"EvalSymlinks succeeds) and require it to stay inside the resolved skill dir.",
-			"leakdir/pwned.txt", err, escaped)
-	}
-
-	// Same hole for a nested directory created underneath the symlink.
-	err = s.WriteFile("victim", "leakdir/deep/nested.txt", []byte("owned"))
-	if _, statErr := os.Stat(filepath.Join(outsideDir, "deep", "nested.txt")); statErr == nil {
-		t.Errorf("BUG (symlink escape on write): WriteFile(%q) err=%v created a whole directory tree "+
-			"outside the skill directory", "leakdir/deep/nested.txt", err)
+	if after := snapshot(t, outsideDir); !sameStrings(before, after) {
+		t.Errorf("writes escaped the data directory\nbefore: %v\nafter:  %v", before, after)
 	}
 }
 
@@ -662,12 +728,9 @@ func TestTagsFromMetadataAndTopLevel(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			s, _ := newStore(t)
+			s, _ := openStore(t)
 			src := "---\nname: " + c.name + "\ndescription: A skill with tags\n" + c.frontYML + "---\n\nBody\n"
-			writeTree(t, s.skillDir(c.name), map[string]string{"SKILL.md": src})
-			if err := s.Reload(); err != nil {
-				t.Fatal(err)
-			}
+			seedSkill(t, s, c.name, map[string]string{"SKILL.md": src})
 			sk, err := s.Skill(c.name)
 			if err != nil {
 				t.Fatalf("Skill: %v", err)
@@ -712,13 +775,10 @@ func TestTagsCSV(t *testing.T) {
 }
 
 func TestSaveSkillRemovesStaleMetadataTags(t *testing.T) {
-	s, _ := newStore(t)
-	writeTree(t, s.skillDir("stale"), map[string]string{
+	s, _ := openStore(t)
+	seedSkill(t, s, "stale", map[string]string{
 		"SKILL.md": "---\nname: stale\ndescription: Has tags to drop\nmetadata:\n  author: someone\n  tags:\n    - keep-me\n---\n\nBody\n",
 	})
-	if err := s.Reload(); err != nil {
-		t.Fatal(err)
-	}
 	sk, err := s.Skill("stale")
 	if err != nil {
 		t.Fatal(err)
@@ -732,18 +792,15 @@ func TestSaveSkillRemovesStaleMetadataTags(t *testing.T) {
 		t.Fatalf("SaveSkill: %v", err)
 	}
 
-	raw, err := os.ReadFile(filepath.Join(s.skillDir("stale"), "SKILL.md"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if strings.Contains(string(raw), "tags:") {
+	raw := mustRead(t, s, "stale", "SKILL.md")
+	if strings.Contains(raw, "tags:") {
 		t.Errorf("stale metadata.tags survived the save:\n%s", raw)
 	}
-	if !strings.Contains(string(raw), "author: someone") {
+	if !strings.Contains(raw, "author: someone") {
 		t.Errorf("other metadata keys must be preserved:\n%s", raw)
 	}
 
-	s2, err := Open(s.Root())
+	s2, err := reopen(t, s)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -757,7 +814,7 @@ func TestSaveSkillRemovesStaleMetadataTags(t *testing.T) {
 }
 
 func TestSaveSkillDropsMetadataMapWhenItBecomesEmpty(t *testing.T) {
-	s, _ := newStore(t)
+	s, _ := openStore(t)
 	mustCreate(t, s, &Skill{Name: "only-tags", Description: "Tags are the only metadata", Body: "Body", Tags: []string{"x"}})
 
 	sk, err := s.Skill("only-tags")
@@ -768,20 +825,16 @@ func TestSaveSkillDropsMetadataMapWhenItBecomesEmpty(t *testing.T) {
 	if err := s.SaveSkill(sk); err != nil {
 		t.Fatal(err)
 	}
-	raw, _ := os.ReadFile(filepath.Join(s.skillDir("only-tags"), "SKILL.md"))
-	if strings.Contains(string(raw), "metadata:") {
+	if raw := mustRead(t, s, "only-tags", "SKILL.md"); strings.Contains(raw, "metadata:") {
 		t.Errorf("empty metadata block should be dropped:\n%s", raw)
 	}
 }
 
 func TestSaveSkillDropsTopLevelTagsKey(t *testing.T) {
-	s, _ := newStore(t)
-	writeTree(t, s.skillDir("toptags"), map[string]string{
+	s, _ := openStore(t)
+	seedSkill(t, s, "toptags", map[string]string{
 		"SKILL.md": "---\nname: toptags\ndescription: Top level tags key\ntags:\n  - one\n  - two\n---\n\nBody\n",
 	})
-	if err := s.Reload(); err != nil {
-		t.Fatal(err)
-	}
 	sk, err := s.Skill("toptags")
 	if err != nil {
 		t.Fatal(err)
@@ -789,15 +842,15 @@ func TestSaveSkillDropsTopLevelTagsKey(t *testing.T) {
 	if err := s.SaveSkill(sk); err != nil {
 		t.Fatal(err)
 	}
-	raw, _ := os.ReadFile(filepath.Join(s.skillDir("toptags"), "SKILL.md"))
-	if n := strings.Count(string(raw), "tags:"); n != 1 {
+	raw := mustRead(t, s, "toptags", "SKILL.md")
+	if n := strings.Count(raw, "tags:"); n != 1 {
 		t.Errorf("want exactly one tags key (under metadata), got %d:\n%s", n, raw)
 	}
-	if !strings.Contains(string(raw), "metadata:") {
+	if !strings.Contains(raw, "metadata:") {
 		t.Errorf("tags should have moved under metadata:\n%s", raw)
 	}
 	// And they survive a round trip.
-	s2, _ := Open(s.Root())
+	s2, _ := reopen(t, s)
 	again, err := s2.Skill("toptags")
 	if err != nil {
 		t.Fatal(err)
@@ -808,7 +861,7 @@ func TestSaveSkillDropsTopLevelTagsKey(t *testing.T) {
 }
 
 func TestTagsAggregation(t *testing.T) {
-	s, _ := newStore(t)
+	s, _ := openStore(t)
 	mustCreate(t, s, &Skill{Name: "one", Description: "First", Body: "b", Tags: []string{"cli", "go"}})
 	mustCreate(t, s, &Skill{Name: "two", Description: "Second", Body: "b", Tags: []string{"cli"}})
 	mustCreate(t, s, &Skill{Name: "three", Description: "Third", Body: "b", Tags: []string{"web"}})
@@ -829,7 +882,7 @@ func TestTagsAggregation(t *testing.T) {
 
 func searchFixture(t *testing.T) *Store {
 	t.Helper()
-	s, _ := newStore(t)
+	s, _ := openStore(t)
 	mustCreate(t, s, &Skill{Name: "alpha", Description: "The first Greek letter, used for testing", Body: "Nothing notable here.", Tags: []string{"greek"}})
 	mustCreate(t, s, &Skill{Name: "alpha-tools", Description: "Helper utilities", Body: "Nothing notable here.", Tags: []string{"greek"}})
 	mustCreate(t, s, &Skill{Name: "beta", Description: "Mentions alpha inside the description", Body: "Nothing notable here.", Tags: []string{"greek"}})
@@ -897,7 +950,7 @@ func TestSearchTagFilter(t *testing.T) {
 }
 
 func TestSearchMatchesTags(t *testing.T) {
-	s, _ := newStore(t)
+	s, _ := openStore(t)
 	mustCreate(t, s, &Skill{Name: "one", Description: "Nothing to see", Body: "nothing", Tags: []string{"kubernetes"}})
 	mustCreate(t, s, &Skill{Name: "two", Description: "Nothing to see", Body: "nothing"})
 	if got := skillNames(s.Search("kube", "")); !sameStrings(got, []string{"one"}) {
@@ -923,7 +976,7 @@ func TestSkillCount(t *testing.T) {
 
 func bundleFixture(t *testing.T) *Store {
 	t.Helper()
-	s, _ := newStore(t)
+	s, _ := openStore(t)
 	for _, n := range []string{"alpha", "beta", "gamma"} {
 		mustCreate(t, s, &Skill{Name: n, Description: "Skill " + n, Body: "Body of " + n})
 	}
@@ -936,12 +989,11 @@ func TestCreateBundle(t *testing.T) {
 	if err := s.CreateBundle(b); err != nil {
 		t.Fatalf("CreateBundle: %v", err)
 	}
-	path := filepath.Join(s.Root(), "bundles", "starter.json")
-	if _, err := os.Stat(path); err != nil {
-		t.Fatalf("expected bundle at %s: %v", path, err)
+	if got := storedPaths(t, s); !containsStr(got, "bundles/starter.json") {
+		t.Fatalf("exported layout %v is missing bundles/starter.json", got)
 	}
 
-	s2, err := Open(s.Root())
+	s2, err := reopen(t, s)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1010,14 +1062,14 @@ func TestDeleteSkillRemovesItFromEveryBundle(t *testing.T) {
 	if err := s.DeleteSkill("beta"); err != nil {
 		t.Fatalf("DeleteSkill: %v", err)
 	}
-	if _, err := os.Stat(s.skillDir("beta")); !os.IsNotExist(err) {
-		t.Errorf("skill dir still present: %v", err)
+	if containsStr(storedPaths(t, s), "skills/beta/SKILL.md") {
+		t.Error("the deleted skill is still in the registry")
 	}
 	if _, err := s.Skill("beta"); !errors.Is(err, ErrNotFound) {
 		t.Errorf("Skill(beta) = %v, want ErrNotFound", err)
 	}
 
-	s2, _ := Open(s.Root())
+	s2, _ := reopen(t, s)
 	for _, name := range []string{"one", "two"} {
 		b, err := s2.Bundle(name)
 		if err != nil {
@@ -1051,21 +1103,17 @@ func TestRenameSkillUpdatesBundlesAndFrontmatter(t *testing.T) {
 		t.Fatalf("RenameSkill: %v", err)
 	}
 
-	if _, err := os.Stat(s.skillDir("alpha")); !os.IsNotExist(err) {
-		t.Errorf("old skill dir still exists: %v", err)
+	if _, err := s.Skill("alpha"); !errors.Is(err, ErrNotFound) {
+		t.Errorf("old name still resolves: %v", err)
 	}
-	raw, err := os.ReadFile(filepath.Join(s.skillDir("alpha-renamed"), "SKILL.md"))
-	if err != nil {
-		t.Fatalf("new SKILL.md: %v", err)
-	}
-	if !strings.Contains(string(raw), "name: alpha-renamed") {
+	if raw := mustRead(t, s, "alpha-renamed", "SKILL.md"); !strings.Contains(raw, "name: alpha-renamed") {
 		t.Errorf("frontmatter name not rewritten:\n%s", raw)
 	}
 	if got, err := s.ReadFile("alpha-renamed", "references/api.md"); err != nil || string(got) != "keep me" {
 		t.Errorf("bundled files not carried over: %q %v", got, err)
 	}
 
-	s2, _ := Open(s.Root())
+	s2, _ := reopen(t, s)
 	if _, err := s2.Skill("alpha"); !errors.Is(err, ErrNotFound) {
 		t.Errorf("old name still resolves: %v", err)
 	}
@@ -1148,20 +1196,13 @@ func TestBundlesListingAndHelpers(t *testing.T) {
 
 func TestReloadSkipsMalformedBundle(t *testing.T) {
 	s := bundleFixture(t)
-	if err := os.WriteFile(filepath.Join(s.Root(), "bundles", "broken.json"), []byte("{not json"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(s.Root(), "bundles", "Bad Name.json"), []byte(`{"skills":[]}`), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(s.Root(), "bundles", "notes.txt"), []byte("ignored"), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	seedRawBundle(t, s, "broken", "{not json")
+	seedRawBundle(t, s, "Bad Name", `{"skills":[]}`)
 	if err := s.CreateBundle(&Bundle{Name: "fine", Skills: []string{"alpha"}}); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.Reload(); err != nil {
-		t.Fatalf("Reload must tolerate junk in bundles/: %v", err)
+		t.Fatalf("Reload must tolerate an unreadable folder: %v", err)
 	}
 	if s.BundleCount() != 1 {
 		t.Errorf("BundleCount = %d, want 1", s.BundleCount())
@@ -1170,9 +1211,7 @@ func TestReloadSkipsMalformedBundle(t *testing.T) {
 
 func TestBundleWithNullSkillsNormalizes(t *testing.T) {
 	s := bundleFixture(t)
-	if err := os.WriteFile(filepath.Join(s.Root(), "bundles", "nulls.json"), []byte(`{"name":"nulls","skills":null}`), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	seedRawBundle(t, s, "nulls", `{"name":"nulls","skills":null}`)
 	if err := s.Reload(); err != nil {
 		t.Fatal(err)
 	}
@@ -1191,7 +1230,7 @@ func TestBundleWithNullSkillsNormalizes(t *testing.T) {
 // ---------- 8. errors ----------
 
 func TestNotFoundErrors(t *testing.T) {
-	s, _ := newStore(t)
+	s, _ := openStore(t)
 	if _, err := s.Skill("missing"); !errors.Is(err, ErrNotFound) {
 		t.Errorf("Skill = %v, want ErrNotFound", err)
 	}
@@ -1214,7 +1253,7 @@ func TestNotFoundErrors(t *testing.T) {
 }
 
 func TestExistsErrors(t *testing.T) {
-	s, _ := newStore(t)
+	s, _ := openStore(t)
 	sk := &Skill{Name: "dupe", Description: "First", Body: "b"}
 	mustCreate(t, s, sk)
 	err := s.CreateSkill(&Skill{Name: "dupe", Description: "Second", Body: "b"})
@@ -1236,7 +1275,7 @@ func TestExistsErrors(t *testing.T) {
 }
 
 func TestSaveSkillValidation(t *testing.T) {
-	s, _ := newStore(t)
+	s, _ := openStore(t)
 	cases := []struct {
 		name string
 		sk   *Skill
@@ -1259,21 +1298,16 @@ func TestSaveSkillValidation(t *testing.T) {
 		})
 	}
 	// Nothing should have been written.
-	entries, err := os.ReadDir(s.skillsDir())
-	if err != nil {
-		t.Fatal(err)
+	if n := s.SkillCount(); n != 0 {
+		t.Errorf("invalid saves stored %d skills: %v", n, skillNames(s.Skills()))
 	}
-	if len(entries) != 0 {
-		names := []string{}
-		for _, e := range entries {
-			names = append(names, e.Name())
-		}
-		t.Errorf("invalid saves left directories behind: %v", names)
+	if got := storedPaths(t, s); len(got) != 0 {
+		t.Errorf("invalid saves left content behind: %v", got)
 	}
 }
 
 func TestSaveBundleValidation(t *testing.T) {
-	s, _ := newStore(t)
+	s, _ := openStore(t)
 	for _, name := range []string{"", "Bad Name", "../evil", strings.Repeat("a", 65)} {
 		if err := s.SaveBundle(&Bundle{Name: name}); err == nil {
 			t.Errorf("SaveBundle(%q) = nil, want error", name)
@@ -1282,14 +1316,13 @@ func TestSaveBundleValidation(t *testing.T) {
 			t.Errorf("DeleteBundle(%q) = nil, want error", name)
 		}
 	}
-	entries, _ := os.ReadDir(s.bundlesDir())
-	if len(entries) != 0 {
-		t.Errorf("invalid bundle saves wrote %d files", len(entries))
+	if n := s.BundleCount(); n != 0 {
+		t.Errorf("invalid bundle saves stored %d folders", n)
 	}
 }
 
 func TestDeleteSkillValidatesName(t *testing.T) {
-	s, base := newStore(t)
+	s, base := openStore(t)
 	writeTree(t, base, map[string]string{"outside/keep.txt": "keep"})
 	for _, name := range []string{"../outside", "..", "", "Bad Name"} {
 		if err := s.DeleteSkill(name); err == nil {
@@ -1326,13 +1359,10 @@ func TestFileRefHelpers(t *testing.T) {
 }
 
 func TestDescriptionFallsBackToBodySummary(t *testing.T) {
-	s, _ := newStore(t)
-	writeTree(t, s.skillDir("nodesc"), map[string]string{
+	s, _ := openStore(t)
+	seedSkill(t, s, "nodesc", map[string]string{
 		"SKILL.md": "---\nname: nodesc\n---\n\n# Heading\n\nThe first meaningful line.\n\nMore text.\n",
 	})
-	if err := s.Reload(); err != nil {
-		t.Fatal(err)
-	}
 	sk, err := s.Skill("nodesc")
 	if err != nil {
 		t.Fatal(err)
@@ -1372,7 +1402,7 @@ func buildSource(t *testing.T, base string) (src, elsewhere string) {
 }
 
 func TestScanFindsPlainAndSymlinkedSkills(t *testing.T) {
-	s, base := newStore(t)
+	s, base := openStore(t)
 	src, _ := buildSource(t, base)
 
 	got, err := s.Scan(src)
@@ -1411,7 +1441,7 @@ func TestScanFindsPlainAndSymlinkedSkills(t *testing.T) {
 }
 
 func TestScanErrors(t *testing.T) {
-	s, base := newStore(t)
+	s, base := openStore(t)
 	if _, err := s.Scan(""); err == nil {
 		t.Errorf("Scan(\"\") = nil, want error")
 	}
@@ -1424,7 +1454,7 @@ func TestScanErrors(t *testing.T) {
 }
 
 func TestScanSlugifiesNamesAndFlagsExisting(t *testing.T) {
-	s, base := newStore(t)
+	s, base := openStore(t)
 	src := filepath.Join(base, "src")
 	writeTree(t, filepath.Join(src, "My Weird Skill"), map[string]string{
 		"SKILL.md": "---\nname: whatever\ndescription: Needs slugifying\n---\n\nBody\n",
@@ -1447,7 +1477,7 @@ func TestScanSlugifiesNamesAndFlagsExisting(t *testing.T) {
 }
 
 func TestImportCopiesByValue(t *testing.T) {
-	s, base := newStore(t)
+	s, base := openStore(t)
 	src := filepath.Join(base, "src")
 	target := filepath.Join(base, "target")
 	writeTree(t, target, map[string]string{"shared.md": "shared content"})
@@ -1468,17 +1498,13 @@ func TestImportCopiesByValue(t *testing.T) {
 		t.Fatalf("imported = %v (failed: %v)", res.Imported, res.Failed)
 	}
 
-	dst := s.skillDir("plain-skill")
+	stored := storedFiles(t, s, "plain-skill")
 	for _, rel := range []string{"SKILL.md", "references/api.md", "linked.md"} {
-		info, err := os.Lstat(filepath.Join(dst, filepath.FromSlash(rel)))
-		if err != nil {
-			t.Fatalf("missing %s: %v", rel, err)
-		}
-		if info.Mode()&os.ModeSymlink != 0 {
-			t.Errorf("%s was copied as a symlink, want a real file", rel)
+		if _, ok := stored[rel]; !ok {
+			t.Fatalf("missing %s; skill holds %v", rel, keys(stored))
 		}
 	}
-	if got, _ := os.ReadFile(filepath.Join(dst, "linked.md")); string(got) != "shared content" {
+	if got := stored["linked.md"]; got != "shared content" {
 		t.Errorf("symlinked file content = %q", got)
 	}
 	// Mutating the source must not affect the imported copy.
@@ -1499,7 +1525,7 @@ func TestImportCopiesByValue(t *testing.T) {
 }
 
 func TestImportSkipsJunkAndHiddenFiles(t *testing.T) {
-	s, base := newStore(t)
+	s, base := openStore(t)
 	src := filepath.Join(base, "src")
 	writeTree(t, filepath.Join(src, "junky"), map[string]string{
 		"SKILL.md":            "---\nname: junky\ndescription: Has junk alongside\n---\n\nBody\n",
@@ -1512,19 +1538,19 @@ func TestImportSkipsJunkAndHiddenFiles(t *testing.T) {
 	if _, err := s.Import(src, nil, false); err != nil {
 		t.Fatal(err)
 	}
-	dst := s.skillDir("junky")
-	for _, rel := range []string{".DS_Store", ".git", "node_modules", ".hidden"} {
-		if _, err := os.Lstat(filepath.Join(dst, rel)); !os.IsNotExist(err) {
-			t.Errorf("%s should not have been imported (err=%v)", rel, err)
+	stored := storedFiles(t, s, "junky")
+	for _, rel := range []string{".DS_Store", ".git/config", "node_modules/dep.js", ".hidden/inner.txt"} {
+		if _, ok := stored[rel]; ok {
+			t.Errorf("%s should not have been imported", rel)
 		}
 	}
-	if _, err := os.Stat(filepath.Join(dst, "keep.md")); err != nil {
-		t.Errorf("keep.md missing: %v", err)
+	if stored["keep.md"] != "keep" {
+		t.Errorf("keep.md missing; skill holds %v", keys(stored))
 	}
 }
 
 func TestImportOverwriteBehaviour(t *testing.T) {
-	s, base := newStore(t)
+	s, base := openStore(t)
 	src := filepath.Join(base, "src")
 	writeTree(t, filepath.Join(src, "dupe"), map[string]string{
 		"SKILL.md": "---\nname: dupe\ndescription: From the import source\n---\n\nImported body\n",
@@ -1558,16 +1584,17 @@ func TestImportOverwriteBehaviour(t *testing.T) {
 	if sk.Description != "From the import source" {
 		t.Errorf("description after overwrite = %q", sk.Description)
 	}
-	if _, err := os.Stat(filepath.Join(s.skillDir("dupe"), "local-only.md")); !os.IsNotExist(err) {
-		t.Errorf("overwrite must replace the directory, local-only.md survived: %v", err)
+	stored := storedFiles(t, s, "dupe")
+	if _, ok := stored["local-only.md"]; ok {
+		t.Errorf("overwrite must replace the skill, local-only.md survived")
 	}
-	if _, err := os.Stat(filepath.Join(s.skillDir("dupe"), "new.md")); err != nil {
-		t.Errorf("new.md not imported: %v", err)
+	if stored["new.md"] != "from source" {
+		t.Errorf("new.md not imported; skill holds %v", keys(stored))
 	}
 }
 
 func TestImportSubsetByName(t *testing.T) {
-	s, base := newStore(t)
+	s, base := openStore(t)
 	src := filepath.Join(base, "src")
 	for _, n := range []string{"one", "two", "three"} {
 		writeTree(t, filepath.Join(src, n), map[string]string{
@@ -1596,7 +1623,7 @@ func TestImportSubsetByName(t *testing.T) {
 }
 
 func TestImportResultIsNeverNil(t *testing.T) {
-	s, base := newStore(t)
+	s, base := openStore(t)
 	src := filepath.Join(base, "empty-src")
 	if err := os.MkdirAll(src, 0o755); err != nil {
 		t.Fatal(err)
@@ -1615,7 +1642,7 @@ func TestImportResultIsNeverNil(t *testing.T) {
 // imported by value, not skipped. filepath.WalkDir refuses to descend into a
 // symlinked root, which used to make these imports produce an empty directory.
 func TestImportSymlinkedSkillDirectory(t *testing.T) {
-	s, base := newStore(t)
+	s, base := openStore(t)
 	src, elsewhere := buildSource(t, base)
 
 	res, err := s.Import(src, nil, false)
@@ -1638,15 +1665,11 @@ func TestImportSymlinkedSkillDirectory(t *testing.T) {
 	if sk.Description != "A symlinked skill" {
 		t.Errorf("description = %q", sk.Description)
 	}
-	// Copied by value: nothing in the store may still be a link, and edits to the
-	// original must not leak through.
+	// Copied by value: edits to the original must not leak through.
+	stored := storedFiles(t, s, "linked-skill")
 	for _, rel := range []string{"SKILL.md", "references/api.md"} {
-		info, err := os.Lstat(filepath.Join(s.skillDir("linked-skill"), filepath.FromSlash(rel)))
-		if err != nil {
-			t.Fatalf("missing %s: %v", rel, err)
-		}
-		if info.Mode()&os.ModeSymlink != 0 {
-			t.Errorf("%s is still a symlink", rel)
+		if _, ok := stored[rel]; !ok {
+			t.Fatalf("missing %s; skill holds %v", rel, keys(stored))
 		}
 	}
 	if err := os.WriteFile(filepath.Join(elsewhere, "references", "api.md"), []byte("changed"), 0o644); err != nil {
@@ -1658,7 +1681,7 @@ func TestImportSymlinkedSkillDirectory(t *testing.T) {
 }
 
 func TestImportSurvivesSymlinkCycles(t *testing.T) {
-	s, base := newStore(t)
+	s, base := openStore(t)
 	src := filepath.Join(base, "src")
 	dir := filepath.Join(src, "cyclic")
 	writeTree(t, dir, map[string]string{
@@ -1692,44 +1715,51 @@ func TestImportSurvivesSymlinkCycles(t *testing.T) {
 	}
 }
 
-// TestSymlinkedSkillDirectoryIndexing is a regression test for the same
-// WalkDir-on-a-symlinked-root problem inside the store: Reload explicitly
-// supports symlinked skill directories, so their file index must be real.
-func TestSymlinkedSkillDirectoryIndexing(t *testing.T) {
-	s, base := newStore(t)
+// A data directory being adopted can itself contain symlinked skill
+// directories, which is common in a real ~/.claude/skills library. Walking one
+// with filepath.WalkDir silently yields nothing, so this pins that the adoption
+// path follows them and stores the content by value.
+func TestAdoptFollowsSymlinkedSkillDirectories(t *testing.T) {
+	s, base := openStore(t)
+
 	real := filepath.Join(base, "real-skill")
 	writeTree(t, real, map[string]string{
-		"SKILL.md":          "---\nname: linked\ndescription: A symlinked skill directory\n---\n\nBody\n",
+		"SKILL.md":          "---\nname: linked\ndescription: Reached through a symlink\n---\n\nBody\n",
 		"references/api.md": "reference",
 	})
-	if err := os.Symlink(real, s.skillDir("linked")); err != nil {
+	tree := filepath.Join(base, "tree")
+	if err := os.MkdirAll(filepath.Join(tree, "skills"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Reload(); err != nil {
-		t.Fatal(err)
+	if err := os.Symlink(real, filepath.Join(tree, "skills", "linked")); err != nil {
+		t.Fatalf("symlink: %v", err)
+	}
+
+	if _, err := s.ImportTree(tree, true); err != nil {
+		t.Fatalf("ImportTree: %v", err)
 	}
 	sk, err := s.Skill("linked")
 	if err != nil {
-		t.Fatalf("symlinked skill should load: %v", err)
+		t.Fatalf("symlinked skill not adopted: %v", err)
 	}
 	if got := filePaths(sk.Files); !sameStrings(got, []string{"references/api.md"}) {
-		t.Errorf("files for a symlinked skill dir = %v, want [references/api.md]", got)
+		t.Errorf("files = %v, want [references/api.md]", got)
 	}
-	if sk.Size == 0 {
-		t.Errorf("size = 0 for a symlinked skill dir")
+	if got := mustRead(t, s, "linked", "references/api.md"); got != "reference" {
+		t.Errorf("content = %q", got)
 	}
-	if got, err := s.ReadFile("linked", "references/api.md"); err != nil || string(got) != "reference" {
-		t.Errorf("ReadFile inside a symlinked skill dir = %q, %v", got, err)
+
+	// By value: changing the original must not change what was adopted.
+	if err := os.WriteFile(filepath.Join(real, "references", "api.md"), []byte("changed"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got := mustRead(t, s, "linked", "references/api.md"); got != "reference" {
+		t.Errorf("adoption is not by value: %q", got)
 	}
 }
 
-// ---------- aliasing ----------
-
-// TestBug_MutationOfCallerOwnedState documents that SaveSkill/RenameSkill mutate
-// state the caller (and the in-memory index) still holds, which is also the
-// source of a genuine data race between RenameSkill and concurrent readers.
 func TestBug_MutationOfCallerOwnedState(t *testing.T) {
-	s, _ := newStore(t)
+	s, _ := openStore(t)
 
 	t.Run("SaveSkill mutates the caller's metadata map", func(t *testing.T) {
 		meta := map[string]any{"author": "someone"}
@@ -1769,7 +1799,7 @@ func TestBug_MutationOfCallerOwnedState(t *testing.T) {
 // ---------- 11. concurrency ----------
 
 func TestConcurrentSaveAndRead(t *testing.T) {
-	s, _ := newStore(t)
+	s, _ := openStore(t)
 	const skills = 6
 	for i := 0; i < skills; i++ {
 		mustCreate(t, s, &Skill{
@@ -1874,9 +1904,9 @@ func TestConcurrentSaveAndRead(t *testing.T) {
 	if got := s.SkillCount(); got != skills+1 {
 		t.Errorf("SkillCount = %d, want %d", got, skills+1)
 	}
-	// Every SKILL.md must still be parseable, since atomic writes must never leave a
-	// truncated file or a stray temp file in the index.
-	s2, err := Open(s.Root())
+	// Every stored document must still be parseable: a write that raced must
+	// never leave a half-written row behind.
+	s2, err := reopen(t, s)
 	if err != nil {
 		t.Fatalf("reopen after concurrency: %v", err)
 	}
@@ -1888,14 +1918,8 @@ func TestConcurrentSaveAndRead(t *testing.T) {
 			t.Errorf("skill %q lost its description", sk.Name)
 		}
 	}
-	entries, err := os.ReadDir(s.skillDir("skill-0"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, e := range entries {
-		if strings.HasPrefix(e.Name(), ".tmp-") {
-			t.Errorf("atomic write left a temp file behind: %s", e.Name())
-		}
+	if _, err := s2.Skill("skill-0"); err != nil {
+		t.Errorf("skill-0 did not survive concurrent writes: %v", err)
 	}
 }
 

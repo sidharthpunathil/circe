@@ -2,13 +2,16 @@ package store
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"path"
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
+	"github.com/pocketbase/pocketbase/core"
+
+	"github.com/sidharthpunathil/circe/internal/model"
 	"github.com/sidharthpunathil/circe/internal/skillfile"
 )
 
@@ -116,18 +119,12 @@ func (s *Store) Import(srcDir string, names []string, overwrite bool) (ImportRes
 			res.Skipped = append(res.Skipped, c.Name)
 			continue
 		}
-		dst := s.skillDir(c.Name)
-		if c.Exists {
-			if err := os.RemoveAll(dst); err != nil {
-				res.Failed = append(res.Failed, c.Name+": "+err.Error())
-				continue
-			}
-		}
-		if err := copyTree(c.Source, dst); err != nil {
+		files, err := readTree(c.Source)
+		if err != nil {
 			res.Failed = append(res.Failed, c.Name+": "+err.Error())
 			continue
 		}
-		if err := s.refreshSkill(c.Name); err != nil {
+		if err := s.WriteSkillFiles(c.Name, files, true); err != nil {
 			res.Failed = append(res.Failed, c.Name+": "+err.Error())
 			continue
 		}
@@ -137,52 +134,121 @@ func (s *Store) Import(srcDir string, names []string, overwrite bool) (ImportRes
 }
 
 // WriteSkillFiles creates a skill from files already held in memory, which is
-// how remote sources (a GitHub tarball) land on disk. Content is written by
-// value so the skill survives the upstream repository disappearing.
+// how remote sources (a repository tarball) land in the registry. Content is
+// stored by value so the skill survives the upstream repository disappearing.
 func (s *Store) WriteSkillFiles(name string, files map[string][]byte, overwrite bool) error {
+	return s.WriteSkillFilesAt(name, files, overwrite, time.Time{})
+}
+
+// WriteSkillFilesAt is WriteSkillFiles with an explicit last-changed time, so
+// restoring a backup does not make every skill look like it landed today.
+func (s *Store) WriteSkillFilesAt(name string, files map[string][]byte, overwrite bool, at time.Time) error {
 	if err := ValidateName(name); err != nil {
 		return err
 	}
-	if _, ok := files["SKILL.md"]; !ok {
+	source, ok := files["SKILL.md"]
+	if !ok {
 		return fmt.Errorf("skill %q has no SKILL.md", name)
 	}
 
-	dst := s.skillDir(name)
-	if _, err := os.Stat(dst); err == nil {
-		if !overwrite {
-			return fmt.Errorf("skill %q: %w", name, ErrExists)
-		}
-		if err := os.RemoveAll(dst); err != nil {
+	existing, err := s.findByField(colSkills, "name", name)
+	if err == nil && !overwrite {
+		return fmt.Errorf("skill %q: %w", name, ErrExists)
+	}
+
+	// Replacing a skill means replacing it, not merging into it: a companion
+	// file the new version dropped must not linger.
+	if err == nil {
+		old, err := s.app.FindRecordsByFilter(colSkillFile, "skill = {:id}", "", 0, 0,
+			map[string]any{"id": existing.Id})
+		if err != nil {
 			return err
+		}
+		for _, rec := range old {
+			if err := s.app.Delete(rec); err != nil {
+				return err
+			}
 		}
 	}
 
-	// Stage into a temp directory and swap, so a failure part-way through
-	// cannot leave a half-written skill behind.
-	staging, err := os.MkdirTemp(s.skillsDir(), ".staging-*")
+	if err := s.writeSkillSource(name, source, at); err != nil {
+		return err
+	}
+	skRec, err := s.findByField(colSkills, "name", name)
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(staging)
 
+	fileCol, err := s.app.FindCollectionByNameOrId(colSkillFile)
+	if err != nil {
+		return err
+	}
 	for rel, content := range files {
+		if rel == "SKILL.md" {
+			continue
+		}
 		clean, err := safeRelPath(rel)
 		if err != nil {
 			return fmt.Errorf("%s: %w", rel, err)
 		}
-		full := filepath.Join(staging, filepath.FromSlash(clean))
-		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+		if int64(len(content)) > maxFileSize {
+			continue
+		}
+		rec := core.NewRecord(fileCol)
+		rec.Set("skill", skRec.Id)
+		rec.Set("path", clean)
+		if err := setBlob(rec, path.Base(clean), content); err != nil {
 			return err
 		}
-		if err := os.WriteFile(full, content, 0o644); err != nil {
+		if err := asStoreError(s.app.Save(rec)); err != nil {
 			return err
 		}
-	}
-
-	if err := os.Rename(staging, dst); err != nil {
-		return err
 	}
 	return s.refreshSkill(name)
+}
+
+// writeSkillSource stores a SKILL.md verbatim, without going through SaveSkill.
+//
+// SaveSkill re-renders the frontmatter from the parsed struct, which is right
+// when a person edits a skill in the browser and wrong when the bytes came from
+// somewhere else: an import should preserve what the author wrote, including
+// key order and any frontmatter this tool does not model.
+func (s *Store) writeSkillSource(name string, source []byte, at time.Time) error {
+	sk, err := model.ParseSkill(name, source)
+	if err != nil {
+		return fmt.Errorf("skill %q: %w", name, err)
+	}
+	return s.upsert(colSkills, "name", name, func(rec *core.Record) {
+		rec.Set("source", string(source))
+		rec.Set("description", sk.Description)
+		rec.Set("tags", sk.Tags)
+		rec.Set("size", len(source))
+		setUpdated(rec, "updated", at)
+	})
+}
+
+// readTree loads a skill directory from disk into memory, following symlinks at
+// every level so that a symlinked skill is imported by value.
+func readTree(src string) (map[string][]byte, error) {
+	out := map[string][]byte{}
+	err := walkResolved(src, func(e WalkEntry) error {
+		if e.Info.Size() > maxFileSize {
+			return nil
+		}
+		data, err := os.ReadFile(e.Abs)
+		if err != nil {
+			return err
+		}
+		out[e.Rel] = data
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(out) == 0 {
+		return nil, fmt.Errorf("no files found under %s", src)
+	}
+	return out, nil
 }
 
 // safeRelPath validates a path supplied by a remote archive before it is joined
@@ -204,7 +270,9 @@ func safeRelPath(rel string) (string, error) {
 	return clean, nil
 }
 
-// parseForImport extracts just the description for the scan preview.
+// parseForImport extracts just the description for the scan preview. The
+// summary is shorter than the one a stored skill gets, because this is a line
+// in a list of candidates rather than the skill's own description.
 func parseForImport(raw []byte) (string, error) {
 	f, err := skillfile.Parse(raw)
 	if err != nil {
@@ -215,53 +283,6 @@ func parseForImport(raw []byte) (string, error) {
 		d = f.Summary(160)
 	}
 	return d, nil
-}
-
-// copyTree recursively copies src into dst by value, following symlinks at
-// every level so that a symlinked skill becomes a real, self-contained copy.
-func copyTree(src, dst string) error {
-	if err := os.MkdirAll(dst, 0o755); err != nil {
-		return err
-	}
-	copied := 0
-	err := walkResolved(src, func(e WalkEntry) error {
-		if e.Info.Size() > maxFileSize {
-			return nil
-		}
-		if err := copyFile(e.Abs, filepath.Join(dst, filepath.FromSlash(e.Rel))); err != nil {
-			return err
-		}
-		copied++
-		return nil
-	})
-	if err != nil {
-		return err
-	}
-	if copied == 0 {
-		return fmt.Errorf("no files found under %s", src)
-	}
-	return nil
-}
-
-func copyFile(src, dst string) error {
-	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
-		return err
-	}
-	in, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer in.Close()
-
-	out, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644)
-	if err != nil {
-		return err
-	}
-	if _, err := io.Copy(out, in); err != nil {
-		out.Close()
-		return err
-	}
-	return out.Close()
 }
 
 func expandHome(p string) string {

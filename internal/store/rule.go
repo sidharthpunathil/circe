@@ -3,97 +3,34 @@ package store
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
-	"time"
 
-	"github.com/sidharthpunathil/circe/internal/skillfile"
+	"github.com/pocketbase/pocketbase/core"
+
+	"github.com/sidharthpunathil/circe/internal/model"
 )
-
-// Rules are project guidance rather than agent capability: the text that ends
-// up in a project's CLAUDE.md or AGENTS.md. They are deliberately a separate
-// type from skills because they install differently: a skill is a directory
-// copied into .claude/skills, a rule is prose merged into a file the project
-// already owns.
-//
-// A rule is one markdown file with frontmatter, at data/rules/<name>.md. It
-// needs no directory because, unlike a skill, it has no companion files.
-
-// Targets a rule can be written into.
-const (
-	TargetClaude = "CLAUDE.md"
-	TargetAgents = "AGENTS.md"
-)
-
-// RuleTargets lists the files a rule can be merged into.
-func RuleTargets() []string { return []string{TargetClaude, TargetAgents} }
-
-// ValidRuleTarget reports whether name is a target we write.
-func ValidRuleTarget(name string) bool {
-	return name == TargetClaude || name == TargetAgents
-}
-
-// Rule is one piece of project guidance.
-type Rule struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Body        string `json:"body"`
-	// Targets are the files this rule merges into. Empty means CLAUDE.md.
-	Targets   []string  `json:"targets,omitempty"`
-	Tags      []string  `json:"tags,omitempty"`
-	UpdatedAt time.Time `json:"updatedAt"`
-	Size      int64     `json:"size"`
-}
-
-// TargetsOrDefault returns the files to write, defaulting to CLAUDE.md.
-func (r *Rule) TargetsOrDefault() []string {
-	if len(r.Targets) == 0 {
-		return []string{TargetClaude}
-	}
-	return r.Targets
-}
-
-// Writes reports whether the rule targets a given file.
-func (r *Rule) Writes(target string) bool {
-	for _, t := range r.TargetsOrDefault() {
-		if t == target {
-			return true
-		}
-	}
-	return false
-}
-
-// TagsCSV renders tags for a form field.
-func (r *Rule) TagsCSV() string { return strings.Join(r.Tags, ", ") }
-
-func (s *Store) rulesDir() string { return filepath.Join(s.root, "rules") }
-
-func (s *Store) rulePath(n string) string {
-	return filepath.Join(s.rulesDir(), n+".md")
-}
 
 // ---------- loading ----------
 
-// reloadRules rebuilds the rule and rule-set indexes from disk.
+// reloadRules rebuilds the rule index from the database.
 func (s *Store) reloadRules() error {
+	recs, err := s.all(colRules)
+	if err != nil {
+		return err
+	}
 	rules := map[string]*Rule{}
-	if entries, err := os.ReadDir(s.rulesDir()); err == nil {
-		for _, e := range entries {
-			if e.IsDir() || !strings.HasSuffix(e.Name(), ".md") {
-				continue
-			}
-			name := strings.TrimSuffix(e.Name(), ".md")
-			if ValidateName(name) != nil {
-				continue
-			}
-			r, err := s.loadRule(name)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "circe: skipping rule %q: %v\n", name, err)
-				continue
-			}
-			rules[name] = r
+	for _, rec := range recs {
+		name := rec.GetString("name")
+		if ValidateName(name) != nil {
+			continue
 		}
+		r, err := ruleFromRecord(rec)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "circe: skipping rule %q: %v\n", name, err)
+			continue
+		}
+		rules[name] = r
 	}
 
 	s.mu.Lock()
@@ -102,65 +39,14 @@ func (s *Store) reloadRules() error {
 	return nil
 }
 
-func (s *Store) loadRule(name string) (*Rule, error) {
-	path := s.rulePath(name)
-	raw, err := os.ReadFile(path)
+// ruleFromRecord parses a stored rule document back into a Rule.
+func ruleFromRecord(rec *core.Record) (*Rule, error) {
+	r, err := model.ParseRule(rec.GetString("name"), []byte(rec.GetString("source")))
 	if err != nil {
 		return nil, err
 	}
-	f, err := skillfile.Parse(raw)
-	if err != nil {
-		return nil, err
-	}
-
-	r := &Rule{
-		Name:        name,
-		Description: strings.TrimSpace(f.Description),
-		Body:        f.Body,
-		Tags:        extractTags(f.Frontmatter),
-		Size:        int64(len(raw)),
-	}
-	if r.Description == "" {
-		r.Description = f.Summary(180)
-	}
-	// Targets live in frontmatter so a rule file is self-describing on disk.
-	if f.Extra != nil {
-		r.Targets = normalizeTargets(f.Extra["targets"])
-	}
-	if info, err := os.Stat(path); err == nil {
-		r.UpdatedAt = info.ModTime()
-	}
+	r.UpdatedAt = rec.GetDateTime("updated").Time()
 	return r, nil
-}
-
-func normalizeTargets(v any) []string {
-	var out []string
-	add := func(s string) {
-		s = strings.TrimSpace(s)
-		for _, t := range RuleTargets() {
-			if strings.EqualFold(s, t) {
-				out = append(out, t)
-				return
-			}
-		}
-	}
-	switch t := v.(type) {
-	case []any:
-		for _, item := range t {
-			if str, ok := item.(string); ok {
-				add(str)
-			}
-		}
-	case []string:
-		for _, str := range t {
-			add(str)
-		}
-	case string:
-		for _, part := range strings.Split(t, ",") {
-			add(part)
-		}
-	}
-	return out
 }
 
 // ---------- queries ----------
@@ -215,7 +101,7 @@ func (s *Store) SearchRules(query string) []*Rule {
 
 // ---------- mutations ----------
 
-// SaveRule writes a rule to disk.
+// SaveRule writes a rule.
 func (s *Store) SaveRule(r *Rule) error {
 	if err := ValidateName(r.Name); err != nil {
 		return err
@@ -227,26 +113,17 @@ func (s *Store) SaveRule(r *Rule) error {
 		return fmt.Errorf("a rule needs some content")
 	}
 
-	front := skillfile.Frontmatter{
-		Name:        r.Name,
-		Description: strings.TrimSpace(r.Description),
-		Extra:       map[string]any{},
-	}
-	if len(r.Targets) > 0 {
-		front.Extra["targets"] = r.Targets
-	}
-	if len(r.Tags) > 0 {
-		front.Metadata = map[string]any{"tags": append([]string(nil), r.Tags...)}
-	}
-	if len(front.Extra) == 0 {
-		front.Extra = nil
-	}
+	source := string(r.Document())
 
-	f := &skillfile.File{Frontmatter: front, Body: r.Body}
-	if err := os.MkdirAll(s.rulesDir(), 0o755); err != nil {
-		return err
-	}
-	if err := writeFileAtomic(s.rulePath(r.Name), f.Bytes()); err != nil {
+	err := s.upsert(colRules, "name", r.Name, func(rec *core.Record) {
+		rec.Set("source", source)
+		rec.Set("description", strings.TrimSpace(r.Description))
+		rec.Set("targets", r.Targets)
+		rec.Set("tags", r.Tags)
+		rec.Set("size", len(source))
+		setUpdated(rec, "updated", r.UpdatedAt)
+	})
+	if err != nil {
 		return err
 	}
 	return s.refreshRule(r.Name)
@@ -257,7 +134,7 @@ func (s *Store) CreateRule(r *Rule) error {
 	if err := ValidateName(r.Name); err != nil {
 		return err
 	}
-	if _, err := os.Stat(s.rulePath(r.Name)); err == nil {
+	if _, err := s.findByField(colRules, "name", r.Name); err == nil {
 		return fmt.Errorf("rule %q: %w", r.Name, ErrExists)
 	}
 	return s.SaveRule(r)
@@ -271,8 +148,10 @@ func (s *Store) DeleteRule(name string) error {
 	if _, err := s.Rule(name); err != nil {
 		return err
 	}
-	if err := os.Remove(s.rulePath(name)); err != nil && !os.IsNotExist(err) {
-		return err
+	if rec, err := s.findByField(colRules, "name", name); err == nil {
+		if err := s.app.Delete(rec); err != nil {
+			return err
+		}
 	}
 
 	s.mu.Lock()
@@ -312,10 +191,15 @@ func (s *Store) RenameRule(oldName, newName string) error {
 	if err != nil {
 		return err
 	}
-	if _, err := os.Stat(s.rulePath(newName)); err == nil {
+	if _, err := s.findByField(colRules, "name", newName); err == nil {
 		return fmt.Errorf("rule %q: %w", newName, ErrExists)
 	}
-	if err := os.Rename(s.rulePath(oldName), s.rulePath(newName)); err != nil {
+	rec, err := s.findByField(colRules, "name", oldName)
+	if err != nil {
+		return err
+	}
+	rec.Set("name", newName)
+	if err := asStoreError(s.app.Save(rec)); err != nil {
 		return err
 	}
 
@@ -347,7 +231,11 @@ func (s *Store) RenameRule(oldName, newName string) error {
 }
 
 func (s *Store) refreshRule(name string) error {
-	r, err := s.loadRule(name)
+	rec, err := s.findByField(colRules, "name", name)
+	if err != nil {
+		return err
+	}
+	r, err := ruleFromRecord(rec)
 	if err != nil {
 		return err
 	}

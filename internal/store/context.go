@@ -2,19 +2,19 @@ package store
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/pocketbase/pocketbase/core"
 )
 
 // Context files are project-level agent instructions that ship with a folder.
 // Installing the folder merges them into the target project's own files.
 //
-// They live beside the folder manifest as data/bundles/<name>/CLAUDE.md rather
-// than inside the JSON, so they stay readable and diffable like everything else
-// in the data directory. Reload already skips directories in bundles/, so this
-// layout is backward compatible with folders that have no context files.
+// They are kept apart from the folder manifest rather than embedded in its
+// JSON, so they stay readable and diffable wherever the registry is written
+// out: export and git sync put them at bundles/<name>/CLAUDE.md, which is the
+// layout every earlier release used.
 var contextFiles = []string{"CLAUDE.md", "AGENTS.md"}
 
 // ValidContextFile reports whether name is a context file we manage.
@@ -30,10 +30,6 @@ func ValidContextFile(name string) bool {
 // ContextFileNames lists the supported context files in display order.
 func ContextFileNames() []string { return append([]string(nil), contextFiles...) }
 
-func (s *Store) contextDir(bundle string) string {
-	return filepath.Join(s.bundlesDir(), bundle)
-}
-
 // BundleContext returns one context file's content, or an empty string when the
 // folder does not define it.
 func (s *Store) BundleContext(bundle, file string) (string, error) {
@@ -43,14 +39,12 @@ func (s *Store) BundleContext(bundle, file string) (string, error) {
 	if !ValidContextFile(file) {
 		return "", fmt.Errorf("unsupported context file %q", file)
 	}
-	raw, err := os.ReadFile(filepath.Join(s.contextDir(bundle), file))
-	if os.IsNotExist(err) {
+	rec, err := s.app.FindFirstRecordByFilter(colContexts, "bundle = {:b} && file = {:f}",
+		map[string]any{"b": bundle, "f": file})
+	if err != nil {
 		return "", nil
 	}
-	if err != nil {
-		return "", err
-	}
-	return string(raw), nil
+	return rec.GetString("content"), nil
 }
 
 // BundleContexts returns every context file the folder defines, keyed by name.
@@ -87,37 +81,51 @@ func (s *Store) SaveBundleContext(bundle, file, content string) error {
 		return err
 	}
 
-	dir := s.contextDir(bundle)
-	path := filepath.Join(dir, file)
+	existing, err := s.app.FindFirstRecordByFilter(colContexts, "bundle = {:b} && file = {:f}",
+		map[string]any{"b": bundle, "f": file})
 
 	if strings.TrimSpace(content) == "" {
-		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
-			return err
-		}
-		// Prune the directory once it holds nothing.
-		if entries, err := os.ReadDir(dir); err == nil && len(entries) == 0 {
-			os.Remove(dir)
+		if err == nil {
+			return s.app.Delete(existing)
 		}
 		return nil
 	}
 
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return err
-	}
 	normalized := strings.ReplaceAll(content, "\r\n", "\n")
 	if !strings.HasSuffix(normalized, "\n") {
 		normalized += "\n"
 	}
-	return writeFileAtomic(path, []byte(normalized))
+
+	if err != nil {
+		c, cerr := s.app.FindCollectionByNameOrId(colContexts)
+		if cerr != nil {
+			return cerr
+		}
+		existing = core.NewRecord(c)
+		existing.Set("bundle", bundle)
+		existing.Set("file", file)
+	}
+	existing.Set("content", normalized)
+	return asStoreError(s.app.Save(existing))
 }
 
-// deleteBundleContexts removes a folder's context directory, used when the
-// folder itself is deleted or renamed.
+// deleteBundleContexts drops a folder's context documents, used when the folder
+// itself is deleted.
 func (s *Store) deleteBundleContexts(bundle string) error {
 	if err := ValidateName(bundle); err != nil {
 		return err
 	}
-	return os.RemoveAll(s.contextDir(bundle))
+	recs, err := s.app.FindRecordsByFilter(colContexts, "bundle = {:b}", "", 0, 0,
+		map[string]any{"b": bundle})
+	if err != nil {
+		return err
+	}
+	for _, rec := range recs {
+		if err := s.app.Delete(rec); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // MoveBundleContexts relocates context files when a folder is renamed.
@@ -128,9 +136,16 @@ func (s *Store) MoveBundleContexts(oldName, newName string) error {
 	if err := ValidateName(newName); err != nil {
 		return err
 	}
-	src := s.contextDir(oldName)
-	if _, err := os.Stat(src); os.IsNotExist(err) {
-		return nil
+	recs, err := s.app.FindRecordsByFilter(colContexts, "bundle = {:b}", "", 0, 0,
+		map[string]any{"b": oldName})
+	if err != nil {
+		return err
 	}
-	return os.Rename(src, s.contextDir(newName))
+	for _, rec := range recs {
+		rec.Set("bundle", newName)
+		if err := asStoreError(s.app.Save(rec)); err != nil {
+			return err
+		}
+	}
+	return nil
 }

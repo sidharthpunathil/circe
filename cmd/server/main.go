@@ -13,6 +13,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pocketbase/pocketbase"
+	"github.com/pocketbase/pocketbase/apis"
+	"github.com/pocketbase/pocketbase/core"
+	"github.com/pocketbase/pocketbase/tools/hook"
+
 	"github.com/sidharthpunathil/circe/internal/server"
 	"github.com/sidharthpunathil/circe/internal/store"
 )
@@ -20,9 +25,24 @@ import (
 func main() {
 	log.SetFlags(0)
 
+	// Two subcommands sit in front of the server: they are the answer to "what
+	// if I want my content out of here", and the answer has to be a command
+	// that exists rather than a paragraph in a README.
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "export":
+			runExport(os.Args[2:])
+			return
+		case "import":
+			runImport(os.Args[2:])
+			return
+		}
+	}
+
 	var (
 		addr    = flag.String("addr", defaultAddr(), "address to listen on")
-		dataDir = flag.String("data", envOr("DATA", "./data"), "directory holding skills and folders")
+		noDash  = flag.Bool("no-dashboard", envBool("NO_DASHBOARD"), "hide the PocketBase dashboard and its REST API")
+		dataDir = flag.String("data", envOr("DATA", "./data"), "directory holding the registry database")
 		dev     = flag.Bool("dev", false, "reload templates and static assets from disk on every request")
 		baseURL = flag.String("base-url", env("BASE_URL"), "public base URL, if behind a proxy")
 	)
@@ -43,6 +63,8 @@ Environment:
   CIRCE_SITE_NAME         site name used in titles and Open Graph tags
   CIRCE_SITE_DESCRIPTION  default meta description
   CIRCE_TWITTER_SITE      @handle for Twitter card attribution
+  CIRCE_NO_DASHBOARD      set to 1 to remove the PocketBase dashboard at /_/
+                          (when a password is set, the dashboard is behind it)
   GITHUB_TOKEN            raises the GitHub rate limit and reaches private repos
 
 The SKILLBUILDER_ prefixed names this tool used before are still read, so an
@@ -50,8 +72,25 @@ existing deployment keeps working without being reconfigured.
 `)
 	}
 	flag.Parse()
+	dashboard := !*noDash
 
-	st, err := store.Open(*dataDir)
+	// The registry runs as a PocketBase application: the same database the
+	// store reads, plus the dashboard at /_/ and PocketBase's own REST API.
+	// Bootstrapping it here rather than going through PocketBase's cobra CLI
+	// keeps this binary's flags and environment exactly as they were.
+	abs, err := filepath.Abs(*dataDir)
+	if err != nil {
+		log.Fatalf("data directory: %v", err)
+	}
+	app := pocketbase.NewWithConfig(pocketbase.Config{
+		DefaultDataDir:  abs,
+		DefaultDev:      *dev,
+		HideStartBanner: true,
+	})
+	if err := app.Bootstrap(); err != nil {
+		log.Fatalf("open data directory: %v", err)
+	}
+	st, err := store.OpenWithApp(app)
 	if err != nil {
 		log.Fatalf("open data directory: %v", err)
 	}
@@ -67,7 +106,7 @@ existing deployment keeps working without being reconfigured.
 		Folder:      env("SEED_FOLDER"),
 		FolderTitle: env("SEED_FOLDER_TITLE"),
 	}
-	if err := server.Seed(context.Background(), st, server.SourcesPath(st), seed); err != nil {
+	if err := server.Seed(context.Background(), st, seed); err != nil {
 		// A failed seed must not stop the service from starting; the registry is
 		// simply empty and the operator can import by hand.
 		log.Printf("circe: seed skipped: %v", err)
@@ -100,9 +139,61 @@ existing deployment keeps working without being reconfigured.
 	if err != nil {
 		log.Fatalf("start server: %v", err)
 	}
-	if err := srv.ListenAndServe(*addr); err != nil {
+
+	// Circe owns every path PocketBase has not already claimed. The priority
+	// puts this last so that /_/ (the dashboard) and /api/collections (its REST
+	// API) keep working, and everything else falls through to the registry.
+	app.OnServe().Bind(&hook.Handler[*core.ServeEvent]{
+		Func: func(e *core.ServeEvent) error {
+			e.Router.BindFunc(func(re *core.RequestEvent) error {
+				if !isPocketBasePath(re.Request.URL.Path) {
+					return re.Next()
+				}
+				// Some deployments would rather not have a second sign-in page
+				// on the internet at all.
+				if !dashboard {
+					return apis.NewNotFoundError("", nil)
+				}
+				// The dashboard reads the same database the registry does, so
+				// it sits behind the same password. Its superuser account is
+				// then a second lock on a door strangers cannot reach.
+				if !srv.Authorize(re.Response, re.Request) {
+					return nil // the challenge has already been written
+				}
+				return re.Next()
+			})
+
+			e.Router.Any("/{path...}", apis.WrapStdHandler(srv))
+			log.Printf("circe listening on http://%s (data: %s)", *addr, st.Root())
+			switch {
+			case !dashboard:
+				log.Printf("circe: PocketBase dashboard disabled")
+			case auth.Enabled():
+				log.Printf("circe: PocketBase dashboard at http://%s/_/ (behind CIRCE_PASSWORD)", *addr)
+			default:
+				log.Printf("circe: PocketBase dashboard at http://%s/_/", *addr)
+			}
+			return e.Next()
+		},
+		Priority: 999,
+	})
+
+	if err := apis.Serve(app, apis.ServeConfig{
+		HttpAddr:        *addr,
+		ShowStartBanner: false,
+	}); err != nil {
 		log.Fatalf("server: %v", err)
 	}
+}
+
+// isPocketBasePath reports whether a path belongs to PocketBase rather than to
+// the registry: its dashboard, the assets that dashboard loads, and its own
+// REST API. Circe's API lives under /api/v1 and is not included.
+func isPocketBasePath(p string) bool {
+	if p == "/_" || strings.HasPrefix(p, "/_/") {
+		return true
+	}
+	return strings.HasPrefix(p, "/api/") && !strings.HasPrefix(p, "/api/v1/")
 }
 
 // defaultAddr honours $PORT, which is how nearly every host tells a process
@@ -144,6 +235,15 @@ func env(suffix string) string {
 	return strings.TrimSpace(os.Getenv("SKILLBUILDER_" + suffix))
 }
 
+// envBool reads a CIRCE_ flag that is set by being present and non-zero.
+func envBool(suffix string) bool {
+	switch strings.ToLower(env(suffix)) {
+	case "", "0", "false", "no", "off":
+		return false
+	}
+	return true
+}
+
 func envOr(suffix, fallback string) string {
 	if v := env(suffix); v != "" {
 		return v
@@ -167,5 +267,63 @@ func findProjectRoot() (string, error) {
 			return "", fmt.Errorf("could not find go.mod above %s", dir)
 		}
 		dir = parent
+	}
+}
+
+// runExport writes the whole registry out as plain files.
+func runExport(args []string) {
+	fs := flag.NewFlagSet("export", flag.ExitOnError)
+	dataDir := fs.String("data", envOr("DATA", "./data"), "data directory to read")
+	out := fs.String("out", "./circe-export", "directory to write")
+	fs.Usage = func() {
+		fmt.Fprintf(os.Stderr, "circe-server export: write every skill, rule, server and folder out as plain files\n\n"+
+			"Usage:\n  %s export [-data DIR] [-out DIR]\n\nFlags:\n", os.Args[0])
+		fs.PrintDefaults()
+		fmt.Fprintf(os.Stderr, "\nTokens and share links are never exported.\n")
+	}
+	_ = fs.Parse(args)
+
+	st, err := store.Open(*dataDir)
+	if err != nil {
+		log.Fatalf("open data directory: %v", err)
+	}
+	defer st.Close()
+
+	if err := st.ExportTree(*out); err != nil {
+		log.Fatalf("export: %v", err)
+	}
+	log.Printf("wrote %d skills, %d rules, %d servers and %d folders to %s",
+		st.SkillCount(), st.RuleCount(), st.MCPCount(), st.BundleCount(), *out)
+}
+
+// runImport reads a directory in that same layout back in.
+func runImport(args []string) {
+	fs := flag.NewFlagSet("import", flag.ExitOnError)
+	dataDir := fs.String("data", envOr("DATA", "./data"), "data directory to write")
+	in := fs.String("in", "./circe-export", "directory to read")
+	force := fs.Bool("force", false, "replace entries that already exist")
+	fs.Usage = func() {
+		fmt.Fprintf(os.Stderr, "circe-server import: read a directory of skills, rules, servers and folders back in\n\n"+
+			"Usage:\n  %s import [-data DIR] [-in DIR] [-force]\n\nFlags:\n", os.Args[0])
+		fs.PrintDefaults()
+	}
+	_ = fs.Parse(args)
+
+	st, err := store.Open(*dataDir)
+	if err != nil {
+		log.Fatalf("open data directory: %v", err)
+	}
+	defer st.Close()
+
+	res, err := st.ImportTree(*in, *force)
+	if err != nil {
+		log.Fatalf("import: %v", err)
+	}
+	log.Printf("imported %d, skipped %d", len(res.Imported), len(res.Skipped))
+	for _, f := range res.Failed {
+		log.Printf("failed: %s", f)
+	}
+	if len(res.Skipped) > 0 && !*force {
+		log.Printf("pass -force to replace what is already there")
 	}
 }

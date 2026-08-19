@@ -31,6 +31,7 @@ type settingsView struct {
 	Saved     bool
 	Error     string
 	Providers []string
+	Sync      syncView
 }
 
 func (s *Server) settingsData(w http.ResponseWriter, r *http.Request) settingsView {
@@ -47,6 +48,7 @@ func (s *Server) settingsData(w http.ResponseWriter, r *http.Request) settingsVi
 		Tokens:    rows,
 		DataDir:   s.store.Root(),
 		Providers: gitsource.SupportedProviders(),
+		Sync:      s.syncData(),
 	}
 }
 

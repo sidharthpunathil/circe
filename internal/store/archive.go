@@ -6,11 +6,10 @@ import (
 	"compress/gzip"
 	"fmt"
 	"io"
-	"io/fs"
-	"os"
 	"path"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 // Exclusion rules mirroring Anthropic's package_skill.py, plus .venv which that
@@ -48,23 +47,47 @@ func excluded(rel string, isDir bool) bool {
 	return false
 }
 
-// walkSkillFiles yields every packable file in a skill as (absolute, relative).
-func (s *Store) walkSkillFiles(name string, fn func(abs, rel string, info fs.FileInfo) error) error {
+// skillEntry is one packable file: the SKILL.md itself or a companion.
+type skillEntry struct {
+	Rel  string
+	Data []byte
+	Mod  time.Time
+}
+
+// skillContents returns everything a skill ships, SKILL.md first and companions
+// in path order, so an archive is byte-for-byte reproducible.
+func (s *Store) skillContents(name string) ([]skillEntry, error) {
 	if err := ValidateName(name); err != nil {
-		return err
+		return nil, err
 	}
-	dir := s.skillDir(name)
-	if _, err := os.Stat(dir); err != nil {
-		return fmt.Errorf("skill %q: %w", name, ErrNotFound)
+	rec, err := s.findByField(colSkills, "name", name)
+	if err != nil {
+		return nil, err
 	}
-	// walkResolved follows symlinks, so a symlinked skill or reference
-	// directory is packaged by value rather than silently omitted.
-	return walkResolved(dir, func(e WalkEntry) error {
-		if excluded(e.Rel, false) {
-			return nil
+	mod := rec.GetDateTime("updated").Time()
+	if mod.IsZero() {
+		mod = time.Now()
+	}
+
+	out := []skillEntry{{Rel: "SKILL.md", Data: []byte(rec.GetString("source")), Mod: mod}}
+
+	files, err := s.app.FindRecordsByFilter(colSkillFile, "skill = {:id}", "path", 0, 0,
+		map[string]any{"id": rec.Id})
+	if err != nil {
+		return nil, err
+	}
+	for _, f := range files {
+		rel := f.GetString("path")
+		if excluded(rel, false) {
+			continue
 		}
-		return fn(e.Abs, e.Rel, e.Info)
-	})
+		data, err := s.readBlob(f)
+		if err != nil {
+			return nil, fmt.Errorf("read %s/%s: %w", name, rel, err)
+		}
+		out = append(out, skillEntry{Rel: rel, Data: data, Mod: mod})
+	}
+	return out, nil
 }
 
 // WriteSkillZip writes a single skill as a .skill archive: a ZIP whose entries
@@ -137,25 +160,23 @@ func (s *Store) WriteBundleZip(w io.Writer, b *Bundle, manifest []byte) error {
 }
 
 func (s *Store) addSkillToZip(zw *zip.Writer, name, prefix string) error {
-	return s.walkSkillFiles(name, func(abs, rel string, info fs.FileInfo) error {
-		hdr, err := zip.FileInfoHeader(info)
-		if err != nil {
-			return err
-		}
-		hdr.Name = path.Join(prefix, rel)
-		hdr.Method = zip.Deflate
+	entries, err := s.skillContents(name)
+	if err != nil {
+		return err
+	}
+	for _, e := range entries {
+		hdr := &zip.FileHeader{Name: path.Join(prefix, e.Rel), Method: zip.Deflate}
+		hdr.SetMode(0o644)
+		hdr.Modified = e.Mod
 		out, err := zw.CreateHeader(hdr)
 		if err != nil {
 			return err
 		}
-		in, err := os.Open(abs)
-		if err != nil {
+		if _, err := out.Write(e.Data); err != nil {
 			return err
 		}
-		defer in.Close()
-		_, err = io.Copy(out, in)
-		return err
-	})
+	}
+	return nil
 }
 
 // WriteSkillsTarGz streams the named skills as a gzipped tar, each under its own
@@ -165,29 +186,30 @@ func (s *Store) WriteSkillsTarGz(w io.Writer, names []string) error {
 	tw := tar.NewWriter(gz)
 
 	for _, name := range names {
-		err := s.walkSkillFiles(name, func(abs, rel string, info fs.FileInfo) error {
-			hdr, err := tar.FileInfoHeader(info, "")
-			if err != nil {
-				return err
-			}
-			hdr.Name = path.Join(name, rel)
-			hdr.Uname, hdr.Gname = "", ""
-			hdr.Uid, hdr.Gid = 0, 0
-			if err := tw.WriteHeader(hdr); err != nil {
-				return err
-			}
-			in, err := os.Open(abs)
-			if err != nil {
-				return err
-			}
-			defer in.Close()
-			_, err = io.Copy(tw, in)
-			return err
-		})
+		entries, err := s.skillContents(name)
 		if err != nil {
 			tw.Close()
 			gz.Close()
 			return err
+		}
+		for _, e := range entries {
+			hdr := &tar.Header{
+				Name:     path.Join(name, e.Rel),
+				Mode:     0o644,
+				Size:     int64(len(e.Data)),
+				ModTime:  e.Mod,
+				Typeflag: tar.TypeReg,
+			}
+			if err := tw.WriteHeader(hdr); err != nil {
+				tw.Close()
+				gz.Close()
+				return err
+			}
+			if _, err := tw.Write(e.Data); err != nil {
+				tw.Close()
+				gz.Close()
+				return err
+			}
 		}
 	}
 

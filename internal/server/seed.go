@@ -27,7 +27,7 @@ type SeedOptions struct {
 // It is deliberately a no-op once anything exists, so a redeploy never
 // overwrites edits, and the source repo is configuration rather than something
 // baked into the binary.
-func Seed(ctx context.Context, st *store.Store, sourcesPath string, opts SeedOptions) error {
+func Seed(ctx context.Context, st *store.Store, opts SeedOptions) error {
 	if strings.TrimSpace(opts.Repo) == "" {
 		return nil
 	}
@@ -49,10 +49,8 @@ func Seed(ctx context.Context, st *store.Store, sourcesPath string, opts SeedOpt
 		return fmt.Errorf("seed from %s: %w", repo.String(), err)
 	}
 
-	sources, err := gitsource.LoadSources(sourcesPath)
-	if err != nil {
-		sources = map[string]gitsource.Source{}
-	}
+	srv := &Server{store: st}
+	sources := srv.loadSources()
 
 	var imported []string
 	for _, c := range res.Candidates {
@@ -63,7 +61,7 @@ func Seed(ctx context.Context, st *store.Store, sourcesPath string, opts SeedOpt
 		sources[c.Name] = gitsource.NewSource(c.Name, repo, res.Meta, c)
 		imported = append(imported, c.Name)
 	}
-	if err := gitsource.SaveSources(sourcesPath, sources); err != nil {
+	if err := srv.saveSources(sources); err != nil {
 		log.Printf("circe: save sources: %v", err)
 	}
 
@@ -80,10 +78,4 @@ func Seed(ctx context.Context, st *store.Store, sourcesPath string, opts SeedOpt
 
 	log.Printf("circe: seeded %d skills from %s", len(imported), repo.String())
 	return nil
-}
-
-// SourcesPath exposes where provenance is stored, for callers doing the seed
-// outside a running server.
-func SourcesPath(st *store.Store) string {
-	return (&Server{store: st}).sourcesPath()
 }

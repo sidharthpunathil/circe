@@ -29,8 +29,13 @@ func TestRuleRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// A rule is one plain file, discoverable without the app.
-	path := filepath.Join(st.Root(), "rules", "code-style.md")
+	// A rule is still one plain markdown document, and writing the registry out
+	// puts it exactly where it has always lived.
+	dst := t.TempDir()
+	if err := st.ExportTree(dst); err != nil {
+		t.Fatalf("ExportTree: %v", err)
+	}
+	path := filepath.Join(dst, "rules", "code-style.md")
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("expected %s: %v", path, err)

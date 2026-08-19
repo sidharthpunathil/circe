@@ -140,6 +140,11 @@ func (s *Server) routes() {
 	m.HandleFunc("GET /settings", s.handleSettings)
 	m.HandleFunc("POST /settings", s.handleSettingsSave)
 
+	// Syncing the whole registry to a git repository.
+	m.HandleFunc("POST /sync/connect", s.handleSyncConnect)
+	m.HandleFunc("POST /sync/push", s.handleSyncPush)
+	m.HandleFunc("POST /sync/pull", s.handleSyncPull)
+
 	m.HandleFunc("GET /import", s.handleImportRepo)
 	m.HandleFunc("GET /import/repo", s.handleImportRepo)
 	m.HandleFunc("GET /import/local", s.handleImport)

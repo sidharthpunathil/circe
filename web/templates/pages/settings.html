@@ -58,14 +58,108 @@
       </div>
     </form>
 
+    <div class="mt-12 max-w-[860px]">
+      <p class="eyebrow mb-3">Sync</p>
+      <h2 class="text-[22px]">Keep it all in a repository</h2>
+      <p class="mt-2 text-[15px] text-fg-3 max-w-[62ch]">
+        Push writes every skill, rule, server and folder to GitHub as ordinary files and commits
+        them. Pull reads them back. Your library becomes something you can read in a browser,
+        review in a pull request, and restore anywhere.
+      </p>
+
+      {{ with .Sync }}
+        {{ if .Connected }}
+          <div class="mt-5 rounded-card border border-line bg-card p-5">
+            <div class="flex items-start justify-between gap-3 flex-wrap">
+              <div class="min-w-0">
+                <p class="text-[14px] font-medium text-fg">
+                  <a href="{{ .Config.HTMLURL }}" target="_blank" rel="noreferrer noopener"
+                     class="text-fg-2 hover:text-fg transition-colors underline underline-offset-4 decoration-line-inset">{{ .Config.Repo }}</a>
+                </p>
+                <p class="text-[12.5px] text-fg-3 mt-0.5">
+                  branch <span class="font-mono">{{ .Config.BranchOrDefault }}</span>
+                  {{ with .Config.Path }} · inside <span class="font-mono">{{ . }}/</span>{{ end }}
+                </p>
+              </div>
+              {{ if .LastSync }}
+                <div class="text-right shrink-0">
+                  <p class="meta">{{ .Config.LastDirection }}ed {{ .LastSync }}</p>
+                  {{ with .Config.CommitURL }}
+                    <a href="{{ . }}" target="_blank" rel="noreferrer noopener"
+                       class="meta font-mono text-fg hover:underline underline-offset-4">{{ $.Sync.Config.ShortCommit }}</a>
+                  {{ end }}
+                </div>
+              {{ end }}
+            </div>
+
+            {{ if not .HasToken }}
+              <p class="mt-3 text-[12.5px] text-fg-3">
+                Add a GitHub token above before pushing. A fine-grained token needs
+                <span class="font-mono text-[12px]">Contents: read and write</span> on this
+                repository.
+              </p>
+            {{ end }}
+
+            <div class="flex flex-wrap items-center gap-2.5 mt-4">
+              <form method="post" action="/sync/push" class="flex items-center gap-2 grow">
+                <input type="text" name="message" placeholder="Commit message (optional)"
+                       class="field grow max-w-[380px]" />
+                <button type="submit" class="btn btn-primary">Push</button>
+              </form>
+              <form method="post" action="/sync/pull"
+                    onsubmit="return confirm('Pull replaces what is in this registry with what is in the repository. Anything here that you have not pushed will be overwritten. Continue?')">
+                <button type="submit" class="btn">Pull</button>
+              </form>
+              <form method="post" action="/sync/connect"
+                    onsubmit="return confirm('Disconnect this repository? Nothing will be removed from it.')">
+                <input type="hidden" name="disconnect" value="1" />
+                <button type="submit" class="btn btn-sm">Disconnect</button>
+              </form>
+            </div>
+            <p class="hint mt-3">
+              A push replaces <span class="font-mono text-[12px]">skills/</span>,
+              <span class="font-mono text-[12px]">rules/</span>,
+              <span class="font-mono text-[12px]">mcps/</span> and
+              <span class="font-mono text-[12px]">bundles/</span> with exactly what is here, so
+              deleting a skill here deletes it there. Everything else in the repository is left
+              alone. Tokens and share links are never written.
+            </p>
+          </div>
+        {{ else }}
+          <form method="post" action="/sync/connect"
+                class="mt-5 rounded-card border border-line bg-card p-5 flex flex-col gap-3">
+            <div>
+              <label class="text-[13px] text-fg-2" for="sync-repo">Repository</label>
+              <input id="sync-repo" type="text" name="repo" placeholder="owner/name"
+                     class="field field-mono mt-1.5" />
+              <p class="hint">A GitHub repository you can write to. Private is fine, and usually right.</p>
+            </div>
+            <div class="flex flex-wrap gap-3">
+              <div class="grow">
+                <label class="text-[13px] text-fg-2" for="sync-branch">Branch</label>
+                <input id="sync-branch" type="text" name="branch" placeholder="main"
+                       class="field field-mono mt-1.5" />
+              </div>
+              <div class="grow">
+                <label class="text-[13px] text-fg-2" for="sync-path">Subdirectory</label>
+                <input id="sync-path" type="text" name="path" placeholder="optional"
+                       class="field field-mono mt-1.5" />
+              </div>
+            </div>
+            <div>
+              <button type="submit" class="btn btn-primary">Connect</button>
+            </div>
+          </form>
+        {{ end }}
+      {{ end }}
+    </div>
+
     <div class="mt-10 max-w-[860px] rounded-card border border-line bg-card p-5">
-      <p class="eyebrow mb-2.5">Where these are kept</p>
+      <p class="eyebrow mb-2.5">Where all this lives</p>
       <p class="text-[13.5px] text-fg-2 leading-relaxed">
-        Tokens are written to
-        <span class="font-mono text-[12.5px]">.credentials.json</span> inside your data
-        directory, with a <span class="font-mono text-[12.5px]">.gitignore</span> beside them so
-        they can’t be committed if you back that directory up with git. An environment variable
-        of the same name always takes precedence.
+        Skills, rules, servers and folders are kept in a database inside your data directory,
+        and every one of them stores the exact markdown or JSON document it came from. Tokens
+        are held apart from the rest and are never exported, committed or shared.
       </p>
       <p class="meta mt-3 break-all">{{ .DataDir }}</p>
     </div>

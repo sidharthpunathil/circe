@@ -66,119 +66,27 @@
       </div>
     {{ else if .Query }}
       <p class="text-[14px] text-fg-3">
-        No server here goes by that. Try a shorter search, or pick one from the catalog below.
-      </p>
-    {{ else }}
-      <p class="text-[14px] text-fg-3 max-w-[62ch]">
-        None yet. Take one from the catalog below, or
+        No server here goes by that. Try a shorter search, or
         <a
           href="/mcp/new"
           class="text-fg-2 hover:text-fg transition-colors underline underline-offset-4 decoration-line-inset"
-          >describe your own</a
+          >add it</a
+        >.
+      </p>
+    {{ else }}
+      <p class="text-[14px] text-fg-3 max-w-[62ch]">
+        None yet.
+        <a
+          href="/mcp/new"
+          class="text-fg-2 hover:text-fg transition-colors underline underline-offset-4 decoration-line-inset"
+          >Describe one</a
+        >, or
+        <a
+          href="/import/file"
+          class="text-fg-2 hover:text-fg transition-colors underline underline-offset-4 decoration-line-inset"
+          >paste an existing .mcp.json</a
         >. Either way, only the names of the variables are stored here, never their values.
       </p>
-    {{ end }}
-  </section>
-
-  {{/* The catalog lives on this page rather than behind a link: choosing a
-       server is the same job as looking at the ones you have, and sending
-       people somewhere else to do half of it made the page feel like a list of
-       things that were already decided. */}}
-  <section id="catalog" class="container-page pb-16 border-t border-line-soft pt-10">
-    {{ if .Groups }}
-      <form method="post" action="/mcp/catalog/add" class="flex flex-col gap-6" data-picker>
-        <div class="flex flex-wrap items-end justify-between gap-3">
-          <div class="min-w-0">
-            <h2 class="text-[20px]">Add from the catalog</h2>
-            <p class="hint mt-1 max-w-[60ch]">
-              {{ .Catalog }} servers that are known to work, with the command line already filled
-              in. <span data-selected-count>0</span> selected.
-            </p>
-          </div>
-          <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-            <input
-              type="search"
-              placeholder="Filter servers"
-              aria-label="Filter the catalog"
-              class="field h-8 w-full sm:w-[200px] min-w-0 text-[13px]"
-              data-filter="#catalog-picker"
-            />
-            <button type="button" class="btn btn-sm" data-select-none="#catalog-picker">
-              None
-            </button>
-            {{/* Not the amber treatment: the page already has one primary
-                 action in the header, and a second light source competes with
-                 it rather than adding emphasis. */}}
-            <button type="submit" class="btn btn-sm">Add selected</button>
-          </div>
-        </div>
-
-        <div id="catalog-picker" data-picker-list class="flex flex-col gap-8">
-          {{ $added := .Added }}
-          {{ range .Groups }}
-            <section>
-              <p class="eyebrow mb-3">{{ .Category }}</p>
-              <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                {{ range .Entries }}
-                  {{ if index $added .ID }}
-                    <div class="card !p-3 flex gap-2.5 items-start opacity-55 min-w-0"
-                      data-filter-item="{{ .ID }} {{ lower .Title }} {{ lower .Description }}">
-                      <span class="min-w-0 flex-1">
-                        <span class="flex items-center gap-2 flex-wrap">
-                          <span class="text-[13.5px] font-medium text-fg truncate">{{ .Title }}</span>
-                          <span class="badge">in your registry</span>
-                        </span>
-                        <span class="block text-[12px] text-fg-3 leading-snug line-clamp-2 mt-0.5">
-                          {{ truncate 110 .Description }}
-                        </span>
-                      </span>
-                    </div>
-                  {{ else }}
-                    <label class="card !p-3 cursor-pointer flex gap-2.5 items-start has-[:checked]:border-fg/25 has-[:checked]:bg-surface transition-colors min-w-0"
-                      data-filter-item="{{ .ID }} {{ lower .Title }} {{ lower .Description }}">
-                      <input type="checkbox" name="entry" value="{{ .ID }}" class="mt-0.5 accent-accent shrink-0" />
-                      <span class="min-w-0 flex-1">
-                        <span class="flex items-center gap-2 flex-wrap">
-                          <span class="text-[13.5px] font-medium text-fg truncate">{{ .Title }}</span>
-                          <span class="badge">{{ .Transport }}</span>
-                          {{ if .NeedsEnv }}<span class="badge">needs a key</span>{{ end }}
-                        </span>
-                        <span class="block text-[12px] text-fg-3 leading-snug line-clamp-2 mt-0.5">
-                          {{ truncate 110 .Description }}
-                        </span>
-                        <span class="block meta text-[11px] truncate mt-1.5" title="{{ .CommandLine }}"
-                          >{{ .CommandLine }}</span>
-                      </span>
-                    </label>
-                  {{ end }}
-                {{ end }}
-              </div>
-            </section>
-          {{ end }}
-        </div>
-        <p class="hint" data-filter-empty hidden>No server matches that filter.</p>
-
-        <div class="flex flex-wrap items-center gap-2.5">
-          <button type="submit" class="btn">Add selected</button>
-          <a href="/mcp/new" class="btn">Describe your own</a>
-        </div>
-
-        <p class="hint max-w-[68ch]">
-          Adding one copies its definition into your registry, where you can rename it, group it
-          and change how it starts. Any key it needs stays out of here: the entry records the
-          variable name, and the config it generates reads the value from your own shell at the
-          moment Claude Code starts.
-        </p>
-      </form>
-    {{ else }}
-      {{ template "empty"
-        (dict
-          "Title" "The catalog is empty"
-          "Body" "Nothing shipped with this build. You can still describe a server yourself."
-          "Action" "/mcp/new"
-          "ActionLabel" "New server"
-        )
-      }}
     {{ end }}
   </section>
 {{ end }}

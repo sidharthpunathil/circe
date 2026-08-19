@@ -217,3 +217,18 @@ once.
 Only skills are recorded. Rules and MCP servers are already visible in the project's own
 `CLAUDE.md` and `.mcp.json`, which are committed too, so a second copy of them here would
 be one more thing to drift.
+
+## The server's own commands
+
+`circe-server` is normally started with no arguments and serves the registry. Two
+subcommands sit in front of that, and both operate on a data directory rather than on a
+running server:
+
+```bash
+circe-server export -data ./data -out ./my-library
+circe-server import -data ./data -in ./my-library -force
+```
+
+`export` writes every skill, rule, server and folder out as plain markdown and JSON.
+`import` reads that same layout back, skipping what already exists unless you pass
+`-force`. Access tokens and share codes are never exported. See [sync.md](sync.md).

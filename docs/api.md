@@ -140,3 +140,21 @@ GET /.claude-plugin/marketplace.json
 
 Each folder appears as a plugin entry, so `/plugin marketplace add <your-url>` works with
 stock Claude Code.
+
+## PocketBase's API
+
+The registry runs as a PocketBase application, so PocketBase's own REST API is mounted
+alongside this one at `/api/collections/…`, with its dashboard at `/_/`.
+
+It is not a second way into your registry. Both are gated on `CIRCE_PASSWORD` first, so an
+unauthenticated request is refused before PocketBase sees it, and the dashboard's own
+sign-in page cannot be probed by someone who does not already have the password. Past that,
+none of the collections carry a public list or view rule, so every request there also needs
+a PocketBase superuser, which is an account that does not exist until you create one. Set
+`CIRCE_NO_DASHBOARD=1` to remove both entirely.
+
+Circe's own `/api/v1/health` stays public either way, so platform health checks keep
+working.
+
+Everything under `/api/v1` above is Circe's own, and is what the CLI uses. It is unaffected
+by any of this.

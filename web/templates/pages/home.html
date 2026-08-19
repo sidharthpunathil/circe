@@ -24,7 +24,7 @@
       {{ if .Stats.Tags }}
         <span><span class="text-fg">{{ .Stats.Tags }}</span> {{ pluralize .Stats.Tags "tag" "tags" }}</span>
       {{ end }}
-      <span><span class="text-fg">{{ bytes .Stats.Size }}</span> on disk</span>
+      <span><span class="text-fg">{{ bytes .Stats.Size }}</span> of content</span>
     </div>
   </section>
 
