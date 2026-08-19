@@ -24,6 +24,41 @@ var tokenHelp = map[string]struct{ label, help string }{
 	"BITBUCKET_TOKEN": {"Bitbucket", "Private repositories on bitbucket.org."},
 }
 
+// Settings is three unrelated jobs sharing a heading: the tokens this registry
+// reaches other hosts with, the repository it syncs to, and where its own data
+// sits. Showing all three at once made a page you had to scroll to find out
+// what was on it, so only one panel renders at a time and the URL says which.
+type settingsSection struct {
+	Key    string
+	Label  string
+	Active bool
+}
+
+const defaultSettingsSection = "tokens"
+
+// settingsSections is the order they appear in, and the only keys ?s= accepts.
+func settingsSections(active string) []settingsSection {
+	out := []settingsSection{
+		{Key: "tokens", Label: "Tokens"},
+		{Key: "sync", Label: "Sync"},
+		{Key: "storage", Label: "Storage"},
+	}
+	for i := range out {
+		out[i].Active = out[i].Key == active
+	}
+	return out
+}
+
+// validSettingsSection keeps a hand-typed ?s= from rendering nothing at all.
+func validSettingsSection(key string) string {
+	for _, s := range settingsSections("") {
+		if s.Key == key {
+			return key
+		}
+	}
+	return defaultSettingsSection
+}
+
 type settingsView struct {
 	base
 	Tokens    []tokenRow
@@ -32,7 +67,14 @@ type settingsView struct {
 	Error     string
 	Providers []string
 	Sync      syncView
+
+	Section  string
+	Sections []settingsSection
 }
+
+// Is reports whether a panel is the one being shown, so the template can ask
+// `{{ if .Is "sync" }}` instead of comparing strings inline.
+func (v settingsView) Is(key string) bool { return v.Section == key }
 
 func (s *Server) settingsData(w http.ResponseWriter, r *http.Request) settingsView {
 	var rows []tokenRow
@@ -43,12 +85,15 @@ func (s *Server) settingsData(w http.ResponseWriter, r *http.Request) settingsVi
 			FromEnv: src.FromEnv, HasValue: src.HasValue,
 		})
 	}
+	section := validSettingsSection(r.URL.Query().Get("s"))
 	return settingsView{
 		base:      s.base(w, r, "settings"),
 		Tokens:    rows,
 		DataDir:   s.store.Root(),
 		Providers: gitsource.SupportedProviders(),
 		Sync:      s.syncData(),
+		Section:   section,
+		Sections:  settingsSections(section),
 	}
 }
 
@@ -84,5 +129,5 @@ func (s *Server) handleSettingsSave(w http.ResponseWriter, r *http.Request) {
 	gitsource.SetFallbackTokens(s.store.Credentials())
 
 	s.setFlash(w, "ok", "Saved. New tokens are in use straight away.")
-	http.Redirect(w, r, "/settings?saved=1", http.StatusSeeOther)
+	http.Redirect(w, r, "/settings?s=tokens&saved=1", http.StatusSeeOther)
 }

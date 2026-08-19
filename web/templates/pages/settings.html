@@ -2,20 +2,36 @@
   <div class="container-page pt-12 pb-16">
     <p class="eyebrow mb-3">Setup</p>
     <h1 class="text-[32px] md:text-[40px]">Settings</h1>
-    <p class="mt-3 text-[15px] text-fg-3 max-w-[62ch]">
-      Access tokens for reaching private repositories and lifting the rate limits public ones
-      are subject to, and the repository this registry syncs with. Most people only ever need
-      the first row.
-    </p>
+
+    {{/* One panel at a time, chosen by ?s=. Three unrelated jobs share this
+         heading, and stacking them made a page you had to scroll to find out
+         what was on it. */}}
+    <nav class="mt-6 flex items-center gap-1 border-b border-line-soft" aria-label="Settings sections">
+      {{ range .Sections }}
+        <a
+          href="/settings?s={{ .Key }}"
+          {{ if .Active }}aria-current="page"{{ end }}
+          class="px-3 py-2 text-[14px] font-medium -mb-px border-b-2 transition-colors
+            {{ if .Active }}text-fg border-accent{{ else }}text-fg-3 border-transparent hover:text-fg{{ end }}"
+          >{{ .Label }}</a
+        >
+      {{ end }}
+    </nav>
 
     {{ with .Error }}
       {{ template "formerror" . }}
     {{ end }}
 
+    {{ if .Is "tokens" }}
+    <p class="mt-8 text-[15px] text-fg-3 max-w-[62ch]">
+      Access tokens for reaching private repositories and lifting the rate limits public ones
+      are subject to. Most people only ever need the first row.
+    </p>
+
     {{/* One card of rows rather than a card per token. Four optional fields
          were taking a full screen of scrolling, which made the page look like
          it wanted four tokens rather than usually one. */}}
-    <form method="post" action="/settings" class="mt-8 max-w-[860px]">
+    <form method="post" action="/settings" class="mt-5 max-w-[860px]">
       <div class="rounded-card border border-line bg-card divide-y divide-line-soft">
         {{ range .Tokens }}
           <div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 px-4 py-3">
@@ -64,10 +80,16 @@
       </div>
     </form>
 
-    <div class="mt-12 max-w-[860px]">
-      <p class="eyebrow mb-3">Sync</p>
-      <h2 class="text-[22px]">Keep it all in a repository</h2>
-      <p class="mt-2 text-[15px] text-fg-3 max-w-[62ch]">
+    <p class="hint mt-4 max-w-[62ch]">
+      A variable of the same name in the server's environment always wins, so deployment
+      config is never silently overridden. Tokens are kept apart from your content and are
+      never exported, committed or shared.
+    </p>
+    {{ end }}
+
+    {{ if .Is "sync" }}
+    <div class="mt-8 max-w-[860px]">
+      <p class="text-[15px] text-fg-3 max-w-[62ch]">
         Push writes every skill, rule, server and folder to GitHub as ordinary files and commits
         them. Pull reads them back. Your library becomes something you can read in a browser,
         review in a pull request, and restore anywhere.
@@ -160,25 +182,49 @@
       {{ end }}
     </div>
 
-    <div class="mt-10 max-w-[860px] rounded-card border border-line bg-card p-5">
-      <p class="eyebrow mb-2.5">Where all this lives</p>
-      <p class="text-[13.5px] text-fg-2 leading-relaxed">
-        Skills, rules, servers and folders are kept in a database inside your data directory,
-        and every one of them stores the exact markdown or JSON document it came from. Tokens
-        are held apart from the rest and are never exported, committed or shared.
-      </p>
-      <p class="meta mt-3 break-all">{{ .DataDir }}</p>
-    </div>
+    {{ end }}
 
-    <div class="mt-6 max-w-[860px]">
-      <p class="eyebrow mb-2.5">Hosts we can pull from</p>
-      <div class="flex flex-wrap gap-1.5">
-        {{ range .Providers }}<span class="badge">{{ . }}</span>{{ end }}
+    {{ if .Is "storage" }}
+    <div class="mt-8 max-w-[860px] flex flex-col gap-6">
+      <div>
+        <p class="text-[15px] text-fg-3 max-w-[62ch]">
+          Skills, rules, servers and folders live in a database inside this directory, and
+          every one of them stores the exact markdown or JSON document it came from.
+        </p>
+        <div class="mt-4 rounded-card border border-line bg-card p-4">
+          <p class="eyebrow mb-2">Data directory</p>
+          <p class="font-mono text-[12.5px] text-fg-2 break-all">{{ .DataDir }}</p>
+        </div>
       </div>
-      <p class="hint">
-        Paste a link to a whole repo, or to one folder, branch or tag inside it. Self-hosted
-        instances work too.
-      </p>
+
+      <div>
+        <p class="eyebrow mb-2.5">Take a copy</p>
+        <p class="text-[14px] text-fg-3 max-w-[62ch] mb-3">
+          Writes every skill, rule, server and folder out as ordinary markdown and JSON, in the
+          layout this has always used. Run it on the machine serving this registry.
+        </p>
+        {{ template "cmd" "circe-server export -out ./my-library" }}
+        <div class="mt-2.5">
+          {{ template "cmd" "circe-server import -in ./my-library -force" }}
+        </div>
+        <p class="hint mt-2">
+          Access tokens and share codes are never written by either. For a copy with history,
+          <a href="/settings?s=sync" class="text-fg-2 underline underline-offset-4 decoration-line-inset hover:text-fg transition-colors">sync to a repository</a>
+          instead.
+        </p>
+      </div>
+
+      <div>
+        <p class="eyebrow mb-2.5">Hosts we can pull from</p>
+        <div class="flex flex-wrap gap-1.5">
+          {{ range .Providers }}<span class="badge">{{ . }}</span>{{ end }}
+        </div>
+        <p class="hint">
+          Paste a link to a whole repo, or to one folder, branch or tag inside it. Self-hosted
+          instances work too. Writing commits back is GitHub only.
+        </p>
+      </div>
     </div>
+    {{ end }}
   </div>
 {{ end }}

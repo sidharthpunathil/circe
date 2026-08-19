@@ -1,18 +1,10 @@
 {{ define "content" }}
-  <div class="container-page pt-12 pb-16">
-    <p class="eyebrow mb-3">Import</p>
-    <h1 class="text-[32px] md:text-[40px]">Someone shared skills with you</h1>
-    <p class="mt-3 text-[15px] text-fg-3 max-w-[62ch]">
-      Paste the code they sent you. Whatever they shared lands in your registry as your own copy,
-      and stays there whether or not they keep sharing it.
-    </p>
-
-    <div class="mt-6 flex items-center gap-1 text-[14px] flex-wrap">
-      <a href="/import/repo" class="badge hover:text-fg transition-colors">Repo</a>
-      <a href="/import/file" class="badge hover:text-fg transition-colors">File</a>
-      <a href="/import/code" class="badge badge-active">Shared with you</a>
-      <a href="/import/local" class="badge hover:text-fg transition-colors">This machine</a>
-    </div>
+  <div class="container-page pt-8 pb-16">
+    {{ template "importhead" (dict
+      "Active" "code"
+      "Title" "Someone shared skills with you"
+      "Blurb" "Paste the code they sent you. Whatever they shared lands in your registry as your own copy, and stays there whether or not they keep sharing it."
+    ) }}
 
     {{ with .Error }}
       {{ template "formerror" . }}

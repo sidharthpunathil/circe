@@ -17,6 +17,10 @@ import (
 // that overwrites something at the exact moment nobody is watching, so both
 // directions are a button.
 
+// syncPanel is where every sync action returns to, so a push does not bounce
+// you back to the tokens panel to read its own result.
+const syncPanel = "/settings?s=sync"
+
 // syncTimeout bounds one sync. A push is one request per file plus four, so a
 // large library is slow rather than stuck, and this stops a hung connection
 // from holding the handler open forever.
@@ -54,14 +58,14 @@ func (s *Server) handleSyncConnect(w http.ResponseWriter, r *http.Request) {
 		} else {
 			s.setFlash(w, "ok", "Disconnected. Nothing was removed from the repository.")
 		}
-		http.Redirect(w, r, "/settings", http.StatusSeeOther)
+		http.Redirect(w, r, syncPanel, http.StatusSeeOther)
 		return
 	}
 
 	repo, err := gitsync.ParseRepo(r.FormValue("repo"))
 	if err != nil {
 		s.setFlash(w, "error", err.Error())
-		http.Redirect(w, r, "/settings", http.StatusSeeOther)
+		http.Redirect(w, r, syncPanel, http.StatusSeeOther)
 		return
 	}
 
@@ -80,7 +84,7 @@ func (s *Server) handleSyncConnect(w http.ResponseWriter, r *http.Request) {
 	} else {
 		s.setFlash(w, "ok", "Connected to "+repo+". Push when you're ready.")
 	}
-	http.Redirect(w, r, "/settings", http.StatusSeeOther)
+	http.Redirect(w, r, syncPanel, http.StatusSeeOther)
 }
 
 // handleSyncPush commits the whole registry to the repository.
@@ -94,7 +98,7 @@ func (s *Server) handleSyncPush(w http.ResponseWriter, r *http.Request) {
 	res, err := gitsync.Push(ctx, s.store, cfg, strings.TrimSpace(r.FormValue("message")))
 	if err != nil {
 		s.setFlash(w, "error", err.Error())
-		http.Redirect(w, r, "/settings", http.StatusSeeOther)
+		http.Redirect(w, r, syncPanel, http.StatusSeeOther)
 		return
 	}
 	if err := gitsync.Record(s.store, cfg, "push", res); err != nil {
@@ -106,7 +110,7 @@ func (s *Server) handleSyncPush(w http.ResponseWriter, r *http.Request) {
 	} else {
 		s.setFlash(w, "ok", fmt.Sprintf("Pushed to %s as %s.", cfg.Repo, short(res.Commit)))
 	}
-	http.Redirect(w, r, "/settings", http.StatusSeeOther)
+	http.Redirect(w, r, syncPanel, http.StatusSeeOther)
 }
 
 // handleSyncPull replaces the registry with what the repository holds.
@@ -119,7 +123,7 @@ func (s *Server) handleSyncPull(w http.ResponseWriter, r *http.Request) {
 	res, err := gitsync.Pull(ctx, s.store, cfg)
 	if err != nil {
 		s.setFlash(w, "error", err.Error())
-		http.Redirect(w, r, "/settings", http.StatusSeeOther)
+		http.Redirect(w, r, syncPanel, http.StatusSeeOther)
 		return
 	}
 	if err := gitsync.Record(s.store, cfg, "pull", res); err != nil {
@@ -133,7 +137,7 @@ func (s *Server) handleSyncPull(w http.ResponseWriter, r *http.Request) {
 	} else {
 		s.setFlash(w, "ok", msg)
 	}
-	http.Redirect(w, r, "/settings", http.StatusSeeOther)
+	http.Redirect(w, r, syncPanel, http.StatusSeeOther)
 }
 
 func short(sha string) string {

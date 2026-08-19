@@ -291,9 +291,34 @@ def docs_is_in_the_nav(page, base):
     assert_that(link.count() >= 1, "Docs is not in the main nav")
 
 
+def settings_shows_one_panel_at_a_time(page, base):
+    """Three unrelated jobs share the Settings heading, so only the panel you
+    asked for should render."""
+    panels = {
+        "tokens": "GITHUB_TOKEN",
+        "sync": "owner/name",
+        "storage": "circe-server export",
+    }
+    for section, marker in panels.items():
+        page.goto(f"{base}/settings?s={section}")
+        page.wait_for_load_state("networkidle")
+        body = page.content()
+        assert_that(marker in body, f"the {section} panel does not show its own content")
+        for other, other_marker in panels.items():
+            if other != section:
+                assert_that(
+                    other_marker not in body,
+                    f"the {section} panel is also rendering the {other} panel",
+                )
+
+    # A hand-typed section falls back rather than rendering nothing.
+    page.goto(base + "/settings?s=nonsense")
+    assert_that("GITHUB_TOKEN" in page.content(), "an unknown ?s= should fall back to tokens")
+
+
 def sync_connect_and_disconnect(page, base):
-    page.goto(base + "/settings")
-    assert_that("Keep it all in a repository" in page.content(), "the sync section is missing from settings")
+    page.goto(base + "/settings?s=sync")
+    assert_that('name="repo"' in page.content(), "the sync panel is missing its connect form")
 
     fill_form(page, "/sync/connect", {
         "repo": "https://github.com/octocat/hello-world",
@@ -317,6 +342,10 @@ def sync_connect_and_disconnect(page, base):
     assert_that(
         'name="repo"' in page.content(),
         "after disconnecting, the connect form should be back",
+    )
+    assert_that(
+        "s=sync" in page.url,
+        f"a sync action should return to the sync panel, landed on {page.url}",
     )
 
 
@@ -461,6 +490,7 @@ def main():
                 ("the marketplace manifest", folder_serves_a_marketplace_manifest),
                 ("Docs is in the nav", docs_is_in_the_nav),
                 ("the docs point at this registry", docs_page_is_pointed_at_this_registry),
+                ("settings shows one panel at a time", settings_shows_one_panel_at_a_time),
                 ("connecting and disconnecting a sync repository", sync_connect_and_disconnect),
                 ("the CLI download endpoint", install_command_downloads),
                 ("the dashboard needs the registry password", pocketbase_dashboard_needs_the_registry_password),

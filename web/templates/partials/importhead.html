@@ -1,0 +1,29 @@
+{{/* The header every import route shares:
+
+       {{ template "importhead" (dict "Active" "file"
+            "Title" "Save a file you already have"
+            "Blurb" "…one line…") }}
+
+     It was four copies of a hero big enough to push the actual form off the
+     first screen. The tabs already say where you are, so the title carries
+     less weight here than it does on a page you arrive at cold. */}}
+{{ define "importhead" }}
+  <div class="flex flex-wrap items-baseline gap-x-4 gap-y-2">
+    <h1 class="text-[24px] md:text-[28px]">{{ .Title }}</h1>
+    <nav class="flex items-center gap-1 text-[14px] flex-wrap" aria-label="Import sources">
+      <a href="/import/repo"
+         class="badge {{ if eq .Active `repo` }}badge-active{{ else }}hover:text-fg transition-colors{{ end }}"
+         >Repo</a>
+      <a href="/import/file"
+         class="badge {{ if eq .Active `file` }}badge-active{{ else }}hover:text-fg transition-colors{{ end }}"
+         >File</a>
+      <a href="/import/code"
+         class="badge {{ if eq .Active `code` }}badge-active{{ else }}hover:text-fg transition-colors{{ end }}"
+         >Shared with you</a>
+      <a href="/import/local"
+         class="badge {{ if eq .Active `local` }}badge-active{{ else }}hover:text-fg transition-colors{{ end }}"
+         >This machine</a>
+    </nav>
+  </div>
+  <p class="mt-2 text-[14.5px] text-fg-3 max-w-[70ch]">{{ .Blurb }}</p>
+{{ end }}
