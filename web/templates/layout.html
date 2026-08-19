@@ -70,6 +70,11 @@
             class="{{ if eq .Nav `import` }}text-fg{{ else }}text-fg-3 hover:text-fg{{ end }} transition-colors font-medium"
             >Import</a
           >
+          <a
+            href="/docs"
+            class="{{ if eq .Nav `docs` }}text-fg{{ else }}text-fg-3 hover:text-fg{{ end }} transition-colors font-medium"
+            >Docs</a
+          >
         </nav>
 
         <div class="flex-1"></div>
@@ -162,6 +167,11 @@
               href="/import/repo"
               class="{{ if eq .Nav `import` }}text-fg{{ else }}text-fg-3{{ end }} font-medium shrink-0"
               >Import</a
+            >
+            <a
+              href="/docs"
+              class="{{ if eq .Nav `docs` }}text-fg{{ else }}text-fg-3{{ end }} font-medium shrink-0"
+              >Docs</a
             >
           </nav>
           {{/* Below sm the nav alone needs the width, so search waits until

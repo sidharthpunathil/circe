@@ -137,6 +137,9 @@ func (s *Server) routes() {
 	m.HandleFunc("GET /bundles/{name}/context/{file}", s.handleBundleContextEdit)
 	m.HandleFunc("POST /bundles/{name}/context/{file}", s.handleBundleContextSave)
 
+	// The manual for this registry, with its own URL already in the commands.
+	m.HandleFunc("GET /docs", s.handleDocs)
+
 	m.HandleFunc("GET /settings", s.handleSettings)
 	m.HandleFunc("POST /settings", s.handleSettingsSave)
 

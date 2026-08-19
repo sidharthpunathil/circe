@@ -42,6 +42,8 @@ project needs three different things from you:
   self-hosted Gitea/Forgejo), a pasted `SKILL.md` or `.mcp.json`, your local
   `~/.claude/skills`, or a share code from someone else's registry. Content is copied in,
   so it stays yours even if the source disappears.
+- **Docs in the app.** A Docs tab with every command already pointed at your own
+  deployment, so nothing has to be adapted before it is run.
 - **Sync to GitHub.** Connect a repository and push: every skill, rule, server and folder
   is written there as ordinary markdown and JSON, and committed. Pull brings it back. Your
   library becomes something you can read in a browser, review in a pull request, and

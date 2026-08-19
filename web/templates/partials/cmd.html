@@ -1,0 +1,17 @@
+{{/* One copyable command line. Pass it the command as a string:
+
+       {{ template "cmd" .LoginLine }}
+
+     The docs page is mostly commands, and repeating this markup a dozen times
+     is how a page ends up with twelve slightly different code blocks. */}}
+{{ define "cmd" }}
+  <div
+    class="flex items-center gap-2 rounded-[10px] border border-line-soft bg-surface px-3.5 py-2.5"
+  >
+    <code
+      class="font-mono text-[12.5px] text-fg overflow-x-auto whitespace-nowrap flex-1 min-w-0 scrollbar-none"
+      >{{ . }}</code
+    >
+    <button type="button" class="btn btn-sm shrink-0" data-copy="{{ . }}">Copy</button>
+  </div>
+{{ end }}

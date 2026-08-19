@@ -261,6 +261,36 @@ def folder_serves_a_marketplace_manifest(page, base):
     assert_that("browser-folder" in page.content(), "the marketplace manifest does not list the folder")
 
 
+def docs_page_is_pointed_at_this_registry(page, base):
+    """The Docs tab is only worth having if its commands are runnable, which
+    means this registry's own URL and a folder that actually exists here."""
+    page.goto(base + "/docs")
+    page.wait_for_load_state("networkidle")
+    body = page.content()
+
+    assert_that("circe login " + base in body, "the docs do not show this registry's login command")
+    assert_that("browser-folder" in body, "the docs do not use a folder that exists here")
+    assert_that("circe mcp browser-folder" in body, "the docs are missing the MCP install command")
+    assert_that("/plugin marketplace add " + base in body, "the docs are missing the marketplace command")
+
+    # Every section the contents row points at has to exist.
+    for anchor in ("start", "install", "commands", "mcp", "rules", "skills", "backup", "api"):
+        assert_that(
+            page.locator(f"#{anchor}").count() == 1,
+            f"the docs link to #{anchor} but there is no such section",
+        )
+
+    # And the copy buttons are wired to the command beside them.
+    copyable = page.locator("[data-copy]")
+    assert_that(copyable.count() >= 10, f"only {copyable.count()} copyable commands on the docs page")
+
+
+def docs_is_in_the_nav(page, base):
+    page.goto(base + "/skills")
+    link = page.locator('nav[aria-label="Main"] a[href="/docs"]')
+    assert_that(link.count() >= 1, "Docs is not in the main nav")
+
+
 def sync_connect_and_disconnect(page, base):
     page.goto(base + "/settings")
     assert_that("Keep it all in a repository" in page.content(), "the sync section is missing from settings")
@@ -374,7 +404,7 @@ def delete_skill(page, base):
 
 
 def every_page_renders(page, base):
-    for path in ("/", "/skills", "/rules", "/mcp", "/bundles", "/settings", "/import/repo", "/import/file"):
+    for path in ("/", "/skills", "/rules", "/mcp", "/bundles", "/docs", "/settings", "/import/repo", "/import/file"):
         response = page.goto(base + path)
         assert_that(response is not None, f"no response for {path}")
         assert_that(response.status == 200, f"{path} returned {response.status}")
@@ -429,6 +459,8 @@ def main():
                 ("creating an MCP server", create_server),
                 ("a folder holding all three", create_folder_with_all_three),
                 ("the marketplace manifest", folder_serves_a_marketplace_manifest),
+                ("Docs is in the nav", docs_is_in_the_nav),
+                ("the docs point at this registry", docs_page_is_pointed_at_this_registry),
                 ("connecting and disconnecting a sync repository", sync_connect_and_disconnect),
                 ("the CLI download endpoint", install_command_downloads),
                 ("the dashboard needs the registry password", pocketbase_dashboard_needs_the_registry_password),

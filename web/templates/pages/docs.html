@@ -1,0 +1,351 @@
+{{ define "content" }}
+  <div class="container-page pt-12 pb-20">
+    <p class="eyebrow mb-3">Reference</p>
+    <h1 class="text-[32px] md:text-[40px]">Docs</h1>
+    <p class="mt-3 text-[15px] text-fg-3 max-w-[64ch]">
+      Everything this registry can do, with the commands already pointed at it. Copy any of
+      them and run them in a project.
+    </p>
+
+    {{/* A row of anchors rather than a sidebar: the page is one column, and a
+         sticky rail on a page this short is furniture. */}}
+    <nav class="mt-6 flex flex-wrap gap-x-4 gap-y-1.5 text-[13px]" aria-label="On this page">
+      <a href="#start" class="text-fg-3 hover:text-fg transition-colors">Get set up</a>
+      <a href="#install" class="text-fg-3 hover:text-fg transition-colors">Install a folder</a>
+      <a href="#commands" class="text-fg-3 hover:text-fg transition-colors">Commands</a>
+      <a href="#mcp" class="text-fg-3 hover:text-fg transition-colors">MCP servers</a>
+      <a href="#rules" class="text-fg-3 hover:text-fg transition-colors">Rules</a>
+      <a href="#skills" class="text-fg-3 hover:text-fg transition-colors">Skills</a>
+      <a href="#noclicli" class="text-fg-3 hover:text-fg transition-colors">Without the CLI</a>
+      <a href="#backup" class="text-fg-3 hover:text-fg transition-colors">Backup and sync</a>
+      <a href="#api" class="text-fg-3 hover:text-fg transition-colors">API</a>
+    </nav>
+
+    <div class="mt-10 max-w-[860px] flex flex-col gap-12">
+      <!-- ---------- get set up ---------- -->
+      <section id="start" class="scroll-mt-24">
+        <h2 class="text-[22px]">Get set up</h2>
+        <p class="mt-2 text-[14.5px] text-fg-3 max-w-[62ch]">
+          Two steps, once per machine. The first installs the <span class="font-mono">circe</span>
+          command, the second points it at this registry.
+        </p>
+
+        <div class="mt-4 flex flex-col gap-3">
+          {{ template "cmd" .InstallLine }}
+          {{ template "cmd" .LoginLine }}
+        </div>
+        <p class="hint mt-2">
+          {{ if .HasPassword }}
+            <span class="font-mono">login</span> asks for the passcode and checks it before
+            saving, so a typo fails here rather than somewhere confusing later.
+          {{ else }}
+            This registry has no passcode set, so <span class="font-mono">login</span> will not
+            ask for one. Set <span class="font-mono">CIRCE_PASSWORD</span> before putting it
+            anywhere other people can reach.
+          {{ end }}
+          macOS and Linux, amd64 and arm64. Or
+          <span class="font-mono">go install github.com/sidharthpunathil/circe/cmd/circe@latest</span>.
+        </p>
+      </section>
+
+      <!-- ---------- install a folder ---------- -->
+      <section id="install" class="scroll-mt-24">
+        <h2 class="text-[22px]">Install a folder</h2>
+        <p class="mt-2 text-[14.5px] text-fg-3 max-w-[62ch]">
+          A folder is the unit you install. It holds any mix of the three things below, because
+          a project usually needs a procedure, a house style and a connection at the same time.
+        </p>
+
+        <div class="mt-4 flex flex-col gap-3">
+          {{ template "cmd" (printf "circe %s" .Folder) }}
+        </div>
+        <p class="hint mt-2">
+          Asks which parts you want. Add <span class="font-mono">-y</span> to take all of it.
+        </p>
+
+        <div class="mt-5 rounded-card border border-line bg-card overflow-hidden">
+          <table class="w-full text-[13.5px]">
+            <thead>
+              <tr class="border-b border-line-soft text-fg-3">
+                <th class="text-left font-normal px-4 py-2.5">What</th>
+                <th class="text-left font-normal px-4 py-2.5">Where it lands</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-line-soft">
+              {{ range .Kinds }}
+                <tr>
+                  <td class="px-4 py-2.5 align-top">
+                    <span class="text-fg font-medium">{{ .Name }}</span>
+                    <span class="text-fg-3"> · {{ .What }}</span>
+                  </td>
+                  <td class="px-4 py-2.5 align-top font-mono text-[12.5px] text-fg-2">
+                    {{ .Lands }}
+                  </td>
+                </tr>
+              {{ end }}
+            </tbody>
+          </table>
+        </div>
+
+        <p class="mt-4 text-[14.5px] text-fg-3 max-w-[62ch]">
+          Narrow it to one kind when that is all you want:
+        </p>
+        <div class="mt-3 flex flex-col gap-2.5">
+          {{ template "cmd" (printf "circe skills %s" .Folder) }}
+          {{ template "cmd" (printf "circe rules %s" .Folder) }}
+          {{ template "cmd" (printf "circe mcp %s" .Folder) }}
+        </div>
+        <p class="hint mt-2">
+          Run any of the three with no folder name and it lists the folders that have something
+          of that kind.
+        </p>
+      </section>
+
+      <!-- ---------- commands ---------- -->
+      <section id="commands" class="scroll-mt-24">
+        <h2 class="text-[22px]">Commands</h2>
+        <div class="mt-4 rounded-card border border-line bg-card overflow-hidden">
+          <table class="w-full text-[13.5px]">
+            <tbody class="divide-y divide-line-soft">
+              {{ range .Commands }}
+                <tr>
+                  <td class="px-4 py-2.5 align-top font-mono text-[12.5px] text-fg whitespace-nowrap">
+                    {{ .Command }}
+                  </td>
+                  <td class="px-4 py-2.5 align-top text-fg-3">{{ .What }}</td>
+                </tr>
+              {{ end }}
+            </tbody>
+          </table>
+        </div>
+
+        <h3 class="text-[15px] mt-6 mb-3">Flags worth knowing</h3>
+        <div class="rounded-card border border-line bg-card overflow-hidden">
+          <table class="w-full text-[13.5px]">
+            <tbody class="divide-y divide-line-soft">
+              {{ range .Flags }}
+                <tr>
+                  <td class="px-4 py-2.5 align-top font-mono text-[12.5px] text-fg whitespace-nowrap">
+                    {{ .Command }}
+                  </td>
+                  <td class="px-4 py-2.5 align-top text-fg-3">{{ .What }}</td>
+                </tr>
+              {{ end }}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ---------- mcp ---------- -->
+      <section id="mcp" class="scroll-mt-24">
+        <h2 class="text-[22px]">MCP servers</h2>
+        <p class="mt-2 text-[14.5px] text-fg-3 max-w-[62ch]">
+          A skill teaches the agent a procedure. A server gives it something to reach: a
+          database, an API, a browser, your issue tracker.
+        </p>
+
+        <ol class="mt-4 flex flex-col gap-3 text-[14.5px] text-fg-2">
+          <li class="flex gap-3">
+            <span class="meta shrink-0 pt-0.5">1</span>
+            <span>
+              Add one on the <a href="/mcp" class="underline underline-offset-4 decoration-line-inset hover:text-fg transition-colors">MCP tab</a>.
+              Give it a command (<span class="font-mono text-[12.5px]">npx …</span>) or a URL,
+              pick the transport, and name the environment variables it needs. Or paste a
+              <span class="font-mono text-[12.5px]">.mcp.json</span> you already have on the
+              <a href="/import/file" class="underline underline-offset-4 decoration-line-inset hover:text-fg transition-colors">Import</a> page.
+            </span>
+          </li>
+          <li class="flex gap-3">
+            <span class="meta shrink-0 pt-0.5">2</span>
+            <span>Put it in a folder, alongside whatever else that kind of project needs.</span>
+          </li>
+          <li class="flex gap-3">
+            <span class="meta shrink-0 pt-0.5">3</span>
+            <span>In the project, run the command below.</span>
+          </li>
+        </ol>
+
+        <div class="mt-4">
+          {{ template "cmd" (printf "circe mcp %s" .Folder) }}
+        </div>
+
+        <p class="mt-4 text-[14.5px] text-fg-3 max-w-[62ch]">
+          That merges them into the project's <span class="font-mono text-[12.5px]">.mcp.json</span>.
+          Servers the project already has are reported and left alone unless you pass
+          <span class="font-mono text-[12.5px]">--force</span>, and any top level keys Circe
+          does not model are carried through untouched.
+        </p>
+
+        <div class="mt-4 rounded-card border border-line bg-card p-4">
+          <p class="text-[14px] font-medium text-fg">Your keys are never stored here</p>
+          <p class="mt-1.5 text-[13.5px] text-fg-3 max-w-[62ch]">
+            Circe records the <em>name</em> of each variable a server needs, never its value.
+            The generated config refers to it as
+            <span class="font-mono text-[12.5px]">${VAR}</span>, so the value comes from your own
+            shell. After installing, the CLI tells you which are still unset:
+          </p>
+          <pre class="mt-3 rounded-[10px] border border-line-soft bg-surface px-3.5 py-2.5 overflow-x-auto text-[12.5px] font-mono text-fg-2 scrollbar-none">2 added in .mcp.json
+set these before the servers will start:
+  DATABASE_URI                  postgres
+  GITHUB_PERSONAL_ACCESS_TOKEN  github · optional</pre>
+          <p class="hint mt-2">
+            It also means a share code can never leak a token.
+          </p>
+        </div>
+      </section>
+
+      <!-- ---------- rules ---------- -->
+      <section id="rules" class="scroll-mt-24">
+        <h2 class="text-[22px]">Rules</h2>
+        <p class="mt-2 text-[14.5px] text-fg-3 max-w-[62ch]">
+          Skills teach Claude <em>how to do something</em>. Rules tell it <em>how you work</em>:
+          the text that ends up in a project's CLAUDE.md or AGENTS.md. Each rule picks which
+          files it belongs in.
+        </p>
+        <div class="mt-4">
+          {{ template "cmd" (printf "circe rules %s" .Folder) }}
+        </div>
+        <p class="mt-4 text-[14.5px] text-fg-3 max-w-[62ch]">
+          They merge into the project's own files inside a marked block, so anything you wrote
+          outside it is untouched and re-running replaces only that block:
+        </p>
+        <pre class="mt-3 rounded-[10px] border border-line-soft bg-surface px-3.5 py-2.5 overflow-x-auto text-[12.5px] font-mono text-fg-2 scrollbar-none">&lt;!-- circe:start {{ .Folder }} --&gt;
+&lt;!-- Managed by circe. Edits inside this block are replaced on reinstall. --&gt;
+
+  …the folder's instructions, then its rules…
+
+&lt;!-- circe:end {{ .Folder }} --&gt;</pre>
+        <p class="hint mt-2">
+          <span class="font-mono">--context=skip</span> leaves the file alone,
+          <span class="font-mono">--context=overwrite</span> replaces it wholesale.
+        </p>
+      </section>
+
+      <!-- ---------- skills ---------- -->
+      <section id="skills" class="scroll-mt-24">
+        <h2 class="text-[22px]">Skills</h2>
+        <p class="mt-2 text-[14.5px] text-fg-3 max-w-[62ch]">
+          A skill is a <span class="font-mono text-[12.5px]">SKILL.md</span> plus whatever ships
+          beside it. Install a single one without involving a folder:
+        </p>
+        <div class="mt-4 flex flex-col gap-2.5">
+          {{ template "cmd" (printf "circe add %s" .Skill) }}
+          {{ template "cmd" "circe list" }}
+          {{ template "cmd" "circe pull" }}
+        </div>
+        <p class="mt-4 text-[14.5px] text-fg-3 max-w-[62ch]">
+          Installed skills are recorded in <span class="font-mono text-[12.5px]">circe.json</span>,
+          so <span class="font-mono text-[12.5px]">pull</span> restores the same set on any
+          machine. Local edits are never clobbered: <span class="font-mono text-[12.5px]">pull</span>
+          holds back anything you have changed unless you pass
+          <span class="font-mono text-[12.5px]">--force</span>, and
+          <span class="font-mono text-[12.5px]">list</span> shows what has drifted.
+        </p>
+
+        <p class="mt-4 text-[14.5px] text-fg-3 max-w-[62ch]">
+          Going the other way, publish a library you already have on your own machine. This is
+          the answer for a hosted registry, whose Import page can only read the filesystem of
+          the machine it runs on:
+        </p>
+        <div class="mt-3">
+          {{ template "cmd" "circe push ~/.claude/skills" }}
+        </div>
+      </section>
+
+      <!-- ---------- without the CLI ---------- -->
+      <section id="noclicli" class="scroll-mt-24">
+        <h2 class="text-[22px]">Without the CLI</h2>
+        <p class="mt-2 text-[14.5px] text-fg-3 max-w-[62ch]">
+          This registry publishes a Claude Code marketplace manifest, so folders install with
+          stock Claude Code and no extra tooling.
+        </p>
+        <div class="mt-4">
+          {{ template "cmd" .MarketplaceLine }}
+        </div>
+        <p class="hint mt-2">
+          Run that inside Claude Code. Each folder here shows up as a plugin.
+        </p>
+
+        <p class="mt-5 text-[14.5px] text-fg-3 max-w-[62ch]">
+          Someone else's registry can hand you a folder without any setup at all. Paste their
+          code into <a href="/import/code" class="underline underline-offset-4 decoration-line-inset hover:text-fg transition-colors">Import → From a code</a>,
+          or run:
+        </p>
+        <div class="mt-3">
+          {{ template "cmd" "circe import sb_…" }}
+        </div>
+      </section>
+
+      <!-- ---------- backup and sync ---------- -->
+      <section id="backup" class="scroll-mt-24">
+        <h2 class="text-[22px]">Backup and sync</h2>
+        {{ if .Synced }}
+          <p class="mt-2 text-[14.5px] text-fg-3 max-w-[62ch]">
+            This registry is connected to
+            <a href="https://github.com/{{ .SyncRepo }}" target="_blank" rel="noreferrer noopener"
+               class="text-fg-2 underline underline-offset-4 decoration-line-inset hover:text-fg transition-colors">{{ .SyncRepo }}</a>.
+            Push from <a href="/settings" class="underline underline-offset-4 decoration-line-inset hover:text-fg transition-colors">Settings</a>
+            and everything here is written there as ordinary markdown and JSON, and committed.
+          </p>
+        {{ else }}
+          <p class="mt-2 text-[14.5px] text-fg-3 max-w-[62ch]">
+            Connect a GitHub repository on
+            <a href="/settings" class="underline underline-offset-4 decoration-line-inset hover:text-fg transition-colors">Settings</a>
+            and push: every skill, rule, server and folder is written there as ordinary markdown
+            and JSON, and committed. Your library becomes something you can read in a browser,
+            review in a pull request, and restore anywhere.
+          </p>
+        {{ end }}
+
+        <p class="mt-4 text-[14.5px] text-fg-3 max-w-[62ch]">
+          Or take a copy on the machine running the server, in the same layout:
+        </p>
+        <div class="mt-3 flex flex-col gap-2.5">
+          {{ template "cmd" "circe-server export -out ./my-library" }}
+          {{ template "cmd" "circe-server import -in ./my-library -force" }}
+        </div>
+        <p class="hint mt-2">
+          Access tokens and share codes are never written by either. A token in a repository is
+          a token that has leaked, and a share code works without this registry's passcode.
+        </p>
+      </section>
+
+      <!-- ---------- api ---------- -->
+      <section id="api" class="scroll-mt-24">
+        <h2 class="text-[22px]">API</h2>
+        <p class="mt-2 text-[14.5px] text-fg-3 max-w-[62ch]">
+          Everything the CLI does is available over HTTP, under
+          <span class="font-mono text-[12.5px]">/api/v1</span>. Authenticate with
+          <span class="font-mono text-[12.5px]">Authorization: Bearer &lt;passcode&gt;</span>.
+        </p>
+        <div class="mt-4 flex flex-wrap gap-2">
+          <a href="/api/v1/skills" class="btn btn-sm">/api/v1/skills</a>
+          <a href="/api/v1/bundles" class="btn btn-sm">/api/v1/bundles</a>
+          <a href="/api/v1/rules" class="btn btn-sm">/api/v1/rules</a>
+          <a href="/api/v1/mcps" class="btn btn-sm">/api/v1/mcps</a>
+          <a href="/api/v1/health" class="btn btn-sm">/api/v1/health</a>
+        </div>
+
+        <div class="mt-6 rounded-card border border-line bg-card p-4">
+          <p class="text-[14px] font-medium text-fg">The long version</p>
+          <p class="mt-1.5 text-[13.5px] text-fg-3 max-w-[62ch]">
+            This page covers the day to day. Self-hosting, the full API reference, every CLI
+            flag and how syncing behaves in detail are in the repository.
+          </p>
+          <div class="flex flex-wrap gap-2 mt-3">
+            <a href="https://github.com/sidharthpunathil/circe#readme" target="_blank"
+               rel="noreferrer noopener" class="btn btn-sm">README</a>
+            <a href="https://github.com/sidharthpunathil/circe/blob/main/docs/cli.md"
+               target="_blank" rel="noreferrer noopener" class="btn btn-sm">CLI reference</a>
+            <a href="https://github.com/sidharthpunathil/circe/blob/main/docs/api.md"
+               target="_blank" rel="noreferrer noopener" class="btn btn-sm">API reference</a>
+            <a href="https://github.com/sidharthpunathil/circe/blob/main/docs/sync.md"
+               target="_blank" rel="noreferrer noopener" class="btn btn-sm">Sync and export</a>
+            <a href="https://github.com/sidharthpunathil/circe/blob/main/docs/self-hosting.md"
+               target="_blank" rel="noreferrer noopener" class="btn btn-sm">Self-hosting</a>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+{{ end }}

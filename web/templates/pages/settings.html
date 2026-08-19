@@ -3,56 +3,62 @@
     <p class="eyebrow mb-3">Setup</p>
     <h1 class="text-[32px] md:text-[40px]">Settings</h1>
     <p class="mt-3 text-[15px] text-fg-3 max-w-[62ch]">
-      Access tokens for pulling skills out of private repositories, and for lifting the rate
-      limits public ones are subject to.
+      Access tokens for reaching private repositories and lifting the rate limits public ones
+      are subject to, and the repository this registry syncs with. Most people only ever need
+      the first row.
     </p>
 
     {{ with .Error }}
       {{ template "formerror" . }}
     {{ end }}
 
-    <form method="post" action="/settings" class="mt-8 max-w-[860px] flex flex-col gap-4">
-      {{ range .Tokens }}
-        <div class="rounded-card border border-line bg-card p-4">
-          <div class="flex items-start justify-between gap-3 flex-wrap mb-2.5">
-            <div class="min-w-0">
-              <p class="text-[14px] font-medium text-fg">{{ .Label }}</p>
+    {{/* One card of rows rather than a card per token. Four optional fields
+         were taking a full screen of scrolling, which made the page look like
+         it wanted four tokens rather than usually one. */}}
+    <form method="post" action="/settings" class="mt-8 max-w-[860px]">
+      <div class="rounded-card border border-line bg-card divide-y divide-line-soft">
+        {{ range .Tokens }}
+          <div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 px-4 py-3">
+            <div class="sm:w-[40%] min-w-0 shrink-0">
+              <div class="flex items-center gap-2 flex-wrap">
+                <p class="text-[14px] font-medium text-fg">{{ .Label }}</p>
+                <span class="meta">{{ .Name }}</span>
+                {{ if .FromEnv }}
+                  <span class="badge">from env</span>
+                {{ else if .HasValue }}
+                  <span class="badge badge-active">saved</span>
+                {{ end }}
+              </div>
               <p class="text-[12.5px] text-fg-3 mt-0.5">{{ .Help }}</p>
             </div>
-            <div class="flex items-center gap-2 shrink-0">
+
+            <div class="flex-1 min-w-0">
               {{ if .FromEnv }}
-                <span class="badge">set by environment</span>
-              {{ else if .HasValue }}
-                <span class="badge badge-active">saved</span>
+                <p class="text-[12.5px] text-fg-3">
+                  Set in the server’s environment, which always wins. Change it where you
+                  deploy.
+                </p>
+              {{ else }}
+                <input
+                  type="password"
+                  name="{{ .Name }}"
+                  autocomplete="off"
+                  placeholder="{{ if .HasValue }}Saved. Type to replace it.{{ else }}Paste a token{{ end }}"
+                  class="field field-mono"
+                />
+                {{ if .HasValue }}
+                  <label class="flex items-center gap-2 mt-1.5 text-[12.5px] text-fg-3 cursor-pointer">
+                    <input type="checkbox" name="clear_{{ .Name }}" value="1" class="accent-accent" />
+                    Remove it
+                  </label>
+                {{ end }}
               {{ end }}
-              <span class="meta">{{ .Name }}</span>
             </div>
           </div>
+        {{ end }}
+      </div>
 
-          {{ if .FromEnv }}
-            <p class="text-[12.5px] text-fg-3">
-              This one comes from the server’s environment, which always wins. Change it where
-              you deploy, not here.
-            </p>
-          {{ else }}
-            <input
-              type="password"
-              name="{{ .Name }}"
-              autocomplete="off"
-              placeholder="{{ if .HasValue }}Saved. Type to replace it.{{ else }}Paste a token{{ end }}"
-              class="field field-mono"
-            />
-            {{ if .HasValue }}
-              <label class="flex items-center gap-2 mt-2 text-[12.5px] text-fg-3 cursor-pointer">
-                <input type="checkbox" name="clear_{{ .Name }}" value="1" class="accent-accent" />
-                Remove the saved token
-              </label>
-            {{ end }}
-          {{ end }}
-        </div>
-      {{ end }}
-
-      <div class="flex flex-wrap items-center gap-2.5 mt-1">
+      <div class="flex flex-wrap items-center gap-2.5 mt-4">
         <button type="submit" class="btn btn-primary">Save</button>
         <a href="/import/repo" class="btn">Back to importing</a>
       </div>
