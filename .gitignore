@@ -4,11 +4,30 @@
 # Tailwind standalone binary, fetched by `make css`
 /tailwindcss
 
-# The data directory is now a live SQLite database rather than a tree of
-# markdown, and it holds your access tokens. Committing it would commit those,
-# and a copy taken while the server is running is a torn write rather than a
-# backup. Use `circe-server export` to get a directory worth committing, or
-# connect a repository on the Settings page and push to it.
+# Local configuration. .env.example is the tracked one, and it tells you to
+# copy it here, so this line is the only thing standing between a password and
+# a public repository.
+.env
+.env.local
+
+# The data directory is a live SQLite database rather than a tree of markdown,
+# and it holds your access tokens. Committing it would commit those, and a copy
+# taken while the server is running is a torn write rather than a backup. Use
+# `circe-server export` to get a directory worth committing, or connect a
+# repository on the Settings page and push to it.
 /data/
+
+# A database pointed somewhere else by CIRCE_DATA. Same reasoning.
+*.db
+*.db-wal
+*.db-shm
+
+# What `circe-server export` and `make export` write.
+/circe-export/
+
+# Playwright leaves these behind when a run is traced or fails.
+/test-results/
+/playwright-report/
+__pycache__/
 
 .DS_Store
